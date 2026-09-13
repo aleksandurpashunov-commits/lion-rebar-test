@@ -3079,6 +3079,33 @@ _PROXY_STRONG_BATCH_STATUSES = frozenset(
 _PROXY_SHAPE_CONTRADICTION_CODE = "DECLARED_SHAPE_CONTRADICTS_GEOMETRY"
 
 
+#: Допуск при сравняване на две разбивки, в сантиметри. Колкото и
+#: MASTER-формулите: под него двете описват един и същи прът.
+_SEGMENT_MATCH_TOLERANCE_CM = 0.11
+
+
+def _segment_vectors_agree(
+    left: Sequence[float] | None,
+    right: Sequence[float] | None,
+) -> bool:
+    """Описват ли двата вектора един и същи прът."""
+
+    if left is None or right is None:
+        return False
+    try:
+        a = [float(value) for value in left]
+        b = [float(value) for value in right]
+    except (TypeError, ValueError):
+        return False
+    if len(a) != len(b) or not a:
+        return False
+    return all(
+        math.isfinite(x) and math.isfinite(y)
+        and abs(x - y) <= _SEGMENT_MATCH_TOLERANCE_CM
+        for x, y in zip(a, b)
+    )
+
+
 def _proxy_production_segments(
     shape_code: str,
     declared_segments: Sequence[float],
@@ -3329,8 +3356,35 @@ def _apply_proxy_declared_shape_auto_promotion(
                     ]
                 continue
         elif matcher_code and row.get("production_segments_cm"):
-            # Already agrees and already has production segments.
-            continue
+            # Семейството съвпада -- но „съгласни за ФОРМАТА" не значи
+            # „съгласни за РАЗМЕРИТЕ". Matcher-ът често вече е сложил
+            # сегменти, изведени от котировки наблизо
+            # (``F003_SEGMENTS_DERIVED``), докато проектантът е декларирал
+            # собствена разбивка на същия прът.
+            #
+            # Реален случай, проект ``s-7``, 4 позиции (68N10x230, 68N10x240
+            # и два пъти 34N10x240): в описа влизаше [12.5, 215, 12.5] от
+            # една котировка, а декларацията казваше [20, 200, 20]. И двете
+            # затварят 240 cm, тоест сборът не издава коя е вярната -- но
+            # прътът се реже по едната.
+            #
+            # Собственик, 2026-09-13: „позицията е 20, 200, 20 няма спор щом
+            # съм я дал като решение."
+            #
+            # Затова редът се прескача само когато двете разбивки СЪВПАДАТ.
+            # Различават ли се, декларацията продължава надолу -- където
+            # долните проверки ѝ искат същото, което искат от всяка друга:
+            # да затваря декларираната дължина и да дава валидни MASTER
+            # параметри. Не побеждава защото е декларация, а защото се
+            # доказва; ако не се докаже, редът си остава с това, което вече
+            # има.
+            declared_breakdown = _proxy_production_segments(
+                declared_code, raw.get("declared_shape_segments_cm") or ()
+            )
+            if declared_breakdown is None or _segment_vectors_agree(
+                row.get("production_segments_cm"), declared_breakdown
+            ):
+                continue
         if declared_code not in _PROXY_AUTO_PROMOTABLE_SHAPES:
             continue
         arc_count = raw.get("declared_shape_bend_arc_count")
