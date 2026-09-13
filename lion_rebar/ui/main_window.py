@@ -997,7 +997,28 @@ class MainWindow(QMainWindow):
             operator=getattr(self, "operator_name", "") or "оператор",
             parent=self,
         )
-        if dialog.exec() and dialog.decisions_made:
+        accepted = dialog.exec()
+        if getattr(dialog, "wants_drawing_overview", False):
+            # Операторът предпочете да ги огради, вместо да ги изброява.
+            self.drawing_view.clear_markers()
+            self.show_beam_overview()
+            QMessageBox.information(
+                self,
+                "Огради гредите",
+                "\n".join(
+                    [
+                        "Червените кръгове са позициите без доказана греда,",
+                        "сините — заглавията на гредите.",
+                        "",
+                        "За всяка греда: „Анализ → Рамка с два клика“ и",
+                        "обхвани заглавието ѝ ЗАЕДНО с червените ѝ позиции.",
+                        "",
+                        "Накрая пусни Финалния контрол наново.",
+                    ]
+                ),
+            )
+            return
+        if accepted and dialog.decisions_made:
             self._session_project_event(
                 "BEAM_DECISIONS_RECORDED", {"count": dialog.decisions_made}
             )

@@ -13,6 +13,16 @@
 позиции собственикът провери подредените по близост предложения и отсече
 „никое не е вярно" (2026-09-13). Затова списъкът е пълен и подреден по име,
 а разстоянието се показва само като справка, не като препоръка.
+
+ЗАЩО ТОЗИ ДИАЛОГ НЕ Е ГЛАВНИЯТ ПЪТ
+----------------------------------
+Собственик, 2026-09-13, като го видя: „и как да ги посоча?"
+
+Списъкът дава 26 падащи менюта и нито един ориентир КЪДЕ на чертежа е всяка
+позиция. Разумният ход е обратният: да се види чертежът и да се огради
+гредата заедно с позициите ѝ (``export/operator_areas.py``). Затова тук стои
+трети бутон, който затваря диалога и подкарва точно това. Изборът от списък
+остава за единични случаи, когато операторът вече знае отговора.
 """
 from __future__ import annotations
 
@@ -67,6 +77,8 @@ class UnresolvedBeamDialog(QDialog):
         self._beam_boxes: list[QComboBox] = []
         self._note_edits: list[QLineEdit] = []
         self.decisions_made = 0
+        #: Операторът е избрал да ги огради на чертежа вместо да ги изброява.
+        self.wants_drawing_overview = False
 
         layout = QVBoxLayout(self)
         intro = QLabel(
@@ -77,7 +89,11 @@ class UnresolvedBeamDialog(QDialog):
             "най-близката греда, защото при този тип чертеж близостта се "
             "оказа подвеждаща. Решението се записва с автор и време, "
             "обезсилва Финалния контрол и остава в одитната следа. "
-            "Позиция без избор остава нерешена."
+            "Позиция без избор остава нерешена.\n\n"
+            "Ако не знаеш коя греда е коя — това е нормално, списъкът не "
+            "показва къде са. Натисни „Покажи ги на чертежа“: позициите "
+            "излизат в червено, заглавията на гредите в синьо, и всяка греда "
+            "се огражда наведнъж с два клика."
         )
         intro.setWordWrap(True)
         layout.addWidget(intro)
@@ -122,9 +138,25 @@ class UnresolvedBeamDialog(QDialog):
             "Запиши решенията"
         )
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Откажи")
+        # Главният път е този: виж чертежа и огради гредата с позициите ѝ.
+        показване = buttons.addButton(
+            "Покажи ги на чертежа",
+            QDialogButtonBox.ButtonRole.ActionRole,
+        )
+        показване.setToolTip(
+            "Затваря списъка и оцветява позициите и гредите върху чертежа, "
+            "за да се ограждат с два клика."
+        )
+        показване.clicked.connect(self._show_on_drawing)
         buttons.accepted.connect(self._save)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _show_on_drawing(self) -> None:
+        """Затваря списъка и оставя главния прозорец да ги покаже."""
+
+        self.wants_drawing_overview = True
+        self.reject()
 
     def _save(self) -> None:
         pending: list[tuple[str, str, str, str]] = []
