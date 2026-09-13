@@ -585,10 +585,13 @@ def _freeze_beam_assignments(
                         code="BEAM_ASSIGNMENT_NOT_UNIQUE",
                         severity="ERROR",
                         message=(
-                            "No beam title lies in the accepted window for this "
-                            "approved position, so its beam cannot be proven. "
-                            "Record an operator beam decision for it and run "
-                            "Final Control again."
+                            "Нито едно заглавие на греда не попада в приетия "
+                            "прозорец на тази позиция, затова гредата ѝ не е "
+                            "доказана. Отвори чертежа, пусни „Анализ → Покажи "
+                            "гредите и несвързаното“, за да видиш кои са, после "
+                            "ги огради със „Анализ → Рамка с два клика“ — всяка "
+                            "заедно със заглавието на своята греда — и пусни "
+                            "Финалния контрол наново."
                         ),
                         annotation_handles=[handle],
                     )

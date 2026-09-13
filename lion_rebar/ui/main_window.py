@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 import string
 import threading
@@ -442,6 +443,13 @@ class MainWindow(QMainWindow):
         )
         self.action_operator_box.triggered.connect(self.start_operator_box)
 
+        self.action_show_unresolved = QAction("Покажи гредите и несвързаното", self)
+        self.action_show_unresolved.setToolTip(
+            "Оцветява заглавията на гредите и позициите, които автоматиката не "
+            "е свързала с нито една — за да се вижда къде да се чертаят рамките."
+        )
+        self.action_show_unresolved.triggered.connect(self.show_beam_overview)
+
         self.action_operator_areas = QAction("Начертани рамки…", self)
         self.action_operator_areas.setToolTip(
             "Показва начертаните рамки и позволява сгрешена да бъде оттеглена."
@@ -568,6 +576,7 @@ class MainWindow(QMainWindow):
         analysis_menu.addAction(self.action_review_center)
         analysis_menu.addAction(self.action_ai_diagnostic)
         analysis_menu.addAction(self.action_final_integrity)
+        analysis_menu.addAction(self.action_show_unresolved)
         analysis_menu.addAction(self.action_operator_box)
         analysis_menu.addAction(self.action_operator_areas)
         analysis_menu.addAction(self.action_learning_report)
@@ -774,6 +783,84 @@ class MainWindow(QMainWindow):
                     "минал), за да влезе в сила.",
                 ]
             ),
+        )
+
+    def show_beam_overview(self) -> None:
+        """Показва върху чертежа гредите и позициите без доказана греда.
+
+        Собственик, 2026-09-13: „няма как да знам кое желязо на коя греда
+        принадлежи при положение че не мога да ги видя и да ги маркирам."
+
+        Рамката се чертае ПРЕДИ анализа, но дотогава операторът нямаше на
+        какво да стъпи: заглавията на гредите се губят в чертежа, а кои
+        позиции остават несвързани се разбираше чак от блокирания Финален
+        контрол, и то като списък с handles.
+
+        Тук и двете са върху самия чертеж: заглавията в синьо, несвързаните
+        позиции в червено, с надписа си. Второто повикване ги маха.
+        """
+
+        if self.project is None or self.import_result is None:
+            self._info("Първо отвори проект с импортиран DXF.")
+            return
+        if self.drawing_view.has_markers():
+            self.drawing_view.clear_markers()
+            self.statusBar().showMessage("Маркерите са скрити.", 6000)
+            return
+        try:
+            unresolved, beam_titles = self._unresolved_beam_context()
+        except Exception as error:  # noqa: BLE001 - помощен път
+            self._error(f"Прегледът не може да бъде направен: {error}")
+            return
+
+        # Само позициите, които НАИСТИНА блокират. ``_unresolved_beam_context``
+        # обхожда всеки DXF обект в гредовата рамка, включително котировки,
+        # легенди и помощни текстове -- в ``s-9`` те са 67, докато Финалният
+        # контрол спира само заради 8. Да се покажат всичките би пратило
+        # оператора да огражда неща, които изобщо не влизат в описа.
+        approved = set()
+        try:
+            approved = {
+                str(handle)
+                for handle in self._read_all_approved_geometry_links()
+            }
+        except Exception:  # noqa: BLE001 - още няма одобрени връзки
+            approved = set()
+        if approved:
+            unresolved = [
+                item for item in unresolved if str(item[0]) in approved
+            ]
+
+        texts = {
+            str(record.handle): re.sub(r"\s+", " ", str(record.text or "")).strip()
+            for record in self.import_result.entities
+        }
+        title_marks = [
+            (x, y, title) for _handle, title, x, y in beam_titles
+        ]
+        position_marks = [
+            (x, y, texts.get(handle, "") or handle)
+            for handle, x, y in unresolved
+        ]
+        if not title_marks and not position_marks:
+            self._info("В този чертеж няма греди за показване.")
+            return
+
+        self.drawing_view.show_markers(title_marks, colour="#1565c0", radius=55.0)
+        self.drawing_view.show_markers(
+            position_marks, colour="#d93025", radius=40.0, append=True
+        )
+        self.drawing_view.zoom_to_markers()
+        self._session_project_event(
+            "BEAM_OVERVIEW_SHOWN",
+            {"beams": len(title_marks), "unresolved": len(position_marks)},
+        )
+        self.statusBar().showMessage(
+            f"Сини: {len(title_marks)} заглавия на греди. "
+            f"Червени: {len(position_marks)} позиции без доказана греда. "
+            "Огради всяка червена ЗАЕДНО със синьото ѝ заглавие "
+            "(Анализ → Рамка с два клика). Действието ги маха.",
+            0,
         )
 
     def manage_operator_areas(self) -> None:

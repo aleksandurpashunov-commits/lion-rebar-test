@@ -117,6 +117,95 @@ class DrawingView(QGraphicsView):
         self._selection_allowed_handles: frozenset[str] | None = None
         self._box_mode = False
         self._box_origin = None
+        self._markers: list[QGraphicsItem] = []
+        self._marker_bounds: QRectF | None = None
+
+    # -----------------------------------------------------------------
+    # Маркери върху чертежа
+    # -----------------------------------------------------------------
+    #
+    # Собственик, 2026-09-13: „няма как да знам кое желязо на коя греда
+    # принадлежи при положение че не мога да ги видя и да ги маркирам."
+    #
+    # Рамката с два клика се чертае ПРЕДИ анализа, но дотогава операторът
+    # нямаше как да види КЪДЕ да я чертае: кои позиции са без греда и къде
+    # стоят заглавията. Маркерите показват точно това върху самия чертеж.
+
+    def show_markers(
+        self,
+        marks: Sequence[tuple[float, float, str]],
+        *,
+        colour: str,
+        radius: float = 45.0,
+        append: bool = False,
+    ) -> None:
+        """Слага кръгчета с етикети върху чертежа.
+
+        ``marks`` са ``(x, y, надпис)`` в координатите на ЧЕРТЕЖА — обръщането
+        на Y към сцената става тук, както навсякъде другаде в този изглед.
+        """
+
+        scene = self.scene()
+        if scene is None:
+            return
+        if not append:
+            self.clear_markers()
+        pen = QPen(QColor(colour))
+        pen.setCosmetic(True)
+        pen.setWidth(3)
+        fill = QColor(colour)
+        fill.setAlpha(38)
+        for x, y, label in marks:
+            cx, cy = float(x), -float(y)
+            circle = QGraphicsEllipseItem(
+                cx - radius, cy - radius, radius * 2.0, radius * 2.0
+            )
+            circle.setPen(pen)
+            circle.setBrush(QBrush(fill))
+            circle.setZValue(9_000.0)
+            scene.addItem(circle)
+            self._markers.append(circle)
+            text = str(label or "").strip()
+            if text:
+                item = QGraphicsSimpleTextItem(text)
+                item.setBrush(QBrush(QColor(colour)))
+                font = QFont()
+                font.setPointSizeF(11.0)
+                font.setBold(True)
+                item.setFont(font)
+                item.setFlag(QGraphicsItem.ItemIgnoresTransformations, True)
+                item.setPos(cx + radius * 0.7, cy - radius * 1.5)
+                item.setZValue(9_001.0)
+                scene.addItem(item)
+                self._markers.append(item)
+        self._marker_bounds = None
+        for item in self._markers:
+            rect = item.sceneBoundingRect()
+            self._marker_bounds = (
+                rect if self._marker_bounds is None else self._marker_bounds.united(rect)
+            )
+
+    def clear_markers(self) -> None:
+        scene = self.scene()
+        for item in self._markers:
+            if scene is not None and item.scene() is scene:
+                scene.removeItem(item)
+        self._markers = []
+        self._marker_bounds = None
+
+    def has_markers(self) -> bool:
+        return bool(self._markers)
+
+    def zoom_to_markers(self) -> None:
+        """Показва всички маркери наведнъж, с малко въздух около тях."""
+
+        if self._marker_bounds is None or self._marker_bounds.isEmpty():
+            return
+        margin = max(self._marker_bounds.width(), self._marker_bounds.height()) * 0.12
+        self.fitInView(
+            self._marker_bounds.adjusted(-margin, -margin, margin, margin),
+            Qt.AspectRatioMode.KeepAspectRatio,
+        )
 
     def set_selection_entity_filter(
         self,
