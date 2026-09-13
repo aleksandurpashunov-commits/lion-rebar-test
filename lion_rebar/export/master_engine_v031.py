@@ -251,6 +251,23 @@ def parameters_from_segments(
             raise MasterDimensionError(f"F010 очаква 5 сегмента, получени са {len(lengths)}.")
         values = {f"L{index}": value for index, value in enumerate(lengths, start=1)}
         expanded = lengths
+    elif code == "F019":
+        # Стълбищно рамо: късо рамо, дълъг наклонен марш, късо рамо. Трите
+        # сегмента са прави и всеки е собствен производствен размер — ъгълът
+        # на марша е ``angle_mode='AUTO'`` в ENGINE, тоест идва от чертежа, а
+        # не от формата. Затова тук няма проекции: наклонът не променя нито
+        # един от трите размера, само посоката между тях.
+        #
+        # Собственик, 2026-09-13, за „4N16x323" [60, 203, 60] под 42°:
+        # „Като тази за стълбищен манш." Контролната позиция в ENGINE е
+        # 8N10x406 [50, 286, 70] при около 29° — различен наклон, същата
+        # форма, което е и причината ъгълът да не е част от определението.
+        if len(lengths) != 3:
+            raise MasterDimensionError(
+                f"F019 очаква 3 сегмента, получени са {len(lengths)}."
+            )
+        values = {f"L{index}": value for index, value in enumerate(lengths, start=1)}
+        expanded = lengths
     else:
         raise MasterDimensionError(f"Неподдържан MASTER код: {code}")
 
@@ -324,6 +341,8 @@ def total_for(code: str, values: dict[str, float]) -> float:
         return sum(n(f"L{index}") for index in range(1, 6))
     if code == "F010":
         return sum(n(f"L{index}") for index in range(1, 6))
+    if code == "F019":
+        return n("L1") + n("L2") + n("L3")
     return 0.0
 
 
@@ -462,6 +481,38 @@ def _generic_svg(code: str, values: dict[str, float], *, include_safe_zone: bool
             ("h", p[2], p[3], l3, "above"),
             ("v", p[3], p[4], l4, "left"),
             ("h", p[4], p[5], l5, "below"),
+        ]
+    elif code == "F019":
+        # Стълбищно рамо: късо рамо, ДЪЛЪГ наклонен марш, късо рамо.
+        #
+        # Наклонът тук е схематичен и нарочно фиксиран. В ENGINE F019 е с
+        # ``angle_mode='AUTO'`` и без ``min/max_angle_deg`` -- истинският
+        # наклон идва от чертежа и се различава по проект (реални случаи:
+        # 29° при контролната позиция 8N10x406 и 42° при „4N16x323"). Тази
+        # рисунка е схематична по замисъл (``drawing_mode='СХЕМАТИЧНО'`` в
+        # дефиницията), затова показва разпознаваемия силует, а числата до
+        # трите сегмента носят производствената истина.
+        #
+        # 30° е избран между двата измерени наклона: достатъчно полегат, за
+        # да се чете в тясната VID клетка на Excel, и достатъчно стръмен, за
+        # да не изглежда като прав прът.
+        angle = math.radians(30.0)
+        dx2 = l2 * math.cos(angle)
+        dy2 = l2 * math.sin(angle)
+        p = [
+            (0.0, 0.0),
+            (l1, 0.0),
+            (l1 + dx2, dy2),
+            (l1 + dx2 + l3, dy2),
+        ]
+        lines = [p]
+        dims = [
+            ("h", p[0], p[1], l1, "below"),
+            # Размерът на марша е РЕАЛНАТА му дължина, не хоризонталната
+            # проекция: при F002 проекциите DX2/DY2 са самите производствени
+            # параметри, тук L2 е цялата наклонена отсечка.
+            ("h", p[1], p[2], l2, "below", 16.0, 0.0, 0.0),
+            ("h", p[2], p[3], l3, "above"),
         ]
     else:
         raise MasterDimensionError(f"MASTER renderer няма дефиниция за {code}.")

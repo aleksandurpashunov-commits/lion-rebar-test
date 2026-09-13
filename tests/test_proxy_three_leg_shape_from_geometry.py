@@ -203,7 +203,8 @@ class TestFailClosed:
 
 
 class TestF002IsASpliceNotAStairArm:
-    """Owner, 2026-09-13: "да имаме такава мастър форма в стълбищата мисля".
+    """Owner, 2026-09-13: "да имаме такава мастър форма в стълбищата мисля",
+    then, naming it the same day: "Като тази за стълбищен манш."
 
     Real shaibi position "4N16x323" in wall Ш 3-25/600 is two parallel 60 cm
     legs joined by a 203 cm diagonal at 42 degrees. The first version of this
@@ -215,8 +216,13 @@ class TestF002IsASpliceNotAStairArm:
     The discriminator is not the angle but the proportion. F002 is
     "РЕДУКЦИЯ": a SHORT inclined splice between two long straight runs, as in
     the koloni bars [150, 21, 310] where the middle is the shortest segment.
-    When the middle is the longest, the bar is a U (90 degrees) or a stair arm
-    (shallow) -- and the stair arms are not ours to name yet.
+    When the middle is the longest, the bar is a U (90 degrees) or -- shallow
+    -- a stair arm, which the owner has now named: F019.
+
+    The angle deliberately stays out of it. F019 carries
+    ``angle_mode='AUTO'`` and no ``min/max_angle_deg`` in the engine, because
+    stairs are designed at whatever pitch the building needs: the engine's own
+    reference position 8N10x406 sits at about 29 degrees, this one at 42.
     """
 
     def test_a_short_inclined_splice_between_long_runs_is_f002(self) -> None:
@@ -226,8 +232,13 @@ class TestF002IsASpliceNotAStairArm:
 
         assert read is not None and read[0] == "F002"
 
-    def test_a_long_diagonal_between_short_legs_is_refused(self) -> None:
-        """4N16x323, verbatim: legs 60 / 202.62 / 60 at 180 / 137.74 / 0."""
+    def test_a_long_diagonal_between_short_legs_is_a_stair_arm(self) -> None:
+        """4N16x323, verbatim: legs 60 / 202.62 / 60 at 180 / 137.74 / 0.
+
+        Until the owner named it, this returned None and the position reached
+        Final Control with no shape at all, carrying a wrong F003 [90, 143,
+        90] suggestion derived from one unrelated nearby dimension.
+        """
 
         legs = _legs(
             ((60.0, 0.0), (0.0, 0.0)),
@@ -235,4 +246,8 @@ class TestF002IsASpliceNotAStairArm:
             ((-150.0, 136.3), (-90.0, 136.3)),
         )
 
-        assert _read_declared_three_leg_shape(legs, (60.0, 203.0, 60.0), 323.0) is None
+        read = _read_declared_three_leg_shape(legs, (60.0, 203.0, 60.0), 323.0)
+
+        assert read is not None
+        assert read[0] == "F019"
+        assert read[1] == (60.0, 203.0, 60.0)
