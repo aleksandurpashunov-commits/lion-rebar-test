@@ -28,6 +28,7 @@
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -115,4 +116,164 @@ def resolve_operator_box(
         beam_label_handle=label_handle,
         beam_title=title,
         annotation_handles=handles,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Област, начертана ПРЕДИ анализа
+# ---------------------------------------------------------------------------
+#
+# Разликата от ``resolve_operator_box`` по-горе е в момента. Там рамката се
+# чертае СЛЕД като Финалният контрол е блокирал позиции и веднага се
+# превръща в решения за тях. Тук операторът чертае, преди изобщо да има
+# позиции: разчита се само заглавието, а какво е попаднало вътре се решава
+# наново при всеки анализ (виж ``export/operator_areas.py``).
+
+#: Заглавие на шайба върху реалния чертеж: „Ш 3-25/600", „Ш 11 - 145/25".
+#: Същият образец като ``_SHAIBI_WALL_LABEL_RE`` в ``dxf/proxy_adapter.py``.
+#: Проверено върху ``s-7``: хваща 23 текста, всички на слой ``C_TXT_shaibi``.
+#: Разхлабване до „Ш<число>" би хванало още 49 — но те са котировки на слоеве
+#: ``_text``/``KOTA-TXT`` („Ш10", „Ш3"), не заглавия, затова образецът иска
+#: цялото сечение.
+_SHAIBI_TITLE_RE = re.compile(r"Ш\s*\d+\s*-?\s*\d+\s*/\s*\d+")
+
+#: Заглавие на колонна група: „К23, К24 (35/35) - 2бр.".
+#: Същият образец като ``_COLUMN_GROUP_HEADER_RE`` в ``dxf/proxy_adapter.py``.
+_COLUMN_GROUP_TITLE_RE = re.compile(r"(\d+)\s*бр\.?\s*$", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class AreaTitle:
+    """Кандидат за заглавие на област."""
+
+    handle: str
+    text: str
+    x: float
+    y: float
+    frame_index: int
+    kind: str
+
+
+@dataclass(frozen=True)
+class AreaResolution:
+    """Какво обявява една област — заглавието ѝ, не позициите в нея."""
+
+    box: tuple[float, float, float, float]
+    title_handle: str
+    title_text: str
+    kind: str
+    frame_index: int
+
+
+def collect_area_titles(
+    entities: Sequence[object],
+    frames: Sequence[object],
+) -> list[AreaTitle]:
+    """Всички текстове, които могат да бъдат заглавие на област.
+
+    Три вида, всеки със собствения си доказан образец:
+
+    ``BEAM``   „Гр. B.19 25/55" в рамка ``BEAMS`` — взима се направо от
+               ``_detect_beam_labels``, за да няма два различни образеца за
+               едно и също нещо.
+    ``GROUP``  заглавие на шайба или на колонна група — това е, по което
+               описът се подрежда блок по блок.
+
+    Текст, който отговаря на повече от един образец, се брои веднъж, като
+    гредите имат предимство: те са единственият вид, който носи и
+    производствена връзка, не само подредба в листа.
+    """
+
+    from lion_rebar.export.excel_export import _detect_beam_labels, _entity_insert
+    from lion_rebar.export.frame_detection import assign_point_to_frame
+
+    titles: list[AreaTitle] = []
+    seen: set[str] = set()
+
+    for label in _detect_beam_labels(list(entities), list(frames)):
+        titles.append(
+            AreaTitle(
+                handle=str(label.handle),
+                text=str(label.title),
+                x=float(label.x),
+                y=float(label.y),
+                frame_index=int(label.frame_index),
+                kind="BEAM",
+            )
+        )
+        seen.add(str(label.handle))
+
+    frame_list = list(frames)
+    for record in entities:
+        handle = str(getattr(record, "handle", "") or "")
+        if not handle or handle in seen:
+            continue
+        text = re.sub(r"\s+", " ", str(getattr(record, "text", "") or "")).strip()
+        if not text:
+            continue
+        if not (
+            _SHAIBI_TITLE_RE.search(text) or _COLUMN_GROUP_TITLE_RE.search(text)
+        ):
+            continue
+        point = _entity_insert(record)
+        if point is None:
+            continue
+        frame_index = assign_point_to_frame(point[0], point[1], frame_list)
+        if frame_index is None:
+            continue
+        titles.append(
+            AreaTitle(
+                handle=handle,
+                text=text,
+                x=float(point[0]),
+                y=float(point[1]),
+                frame_index=int(frame_index),
+                kind="GROUP",
+            )
+        )
+        seen.add(handle)
+
+    return titles
+
+
+def resolve_operator_area(
+    start: tuple[float, float],
+    end: tuple[float, float],
+    *,
+    titles: Sequence[AreaTitle],
+) -> AreaResolution:
+    """Разчита рамка, начертана преди анализа.
+
+    Иска ТОЧНО ЕДНО заглавие вътре — нула или две е отказ, не догадка.
+    Позиции не се търсят: в този момент още няма такива, а и целият смисъл
+    на областта е анализът да ги намери сам, всеки път наново.
+    """
+
+    box = normalise_box(start, end)
+    if box[0] == box[2] or box[1] == box[3]:
+        raise OperatorBoxError(
+            "Рамката е с нулева широчина или височина — начертай я наново."
+        )
+
+    inside = [title for title in titles if _inside(box, title.x, title.y)]
+    if not inside:
+        raise OperatorBoxError(
+            "В рамката няма заглавие. Обхвани и заглавието на гредата "
+            "(„Гр. B.19 25/55“), на шайбата („Ш 3-25/600“) или на групата "
+            "колони, за да е ясно на кого принадлежат позициите вътре."
+        )
+    if len(inside) > 1:
+        names = ", ".join(sorted(f"„{title.text}“" for title in inside))
+        raise OperatorBoxError(
+            f"В рамката попадат {len(inside)} заглавия ({names}). "
+            "Начертай я около едно."
+        )
+
+    title = inside[0]
+    return AreaResolution(
+        box=box,
+        title_handle=title.handle,
+        title_text=title.text,
+        kind=title.kind,
+        frame_index=title.frame_index,
     )

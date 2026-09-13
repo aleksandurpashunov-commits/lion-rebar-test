@@ -18,6 +18,13 @@ from lion_rebar.project.final_control_lifecycle import (
 from lion_rebar.project.non_production import (
     is_valid_non_production_decision,
 )
+from lion_rebar.export.operator_areas import (
+    KIND_BEAM,
+    KIND_GROUP,
+    OPERATOR_AREA_BEAM_METHOD,
+    area_for_point,
+    load_operator_areas,
+)
 from lion_rebar.export.beam_decisions import (
     OPERATOR_METHOD as OPERATOR_BEAM_METHOD,
     load_beam_decisions,
@@ -342,6 +349,12 @@ def _freeze_beam_assignments(
     """
 
     operator_beam_decisions = load_beam_decisions(project_root, identity)
+    # Рамките, начертани ПРЕДИ анализа (виж ``export/operator_areas.py``).
+    # За разлика от решенията по-горе, които сочат една позиция по handle,
+    # областта е правоъгълник: какво е попаднало вътре се решава тук, наново,
+    # при всеки Финален контрол. Затова добавена позиция влиза в групата си
+    # сама, без операторът да пипа рамката повторно.
+    operator_areas = load_operator_areas(project_root, identity)
     beam_labels_by_handle: dict[str, Any] = {}
 
     target_handles = {
@@ -502,9 +515,56 @@ def _freeze_beam_assignments(
             # етикет от ledger-а и изсипва всички позиции накуп.
             "column_group_label": str(row.get("column_group_label") or ""),
         }
+        # Ако автоматиката не е намерила групов етикет, го взимаме от
+        # операторска област. Точно това е случаят при шайбите: заглавията
+        # („Ш 3-25/600") съществуват, но затворените контури, по които
+        # ``proxy_adapter`` разпознава групите при колоните, там ги няма.
+        # Само попълва празно — доказан автоматичен етикет не се пипа.
+        if not frozen["column_group_label"]:
+            group_area = area_for_point(
+                operator_areas,
+                point[0],
+                point[1],
+                kind=KIND_GROUP,
+                frame_index=int(frame_index),
+            )
+            if group_area is not None:
+                # Произходът не се дописва в ledger-а: схемата на замразения
+                # артефакт не се пипа мимоходом. Кой, кога и защо е начертал
+                # областта стои в ``operator_group_areas.json`` и в одитния
+                # ѝ файл, вързани със същата identity.
+                frozen["column_group_label"] = group_area.title_text
         if str(frame.category_code or "") == "BEAMS":
             assignment = _assign_beam_label(point[0], point[1], int(frame_index), labels)
             if assignment is None:
+                # Първо рамката, начертана преди анализа: тя покрива цяла
+                # група наведнъж, затова е по-евтина за оператора от решение
+                # за всяка позиция поотделно. Достига се само след като
+                # автоматиката се е отказала — доказана връзка не се отменя.
+                beam_area = area_for_point(
+                    operator_areas,
+                    point[0],
+                    point[1],
+                    kind=KIND_BEAM,
+                    frame_index=int(frame_index),
+                )
+                area_label = (
+                    beam_labels_by_handle.get(beam_area.title_handle)
+                    if beam_area is not None
+                    else None
+                )
+                if area_label is not None:
+                    frozen.update(
+                        {
+                            "beam_name": area_label.title,
+                            "beam_label_handle": area_label.handle,
+                            "beam_assignment_method": OPERATOR_AREA_BEAM_METHOD,
+                            "beam_assignment_score": "",
+                            "beam_assignment_margin": "",
+                        }
+                    )
+                    assignments[handle] = frozen
+                    continue
                 decided_label = beam_labels_by_handle.get(
                     operator_beam_decisions.get(handle, "")
                 )

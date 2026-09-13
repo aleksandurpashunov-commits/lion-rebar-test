@@ -436,9 +436,17 @@ class MainWindow(QMainWindow):
 
         self.action_operator_box = QAction("Рамка с два клика", self)
         self.action_operator_box.setToolTip(
-            "Обхвани с два клика група позиции ЗАЕДНО със заглавието на гредата — всичко вътре се свързва с нея."
+            "Начертай с два клика област около заглавието на гредата, шайбата "
+            "или групата колони. Анализът я чете и слага всичко вътре в тази "
+            "група. Чертае се ПРЕДИ анализа."
         )
         self.action_operator_box.triggered.connect(self.start_operator_box)
+
+        self.action_operator_areas = QAction("Начертани рамки…", self)
+        self.action_operator_areas.setToolTip(
+            "Показва начертаните рамки и позволява сгрешена да бъде оттеглена."
+        )
+        self.action_operator_areas.triggered.connect(self.manage_operator_areas)
 
         self.action_final_integrity = QAction("Финален контрол", self)
         self.action_final_integrity.triggered.connect(self.run_final_integrity_control)
@@ -561,6 +569,7 @@ class MainWindow(QMainWindow):
         analysis_menu.addAction(self.action_ai_diagnostic)
         analysis_menu.addAction(self.action_final_integrity)
         analysis_menu.addAction(self.action_operator_box)
+        analysis_menu.addAction(self.action_operator_areas)
         analysis_menu.addAction(self.action_learning_report)
         analysis_menu.addAction(self.action_export_excel)
         analysis_menu.addAction(self.action_layer_report)
@@ -669,30 +678,40 @@ class MainWindow(QMainWindow):
             return
         self.drawing_view.begin_operator_box()
         self.statusBar().showMessage(
-            "Рамка с два клика: щракни двата ъгъла ЗАЕДНО със заглавието на гредата. Десен бутон отказва.",
+            "Рамка с два клика: щракни двата ъгъла така, че вътре да остане "
+            "ЕДНО заглавие — на гредата, шайбата или групата колони. Десен бутон отказва.",
             15000,
         )
 
     def _operator_box_drawn(self, x0: float, y0: float, x1: float, y1: float) -> None:
-        from lion_rebar.export.beam_decisions import (
-            BeamDecisionError,
-            record_box_decisions,
+        """Запазва начертаната рамка като ОБЛАСТ.
+
+        Не се записват решения за отделни позиции: рамката се чертае преди
+        анализа, когато позиции още няма. Пази се правоъгълникът и
+        заглавието в него, а кое е попаднало вътре анализът решава сам,
+        всеки път наново (``export/operator_areas.py``).
+        """
+
+        from lion_rebar.export.frame_detection import detect_drawing_frames
+        from lion_rebar.export.operator_areas import (
+            KIND_BEAM,
+            OperatorAreaError,
+            record_operator_area,
         )
         from lion_rebar.export.operator_group_box import (
             OperatorBoxError,
-            resolve_operator_box,
+            collect_area_titles,
+            resolve_operator_area,
         )
         from lion_rebar.project.data_identity import current_identity
 
-        if self.project is None:
+        if self.project is None or self.import_result is None:
             return
         try:
-            unresolved, beam_titles = self._unresolved_beam_context()
-            resolution = resolve_operator_box(
-                (x0, y0), (x1, y1),
-                beam_titles=beam_titles,
-                unresolved=unresolved,
-            )
+            entities = list(self.import_result.entities)
+            frames = detect_drawing_frames(entities)
+            titles = collect_area_titles(entities, frames)
+            resolution = resolve_operator_area((x0, y0), (x1, y1), titles=titles)
         except OperatorBoxError as error:
             QMessageBox.warning(self, "Рамката не беше приета", str(error))
             return
@@ -700,35 +719,146 @@ class MainWindow(QMainWindow):
             self._error(f"Рамката не може да бъде разчетена: {error}")
             return
 
+        purpose = (
+            "гредата"
+            if resolution.kind == KIND_BEAM
+            else "групата в описа"
+        )
         note, accepted = QInputDialog.getText(
             self,
             "Рамка с два клика",
-            f"{len(resolution.annotation_handles)} позиции ще бъдат свързани с\n„{resolution.beam_title}“.\n\nОбосновка:",
+            "\n".join(
+                [
+                    f"Всичко в рамката ще се отнесе към {purpose}",
+                    f"„{resolution.title_text}“.",
+                    "",
+                    "Областта се чете при всеки анализ и Финален контрол —",
+                    "не пипа позиция, която автоматиката вече е свързала.",
+                    "",
+                    "Обосновка:",
+                ]
+            ),
         )
         if not accepted:
             return
         try:
-            recorded = record_box_decisions(
+            area = record_operator_area(
                 Path(self.project.root),
-                resolution,
+                box=resolution.box,
+                kind=resolution.kind,
+                title_handle=resolution.title_handle,
+                title_text=resolution.title_text,
+                frame_index=resolution.frame_index,
                 decided_by=getattr(self, 'operator_name', '') or 'оператор',
                 note=note,
                 identity=current_identity(self.project),
-                known_beam_handles={
-                    handle: title for handle, title, _x, _y in beam_titles
-                },
             )
-        except BeamDecisionError as error:
-            QMessageBox.critical(self, "Решенията не бяха записани", str(error))
+        except OperatorAreaError as error:
+            QMessageBox.warning(self, "Областта не беше записана", str(error))
+            return
+        except Exception as error:  # noqa: BLE001 - помощен път
+            self._error(f"Областта не може да бъде записана: {error}")
             return
         self._session_project_event(
-            "BEAM_DECISIONS_RECORDED", {"count": len(recorded), "source": "OPERATOR_BOX"}
+            "OPERATOR_AREA_RECORDED",
+            {"kind": area.kind, "title": area.title_text, "area_id": area.area_id},
         )
         QMessageBox.information(
             self,
             "Записано",
-            f"Записани са {len(recorded)} решения за „{resolution.beam_title}“.\n\n"
-            "Финалният контрол е обезсилен — пусни го наново преди export.",
+            "\n".join(
+                [
+                    f"Областта за „{area.title_text}“ е записана.",
+                    "",
+                    "Пусни анализа (или Финален контрол, ако анализът вече е",
+                    "минал), за да влезе в сила.",
+                ]
+            ),
+        )
+
+    def manage_operator_areas(self) -> None:
+        """Показва начертаните рамки и оттегля сгрешена.
+
+        Без този изход сгрешена рамка остава в проекта, докато чертежът не се
+        смени: тя се чете при всеки анализ и всеки Финален контрол. Оттеглянето
+        иска мотив и се записва в същата одитна следа като чертането.
+        """
+
+        from lion_rebar.export.operator_areas import (
+            KIND_BEAM,
+            OperatorAreaError,
+            load_operator_areas,
+            withdraw_operator_area,
+        )
+        from lion_rebar.project.data_identity import current_identity
+
+        if self.project is None:
+            self._info("Първо отвори проект.")
+            return
+        areas = load_operator_areas(
+            Path(self.project.root), current_identity(self.project)
+        )
+        if not areas:
+            self._info(
+                "Няма начертани рамки за този чертеж.\n\n"
+                "„Анализ → Рамка с два клика“ чертае нова."
+            )
+            return
+
+        подредени = sorted(areas, key=lambda a: (a.kind, a.title_text))
+        редове = [
+            "{}  ({})  —  {}".format(
+                area.title_text,
+                "греда" if area.kind == KIND_BEAM else "група",
+                area.note,
+            )
+            for area in подредени
+        ]
+        избор, прието = QInputDialog.getItem(
+            self,
+            "Начертани рамки",
+            f"{len(подредени)} рамки за този чертеж.\n"
+            "Избери рамка, за да я оттеглиш, или откажи:",
+            редове,
+            0,
+            False,
+        )
+        if not прието or избор not in редове:
+            return
+        area = подредени[редове.index(избор)]
+
+        мотив, прието = QInputDialog.getText(
+            self,
+            "Оттегляне на рамка",
+            f"Рамката за „{area.title_text}“ ще бъде оттеглена.\n\nПричина:",
+        )
+        if not прието:
+            return
+        try:
+            withdraw_operator_area(
+                Path(self.project.root),
+                area.area_id,
+                withdrawn_by=getattr(self, 'operator_name', '') or 'оператор',
+                note=мотив,
+            )
+        except OperatorAreaError as error:
+            QMessageBox.warning(self, "Рамката не беше оттеглена", str(error))
+            return
+        self._session_project_event(
+            "OPERATOR_AREA_WITHDRAWN",
+            {"kind": area.kind, "title": area.title_text, "area_id": area.area_id},
+        )
+        QMessageBox.information(
+            self,
+            "Оттеглено",
+            "\n".join(
+                [
+                    f"Рамката за „{area.title_text}“ е оттеглена.",
+                    "",
+                    "Пусни анализа или Финален контрол наново, за да отпадне",
+                    "и от резултата.",
+                ]
+            ),
         )
 
     def _offer_unresolved_beam_resolution(self, handles) -> None:

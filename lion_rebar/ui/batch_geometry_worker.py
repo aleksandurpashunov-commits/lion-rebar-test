@@ -68,7 +68,23 @@ class BatchGeometryWorker(QObject):
         self._engine = engine
         self._source_dxf_path = Path(source_dxf_path) if source_dxf_path else None
         self._data_identity = data_identity
+        # Рамките, начертани преди анализа. Четат се ТУК, а не вътре в
+        # ``build_batch_geometry_report``: анализът остава чиста функция на
+        # входа си, без да ходи до файловата система сам.
+        self._operator_areas = self._load_operator_areas()
         self._cancel_event = threading.Event()
+
+    def _load_operator_areas(self) -> tuple:
+        from lion_rebar.export.operator_areas import load_operator_areas
+
+        if self._project is None:
+            return ()
+        try:
+            return load_operator_areas(Path(self._project.root), self._data_identity)
+        except Exception:
+            # Анализът не бива да пада заради повредено помощно досие --
+            # без областите той просто работи както преди тях.
+            return ()
 
     def request_cancel(self) -> None:
         """Thread-safe cancellation request callable directly from the GUI."""
@@ -91,6 +107,7 @@ class BatchGeometryWorker(QObject):
                 cancel_check=self._cancel_event.is_set,
                 checkpoint_every=10,
                 skip_approved=True,
+                operator_areas=self._operator_areas,
             )
         except Exception as exc:
             self.failed.emit(str(exc), traceback.format_exc())

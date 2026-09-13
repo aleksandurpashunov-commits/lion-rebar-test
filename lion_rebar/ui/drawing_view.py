@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QGraphicsItemGroup,
     QGraphicsLineItem,
     QGraphicsPathItem,
+    QGraphicsRectItem,
     QGraphicsScene,
     QGraphicsSimpleTextItem,
     QGraphicsTextItem,
@@ -111,6 +112,7 @@ class DrawingView(QGraphicsView):
         self.setBackgroundBrush(QBrush(_VIEW_BACKGROUND))
         self._panning = False
         self._pan_start = None
+        self._box_preview: QGraphicsRectItem | None = None
         self._selection_entity_filter: frozenset[str] | None = None
         self._selection_allowed_handles: frozenset[str] | None = None
         self._box_mode = False
@@ -182,23 +184,81 @@ class DrawingView(QGraphicsView):
 
         self._box_mode = True
         self._box_origin = None
+        self._clear_box_preview()
         self.setCursor(Qt.CrossCursor)
 
     def cancel_operator_box(self) -> None:
         self._box_mode = False
         self._box_origin = None
+        self._clear_box_preview()
         self.unsetCursor()
+
+    def _clear_box_preview(self) -> None:
+        item = getattr(self, "_box_preview", None)
+        if item is not None:
+            scene = item.scene()
+            if scene is not None:
+                scene.removeItem(item)
+        self._box_preview = None
+
+    def _update_box_preview(self, scene_point: QPointF) -> None:
+        """Пунктираният правоъгълник между първия клик и показалеца.
+
+        Без него операторът чертае на сляпо: вижда резултата чак когато
+        рамката бъде приета или отказана. Прегледът е в СЦЕНИЧНИ координати
+        (обърнат Y), защото се рисува на сцената -- за разлика от това, което
+        сигналът излъчва навън.
+        """
+
+        origin = self._box_origin
+        scene = self.scene()
+        if origin is None or scene is None:
+            return
+        rect = QRectF(
+            QPointF(origin[0], -origin[1]), scene_point
+        ).normalized()
+        if self._box_preview is None:
+            pen = QPen(QColor("#1e88e5"))
+            pen.setStyle(Qt.DashLine)
+            pen.setCosmetic(True)
+            pen.setWidth(2)
+            item = QGraphicsRectItem(rect)
+            item.setPen(pen)
+            item.setBrush(QBrush(QColor(30, 136, 229, 28)))
+            item.setZValue(10_000.0)
+            scene.addItem(item)
+            self._box_preview = item
+        else:
+            self._box_preview.setRect(rect)
+
+    def _drawing_point(self, event) -> tuple[float, float]:
+        """Клик -> координати на ЧЕРТЕЖА, не на сцената.
+
+        Сцената е изглед отгоре с обърнат Y: всеки обект се поставя на
+        ``-y`` (виж ``_build_text_item`` и рисуването на линиите), за да
+        сочи екранното "надолу" натам, накъдето сочи и на хартия. Затова
+        всяко място, което връща координати навън, обръща Y обратно --
+        точно както ``mouseMoveEvent`` го прави за показалеца.
+
+        Без това обръщане операторската рамка сравняваше екранни Y с
+        чертожните Y на заглавията и никога не намираше заглавие вътре:
+        в ``s-9`` заглавията стоят на y≈+2678, а рамката ги търсеше около
+        y≈-2678.
+        """
+
+        scene_pos = self.mapToScene(event.position().toPoint())
+        return (scene_pos.x(), -scene_pos.y())
 
     def mousePressEvent(self, event):  # noqa: N802 - Qt API
         if self._box_mode and event.button() == Qt.LeftButton:
-            point = self.mapToScene(event.position().toPoint())
+            point = self._drawing_point(event)
             if self._box_origin is None:
-                self._box_origin = (point.x(), point.y())
+                self._box_origin = point
             else:
                 start = self._box_origin
                 self.cancel_operator_box()
                 self.operatorBoxDrawn.emit(
-                    start[0], start[1], point.x(), point.y()
+                    start[0], start[1], point[0], point[1]
                 )
             event.accept()
             return
@@ -286,6 +346,8 @@ class DrawingView(QGraphicsView):
     def mouseMoveEvent(self, event):  # noqa: N802 - Qt API
         scene_pos = self.mapToScene(event.position().toPoint())
         self.mouseScenePositionChanged.emit(scene_pos.x(), -scene_pos.y())
+        if self._box_mode and self._box_origin is not None:
+            self._update_box_preview(scene_pos)
         if self._panning and self._pan_start is not None:
             delta = event.position().toPoint() - self._pan_start
             self._pan_start = event.position().toPoint()

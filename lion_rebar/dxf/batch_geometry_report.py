@@ -26,6 +26,7 @@ from lion_rebar.export.frame_detection import assign_point_to_frame, detect_draw
 from lion_rebar.export.excel_export import (
     ExcelExportError,
     F006AsymmetricHookError,
+    _entity_insert,
     _segments_for_link,
 )
 from lion_rebar.export.master_engine_v031 import (
@@ -158,6 +159,7 @@ def build_batch_geometry_report(
     cancel_check: Callable[[], bool] | None = None,
     checkpoint_every: int = 10,
     skip_approved: bool = True,
+    operator_areas: Sequence[Any] = (),
 ) -> BatchGeometryReportResult:
     """Analyze all valid annotations without blocking the Qt user interface.
 
@@ -487,6 +489,16 @@ def build_batch_geometry_report(
     )
     _apply_proxy_column_group_labels(
         rows, annotations_by_handle=annotations_by_handle,
+    )
+    # Рамките, които операторът е начертал ПРЕДИ анализа. Идват СЛЕД
+    # автоматичните етикети и попълват само празното: доказана автоматична
+    # група не се пипа. Без това Review Center щеше да показва групата чак
+    # след Финален контрол, а собственикът чертае рамките точно за да ги
+    # види в прегледа.
+    _apply_operator_area_group_labels(
+        rows,
+        annotations_by_handle=annotations_by_handle,
+        operator_areas=operator_areas,
     )
     _apply_named_u_subtype_context(
         rows,
@@ -3389,6 +3401,55 @@ def _apply_proxy_declared_shape_auto_promotion(
         applied += 1
     return applied
 
+
+def _apply_operator_area_group_labels(
+    rows: Sequence[dict],
+    *,
+    annotations_by_handle: Mapping[str, DxfEntityRecord],
+    operator_areas: Sequence[Any] = (),
+) -> int:
+    """Групов етикет от рамка, начертана преди анализа.
+
+    Собственик, 2026-09-13: „да направим рамките преди теста на чертежа, за
+    да може програмата да го прочете."
+
+    При колоните ``proxy_adapter`` сам намира затворения контур и заглавието
+    му. При шайбите такива контури няма — заглавията („Ш 3-25/600") стоят, но
+    нищо не ги свързва с позициите, затова описът излизаше накуп (проверено
+    върху ``s-7``: 0 от 57 одобрени позиции с групов етикет). Операторската
+    област е ръчният заместител на липсващия контур.
+
+    Нарочно САМО върху празен етикет: областта попълва там, където
+    автоматиката мълчи, и никога не отменя доказана група. Позициите се
+    намират наново при всеки анализ, затова добавена позиция влиза в групата
+    си сама.
+    """
+
+    if not operator_areas:
+        return 0
+    from lion_rebar.export.operator_areas import KIND_GROUP, area_for_point
+
+    applied = 0
+    for row in rows:
+        if str(row.get("column_group_label") or ""):
+            continue
+        handle = str(row.get("annotation_handle") or "")
+        if not handle:
+            continue
+        annotation = annotations_by_handle.get(handle)
+        if annotation is None:
+            continue
+        anchor = _entity_insert(annotation)
+        if anchor is None:
+            continue
+        area = area_for_point(
+            operator_areas, anchor[0], anchor[1], kind=KIND_GROUP
+        )
+        if area is None:
+            continue
+        row["column_group_label"] = area.title_text
+        applied += 1
+    return applied
 
 def _apply_proxy_column_group_labels(
     rows: Sequence[dict],
