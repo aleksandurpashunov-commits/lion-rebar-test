@@ -1,0 +1,49 @@
+{
+  "schema": "lion-rebar-recovery4.2-run1-run2-evidence/v1",
+  "application_version": "0.1.44.13-recovery.4.2",
+  "tested_at": "2026-08-11",
+  "input": {
+    "dxf": "original.dxf",
+    "dxf_sha256": "66da0575ef0d4055f7fcd1e36519e7e0ca9a0de9a6ac47ad1df5f6ac645723ee",
+    "engine_bundle": "lion-rebar-master_v0.3.13_F003_F005_DISTINCT_CONTEXT_PRODUCTION_DRAFT.lionengine",
+    "engine_bundle_sha256": "4a0e3efe5445bcbf7dd818a64a442e28abf5d4bdabbcaecebbc2c8a617a41f93",
+    "matcher_sha256": "05210e71ba6dc68c4d98665194cece4a11b3ce15ea684680e070e1f9ac2f024b"
+  },
+  "run1": {
+    "processed_annotations": 315,
+    "actionable_positions": 150,
+    "candidate_positions": 150,
+    "manual_approvals_skipped": 0,
+    "geometry_strong": 116,
+    "f006_strong": 32,
+    "manual_review": 2,
+    "auto_gate_passed": 134,
+    "auto_links_written": 134,
+    "auto_blocked": 16
+  },
+  "run2": {
+    "processed_annotations": 315,
+    "actionable_positions": 150,
+    "candidate_positions": 150,
+    "manual_approvals_skipped": 0,
+    "geometry_strong": 116,
+    "f006_strong": 32,
+    "manual_review": 2,
+    "auto_gate_passed": 134,
+    "auto_links_refreshed": 134,
+    "auto_blocked": 16,
+    "previous_auto_rows_recomputed": 134,
+    "previous_auto_geometry_matches": 134
+  },
+  "invariants": {
+    "all_150_actionable_row_decisions_identical_run1_run2": true,
+    "auto_rows_promoted_to_manual_approval_on_run2": 0,
+    "silent_wrong_detected": 0,
+    "run2_recomputed_auto_positions": 134
+  },
+  "test_environment": {
+    "os": "Linux container",
+    "python": "3.13.5",
+    "note": "Windows packaged EXE smoke test still required after local build."
+  }
+}

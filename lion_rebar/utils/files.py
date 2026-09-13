@@ -1,0 +1,96 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import shutil
+import tempfile
+from pathlib import Path
+from typing import Any
+
+
+def ensure_directory(path: Path) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
+    ensure_directory(path.parent)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding=encoding, newline="\n") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_path, path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
+
+
+def atomic_write_json(path: Path, data: Any) -> None:
+    atomic_write_text(path, json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def read_json(path: Path) -> Any:
+    with path.open("r", encoding="utf-8-sig") as handle:
+        return json.load(handle)
+
+
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def canonical_json_bytes(data: Any) -> bytes:
+    return json.dumps(
+        data,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def copy_without_overwrite(source: Path, destination: Path) -> Path:
+    ensure_directory(destination.parent)
+    if destination.exists():
+        stem = destination.stem
+        suffix = destination.suffix
+        index = 1
+        while True:
+            candidate = destination.with_name(f"{stem}_{index}{suffix}")
+            if not candidate.exists():
+                destination = candidate
+                break
+            index += 1
+    shutil.copy2(source, destination)
+    return destination
+
+
+def safe_filename(value: str, fallback: str = "file") -> str:
+    cleaned = re.sub(r"[^0-9A-Za-zА-Яа-я._-]+", "_", value.strip())
+    cleaned = cleaned.strip("._-")
+    return cleaned or fallback
+
+
+def set_read_only(path: Path) -> None:
+    try:
+        path.chmod(0o444)
+    except OSError:
+        pass
+
+
+def set_writable(path: Path) -> None:
+    try:
+        path.chmod(0o644)
+    except OSError:
+        pass

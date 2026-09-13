@@ -1,0 +1,16 @@
+{
+  "schema": "lion-rebar-alfa-master-export-regression/v1",
+  "version": "0.1.31",
+  "master_file": "OPEN_ENGINE_v0.3.1_MASTER_F009_LOCKED.html",
+  "master_sha256": "38a63caf629f77ceaceef6ea86542f357d4f1a220217367f16aac92a74269a77",
+  "master_tests": {"passed": 10, "total": 10},
+  "safe_positions_checked": 408,
+  "safe_positions_resolved": 408,
+  "unproven_dimensions": 0,
+  "control_positions": {
+    "8F70::BJ-FI-L": {"text": "9N10x215", "shape": "F003", "segments_cm": [20, 175, 20]},
+    "C20D::BJ-FI-L": {"text": "2N8x240", "shape": "F004", "segments_cm": [225, 15]},
+    "CA5D::BJ-FI-L": {"text": "3N16x1150", "shape": "F004", "segments_cm": [1125, 25]},
+    "C88B::BJ-FI-L": {"text": "11N8x130", "shape": "F006", "segments_cm": [10, 20, 35, 20, 35, 10]}
+  }
+}

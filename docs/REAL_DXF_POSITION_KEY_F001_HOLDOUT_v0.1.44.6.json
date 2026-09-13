@@ -1,0 +1,62 @@
+{
+  "schema": "lion-rebar/real-dxf-holdout-audit@1",
+  "fixture": {
+    "filename": "Test_v_0_1_43_1.dxf",
+    "sha256": "ffc51c381f08d2b2100657fcb462eb00697c359b479f53b36edfef7df725d28d",
+    "actionable_positions": 627
+  },
+  "before": {
+    "app_version": "0.1.44.5",
+    "engine_version": "0.3.11",
+    "strong_total": 601,
+    "manual_review": 19,
+    "risk": 5,
+    "no_candidate": 2,
+    "errors": 0,
+    "master_ambiguities": 0,
+    "ownership_conflicts": 2
+  },
+  "after": {
+    "app_version": "0.1.44.6",
+    "engine_version": "0.3.12",
+    "strong_total": 609,
+    "strong_percent": 97.13,
+    "manual_review": 11,
+    "risk": 5,
+    "no_candidate": 2,
+    "errors": 0,
+    "master_ambiguities": 0,
+    "ownership_conflicts": 0,
+    "position_key_legend_resolved": 30,
+    "position_key_manual_override": 5,
+    "f001_extended_exact_length": 2
+  },
+  "existing_strong_regression": {
+    "checked": 601,
+    "status_master_or_handles_changed": 0
+  },
+  "promoted": [
+    {"text": "12N18x315", "mechanism": "POSITION_KEY", "key": "4B*", "master": "F004"},
+    {"text": "20N18x410", "mechanism": "POSITION_KEY", "key": "4B", "master": "F002"},
+    {"text": "28N8x360", "mechanism": "POSITION_KEY", "key": "4D", "master": "F001"},
+    {"text": "134N20x420", "mechanism": "POSITION_KEY", "key": "4A", "master": "F002"},
+    {"text": "246N10x360", "mechanism": "POSITION_KEY", "key": "4C", "master": "F001"},
+    {"text": "20N8x360", "mechanism": "OWNERSHIP_RELEASE", "handle": "15DD0", "master": "F003"},
+    {"text": "3N25x750", "mechanism": "F001_EXACT_RATIO_0.007", "difference_cm": 5.0480850583, "master": "F001"},
+    {"text": "2N8x750", "mechanism": "F001_EXACT_RATIO_0.007", "difference_cm": 5.0458980758, "master": "F001"}
+  ],
+  "rejected_findings": [
+    {
+      "finding": "20N8x360 has a local 4D circle",
+      "reason": "nearest 4D circle is approximately 1179 drawing units away"
+    },
+    {
+      "finding": "mirror pairs explain the two current ownership conflicts",
+      "reason": "both conflict rows share unpaired handle 15DD0"
+    },
+    {
+      "finding": "global exact_length_ratio 0.01 is acceptable",
+      "reason": "it also promotes 7N10x900 with 7.500 cm difference"
+    }
+  ]
+}

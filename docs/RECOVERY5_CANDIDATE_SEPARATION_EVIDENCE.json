@@ -1,0 +1,370 @@
+{
+  "schema": "lion-rebar-recovery5-evidence/v1",
+  "application_version": "0.1.44.14-recovery.5",
+  "engine_version": "0.3.13",
+  "source_dxf_sha256": "66da0575ef0d4055f7fcd1e36519e7e0ca9a0de9a6ac47ad1df5f6ac645723ee",
+  "matcher_evidence_sha256": "86d5227ddd6dd0582b93fa0a92e7c748527318ab8df6fb93fb13b0cf16e5b256",
+  "before": {
+    "actionable": 150,
+    "matcher_dispositions": {
+      "CONTROL": 134,
+      "MANUAL": 16,
+      "UNKNOWN": 165
+    },
+    "auto_gate_passed": 134,
+    "manual_blocked": 16
+  },
+  "after": {
+    "actionable": 150,
+    "matcher_dispositions": {
+      "CONTROL": 148,
+      "MANUAL": 2,
+      "UNKNOWN": 165
+    },
+    "auto_gate_passed": 148,
+    "manual_blocked": 2,
+    "master_ambiguities": 0,
+    "ownership_conflicts": 0,
+    "errors": 0
+  },
+  "changed_count": 14,
+  "resolution_basis_counts": {
+    "DIMENSION_A_E": 2,
+    "DISTANCE_GAP": 12
+  },
+  "changed_positions": [
+    {
+      "annotation_handle": "3DB6::BJ-FI-L",
+      "annotation_text": "2N8x165",
+      "master_shape_code": "F004",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.026426701675980463,
+      "candidate_distance_gap_raw": 4.360405776536776,
+      "separation_resolution_basis": "DIMENSION_A_E",
+      "numeric_difference_cm": 0.0,
+      "candidate_handles": [
+        "3DB5",
+        "3E00"
+      ],
+      "contextual_rule_code": "BEAM_MIDDLE_N8_15CM_90"
+    },
+    {
+      "annotation_handle": "3E48::BJ-FI-L",
+      "annotation_text": "2N8x810",
+      "master_shape_code": "F004",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.033530394204754066,
+      "candidate_distance_gap_raw": 27.15961930585081,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 0.0,
+      "candidate_handles": [
+        "3E46",
+        "3EFB"
+      ],
+      "contextual_rule_code": "BEAM_MIDDLE_N8_15CM_90"
+    },
+    {
+      "annotation_handle": "3F04::BJ-FI-L",
+      "annotation_text": "2N8x825",
+      "master_shape_code": "F001",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.03292075067325144,
+      "candidate_distance_gap_raw": 27.159619305894466,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 0.11568467179313302,
+      "candidate_handles": [
+        "3E47"
+      ],
+      "contextual_rule_code": null
+    },
+    {
+      "annotation_handle": "3F4D::BJ-FI-L",
+      "annotation_text": "2N8x165",
+      "master_shape_code": "F004",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.026426701675985376,
+      "candidate_distance_gap_raw": 4.360405776537586,
+      "separation_resolution_basis": "DIMENSION_A_E",
+      "numeric_difference_cm": 0.0,
+      "candidate_handles": [
+        "3F4C",
+        "3F97"
+      ],
+      "contextual_rule_code": "BEAM_MIDDLE_N8_15CM_90"
+    },
+    {
+      "annotation_handle": "3FDB::BJ-FI-L",
+      "annotation_text": "3N25x1070",
+      "master_shape_code": "F003",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.037031253451424204,
+      "candidate_distance_gap_raw": 34.80844119302401,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 0.0,
+      "candidate_handles": [
+        "3FD2",
+        "4006",
+        "400A"
+      ],
+      "contextual_rule_code": "U_PROPORTION_F003"
+    },
+    {
+      "annotation_handle": "3FE2::BJ-FI-L",
+      "annotation_text": "2N8x1050",
+      "master_shape_code": "F004",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.023409238415955186,
+      "candidate_distance_gap_raw": 29.30470033675283,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 0.0,
+      "candidate_handles": [
+        "3FE1",
+        "4019"
+      ],
+      "contextual_rule_code": "BEAM_ENGINEERING_90_F004"
+    },
+    {
+      "annotation_handle": "426F::BJ-FI-L",
+      "annotation_text": "2N8x685",
+      "master_shape_code": "F001",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.03966184997823165,
+      "candidate_distance_gap_raw": 27.15961930584899,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 1.5430182409481858,
+      "candidate_handles": [
+        "426D"
+      ],
+      "contextual_rule_code": null
+    },
+    {
+      "annotation_handle": "42E2::BJ-FI-L",
+      "annotation_text": "2N8x900",
+      "master_shape_code": "F001",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.030172040259257696,
+      "candidate_distance_gap_raw": 27.159619305846263,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 3.501662563532591,
+      "candidate_handles": [
+        "426E"
+      ],
+      "contextual_rule_code": null
+    },
+    {
+      "annotation_handle": "4378::BJ-FI-L",
+      "annotation_text": "2N8x1000",
+      "master_shape_code": "F001",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.02716836723509597,
+      "candidate_distance_gap_raw": 27.15961930585081,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 4.761447713477537,
+      "candidate_handles": [
+        "4376"
+      ],
+      "contextual_rule_code": null
+    },
+    {
+      "annotation_handle": "43CC::BJ-FI-L",
+      "annotation_text": "2N8x580",
+      "master_shape_code": "F001",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.039930378111926235,
+      "candidate_distance_gap_raw": 27.159619305848537,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 1.02395195805002,
+      "candidate_handles": [
+        "4377"
+      ],
+      "contextual_rule_code": null
+    },
+    {
+      "annotation_handle": "4BA7::BJ-FI-L",
+      "annotation_text": "2N8x750",
+      "master_shape_code": "F001",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.03908459768922301,
+      "candidate_distance_gap_raw": 29.304700336744418,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 5.045898075795776,
+      "candidate_handles": [
+        "4B52"
+      ],
+      "contextual_rule_code": null
+    },
+    {
+      "annotation_handle": "4D71::BJ-FI-L",
+      "annotation_text": "2N8x925",
+      "master_shape_code": "F001",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.031690214342606354,
+      "candidate_distance_gap_raw": 29.304700336734413,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 0.039379588908559526,
+      "candidate_handles": [
+        "4D24"
+      ],
+      "contextual_rule_code": null
+    },
+    {
+      "annotation_handle": "4E2D::BJ-FI-L",
+      "annotation_text": "2N8x1000",
+      "master_shape_code": "F001",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.027168367235095955,
+      "candidate_distance_gap_raw": 27.15961930585081,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 4.7614477134766275,
+      "candidate_handles": [
+        "4E2B"
+      ],
+      "contextual_rule_code": null
+    },
+    {
+      "annotation_handle": "4E81::BJ-FI-L",
+      "annotation_text": "2N8x580",
+      "master_shape_code": "F001",
+      "batch_status": "СИЛЕН ПО ГЕОМЕТРИЯ",
+      "before_matcher_disposition": "MANUAL",
+      "after_matcher_disposition": "CONTROL",
+      "before_blockers": [
+        "WEAK_CANDIDATE_SEPARATION"
+      ],
+      "after_blockers": [],
+      "candidate_score_gap": 0.03993037811190897,
+      "candidate_distance_gap_raw": 27.159619305834894,
+      "separation_resolution_basis": "DISTANCE_GAP",
+      "numeric_difference_cm": 1.023951958048201,
+      "candidate_handles": [
+        "4E2C"
+      ],
+      "contextual_rule_code": null
+    }
+  ],
+  "remaining_manual": [
+    {
+      "annotation_handle": "3F12::BJ-FI-L",
+      "annotation_text": "2N10x270",
+      "master_shape_code": "F001",
+      "batch_status": "ЗА РЪЧЕН ПРЕГЛЕД",
+      "matcher_disposition": "MANUAL",
+      "numeric_difference_cm": 5.358784852054214,
+      "declared_length_cm": 270.0,
+      "effective_geometry_length_cm": 264.6412151479458,
+      "candidate_handles": [
+        "3EB4"
+      ],
+      "reason": "LENGTH_OUTSIDE_CURRENT_EXACT_GATE"
+    },
+    {
+      "annotation_handle": "4DC8::BJ-FI-L",
+      "annotation_text": "2N12x270",
+      "master_shape_code": "F001",
+      "batch_status": "ЗА РЪЧЕН ПРЕГЛЕД",
+      "matcher_disposition": "MANUAL",
+      "numeric_difference_cm": 6.8832997678546235,
+      "declared_length_cm": 270.0,
+      "effective_geometry_length_cm": 263.1167002321454,
+      "candidate_handles": [
+        "4DC5"
+      ],
+      "reason": "LENGTH_OUTSIDE_CURRENT_EXACT_GATE"
+    }
+  ],
+  "safety_statement": "No length tolerance, Engine shape, F003/F005, F006, AUTO lifecycle or export gate was changed. The 14 promotions only align matcher evidence with the same score/distance/A-E gates already used by batch ranking.",
+  "shape_recognition_sha256": "05210e71ba6dc68c4d98665194cece4a11b3ce15ea684680e070e1f9ac2f024b",
+  "engine_bundle_sha256": "4a0e3efe5445bcbf7dd818a64a442e28abf5d4bdabbcaecebbc2c8a617a41f93",
+  "policy_thresholds": {
+    "generic_layer_score_gap": 0.1,
+    "diameter_coded_layer_score_gap": 0.04,
+    "generic_layer_distance_gap_raw": 15.0,
+    "diameter_coded_layer_distance_gap_raw": 8.0,
+    "dimension_tiebreak_code": "DIMENSION_CANDIDATE_TIEBREAK"
+  },
+  "tests": {
+    "passed": 326,
+    "skipped": 12,
+    "deselected_environment_blocked": 1,
+    "matcher_evidence_unit_tests": 24,
+    "real_dxf_decisions_changed_between_candidate_v1_v2": 0
+  }
+}

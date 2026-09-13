@@ -1,0 +1,77 @@
+{
+  "schema": "lion-rebar-real-dxf-arc-stirrup-holdout/v1",
+  "fixture": {
+    "filename": "Test v.0.1.43.1(1).dxf",
+    "sha256": "ffc51c381f08d2b2100657fcb462eb00697c359b479f53b36edfef7df725d28d",
+    "processed_annotations": 802,
+    "actionable_positions": 627
+  },
+  "before": {
+    "app_version": "0.1.44.4",
+    "engine_version": "0.3.10",
+    "strong": 588,
+    "strong_percent": 93.78,
+    "manual_review": 19,
+    "risk": 5,
+    "no_candidate": 15,
+    "errors": 0,
+    "master_ambiguities": 0,
+    "ownership_conflicts": 2
+  },
+  "after": {
+    "app_version": "0.1.44.5",
+    "engine_version": "0.3.11",
+    "strong": 601,
+    "strong_percent": 95.85,
+    "manual_review": 19,
+    "risk": 5,
+    "no_candidate": 2,
+    "errors": 0,
+    "master_ambiguities": 0,
+    "ownership_conflicts": 2,
+    "position_key_legend_resolved": 25,
+    "stirrup_length_group_resolved": 11
+  },
+  "regression_guards": {
+    "previous_strong_downgrades": 0,
+    "existing_selected_handle_changes": 0,
+    "existing_master_code_changes": 0,
+    "existing_status_changes": 0,
+    "existing_rows_with_exact_length_value_change": 114,
+    "exact_length_delta_cm_min": -15.62698333720192,
+    "exact_length_delta_cm_max": -2.1460183659997654,
+    "existing_manual_evidence_route_changes": 1,
+    "automatic_approval": false,
+    "silent_wrong": 0
+  },
+  "resolved_rows": [
+    {"handle": "15205::BJ-FI-L", "text": "6N6x40", "before": "НЯМА КАНДИДАТ", "after": "СИЛЕН ПО ГЕОМЕТРИЯ", "master": "F007", "geometry": ["151F8"], "rule": "F007_ESOVE_CURVED_CENTERLINE"},
+    {"handle": "152BB::BJ-FI-L", "text": "6N6x40", "before": "НЯМА КАНДИДАТ", "after": "СИЛЕН ПО ГЕОМЕТРИЯ", "master": "F007", "geometry": ["152AE"], "rule": "F007_ESOVE_CURVED_CENTERLINE"},
+    {"handle": "156DF::BJ-FI-L", "text": "25N8x135", "before": "НЯМА КАНДИДАТ", "after": "СИЛНО СТРЕМЕ F006", "master": "F006", "geometry": ["156E6"], "rule": "STIRRUP_EXACT_ARC_LENGTH_GROUP"},
+    {"handle": "1585B::BJ-FI-L", "text": "25N8x135", "before": "НЯМА КАНДИДАТ", "after": "СИЛНО СТРЕМЕ F006", "master": "F006", "geometry": ["15853"], "rule": "STIRRUP_EXACT_ARC_LENGTH_GROUP"},
+    {"handle": "159C8::BJ-FI-L", "text": "25N8x105", "before": "НЯМА КАНДИДАТ", "after": "СИЛНО СТРЕМЕ F006", "master": "F006", "geometry": ["159C6"], "rule": "STIRRUP_EXACT_ARC_LENGTH_UNIQUE"},
+    {"handle": "15A74::BJ-FI-L", "text": "25N8x105", "before": "НЯМА КАНДИДАТ", "after": "СИЛНО СТРЕМЕ F006", "master": "F006", "geometry": ["15A65"], "rule": "STIRRUP_EXACT_ARC_LENGTH_GROUP"},
+    {"handle": "15D9B::BJ-FI-L", "text": "25N8x105", "before": "НЯМА КАНДИДАТ", "after": "СИЛНО СТРЕМЕ F006", "master": "F006", "geometry": ["15D8B"], "rule": "STIRRUP_EXACT_ARC_LENGTH_GROUP"},
+    {"handle": "15F0A::BJ-FI-L", "text": "25N8x135", "before": "НЯМА КАНДИДАТ", "after": "СИЛНО СТРЕМЕ F006", "master": "F006", "geometry": ["15F10"], "rule": "STIRRUP_EXACT_ARC_LENGTH_GROUP"},
+    {"handle": "15F32::BJ-FI-L", "text": "25N8x135", "before": "НЯМА КАНДИДАТ", "after": "СИЛНО СТРЕМЕ F006", "master": "F006", "geometry": ["15F2A"], "rule": "STIRRUP_EXACT_ARC_LENGTH_GROUP"},
+    {"handle": "16934::BJ-FI-L", "text": "25N8x135", "before": "НЯМА КАНДИДАТ", "after": "СИЛНО СТРЕМЕ F006", "master": "F006", "geometry": ["1693B"], "rule": "STIRRUP_EXACT_ARC_LENGTH_GROUP"},
+    {"handle": "16AB0::BJ-FI-L", "text": "25N8x135", "before": "НЯМА КАНДИДАТ", "after": "СИЛНО СТРЕМЕ F006", "master": "F006", "geometry": ["16AA8"], "rule": "STIRRUP_EXACT_ARC_LENGTH_GROUP"},
+    {"handle": "16BF1::BJ-FI-L", "text": "25N8x105", "before": "НЯМА КАНДИДАТ", "after": "СИЛНО СТРЕМЕ F006", "master": "F006", "geometry": ["16BEF"], "rule": "STIRRUP_EXACT_ARC_LENGTH_UNIQUE"},
+    {"handle": "16C61::BJ-FI-L", "text": "25N8x105", "before": "НЯМА КАНДИДАТ", "after": "СИЛНО СТРЕМЕ F006", "master": "F006", "geometry": ["16C70"], "rule": "STIRRUP_EXACT_ARC_LENGTH_GROUP"}
+  ],
+  "non_improving_changes": [
+    {
+      "handle": "15B5D::BJ-FI-L",
+      "text": "134N20x420",
+      "before_status": "ЗА РЪЧЕН ПРЕГЛЕД",
+      "after_status": "ЗА РЪЧЕН ПРЕГЛЕД",
+      "selected_geometry_unchanged": ["15B3A"],
+      "master_unchanged": "F006",
+      "change": "Exact arc L changes the ownership evidence and the same selected geometry is recorded as a manual fallback after global allocation; it is not promoted."
+    }
+  ],
+  "intentionally_unresolved": [
+    {"handle": "12015::BJ-FI-L", "text": "350N12x300", "reason": "ДА+ГА semantic convention and wrong-diameter nearby layer"},
+    {"handle": "12625::BJ-FI-L", "text": "3002N10x47", "reason": "closed stroked outline; no centreline extraction"}
+  ]
+}

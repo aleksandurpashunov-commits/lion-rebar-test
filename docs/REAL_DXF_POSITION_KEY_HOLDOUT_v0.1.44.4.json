@@ -1,0 +1,44 @@
+{
+  "schema": "lion-rebar-real-dxf-position-key-holdout/v1",
+  "app_version": "0.1.44.4",
+  "engine_version": "0.3.10",
+  "source_dxf": {
+    "name": "Test v.0.1.43.1.dxf",
+    "sha256": "ffc51c381f08d2b2100657fcb462eb00697c359b479f53b36edfef7df725d28d"
+  },
+  "position_keys": {
+    "4A": {"spec": "N20 L=420", "master": "F002", "occurrences": 38, "resolved_rows": 2},
+    "4B": {"spec": "N18 L=410", "master": "F002", "occurrences": 20, "resolved_rows": 6},
+    "4B*": {"spec": "N18 - L=315", "master": "F004", "occurrences": 4, "resolved_rows": 2},
+    "4C": {"spec": "N10 L=360", "master": "F001", "occurrences": 33, "resolved_rows": 2},
+    "4D": {"spec": "N8 L=360", "master": "F001", "occurrences": 13, "resolved_rows": 5},
+    "4E": {"spec": "N14 L=385", "master": "F001", "occurrences": 2, "resolved_rows": 1},
+    "4F": {"spec": "N18 L=490", "master": "F002", "occurrences": 9, "resolved_rows": 4},
+    "4G": {"spec": "N8 L=440", "master": "F001", "occurrences": 5, "resolved_rows": 2},
+    "4H": {"spec": "N14 L=465", "master": "F001", "occurrences": 2, "resolved_rows": 1}
+  },
+  "baseline": {
+    "strong_total": 563,
+    "manual_review": 19,
+    "risk": 5,
+    "no_candidate": 40,
+    "master_ambiguities": 0,
+    "ownership_conflicts": 2,
+    "errors": 0
+  },
+  "result": {
+    "processed_annotations": 802,
+    "actionable_positions": 627,
+    "position_key_legend_resolved": 25,
+    "strong_total": 588,
+    "strong_percent": 93.78,
+    "manual_review": 19,
+    "risk": 5,
+    "no_candidate": 15,
+    "master_ambiguities": 0,
+    "ownership_conflicts": 2,
+    "errors": 0,
+    "master_distribution": {"F001": 11, "F002": 12, "F004": 2}
+  },
+  "automatic_approval": false
+}

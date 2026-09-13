@@ -1,0 +1,7 @@
+{
+  "application_version": "0.1.44.13-recovery.4",
+  "engine_version": "0.3.13",
+  "engine_file_sha256": "4a0e3efe5445bcbf7dd818a64a442e28abf5d4bdabbcaecebbc2c8a617a41f93",
+  "matcher_sha256": "05210e71ba6dc68c4d98665194cece4a11b3ce15ea684680e070e1f9ac2f024b",
+  "rules_sha256": "c53720eec3d6fa859150f230a025c276645c03d21904ffd4231e2d2b0c512f91"
+}

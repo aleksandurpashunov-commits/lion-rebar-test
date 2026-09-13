@@ -1,0 +1,99 @@
+{
+  "approval_note": "Bootstrap only. It is not a production rebar engine.",
+  "approved_by": "SYSTEM",
+  "categories": [
+    {
+      "aliases": [
+        "Долна основна"
+      ],
+      "code": "BOTTOM",
+      "enabled": true,
+      "sheet_name": "Долна",
+      "sort_order": 10
+    },
+    {
+      "aliases": [
+        "Долна усилваща"
+      ],
+      "code": "BOTTOM_EXTRA",
+      "enabled": true,
+      "sheet_name": "Долна усилване",
+      "sort_order": 20
+    },
+    {
+      "aliases": [
+        "Горна основна"
+      ],
+      "code": "TOP",
+      "enabled": true,
+      "sheet_name": "Горна",
+      "sort_order": 30
+    },
+    {
+      "aliases": [
+        "Горна усилваща"
+      ],
+      "code": "TOP_EXTRA",
+      "enabled": true,
+      "sheet_name": "Горна усилване",
+      "sort_order": 40
+    },
+    {
+      "aliases": [],
+      "code": "DETAILS",
+      "enabled": true,
+      "sheet_name": "Детайли",
+      "sort_order": 50
+    },
+    {
+      "aliases": [],
+      "code": "BEAMS",
+      "enabled": true,
+      "sheet_name": "Греди",
+      "sort_order": 60
+    },
+    {
+      "aliases": [],
+      "code": "TOTAL",
+      "enabled": true,
+      "sheet_name": "Общо",
+      "sort_order": 70
+    }
+  ],
+  "change_log": [],
+  "created_at": "2026-07-24T14:57:28+00:00",
+  "engine_id": "lion-rebar-bootstrap",
+  "extensions": {},
+  "position_statuses": [
+    "ПОТВЪРДЕНО",
+    "ОДОБРЕНО РЪЧНО",
+    "ЗА ПРОВЕРКА",
+    "ЛИПСВАЩА ГЕОМЕТРИЯ",
+    "НЕПОЗНАТА ФОРМА",
+    "НЕСЪОТВЕТСТВИЕ В ДЪЛЖИНАТА",
+    "ЕДНАКЪВ ТЕКСТ / РАЗЛИЧНА ГЕОМЕТРИЯ",
+    "НЕЯСЕН МНОЖИТЕЛ",
+    "НЕЯСНИ МЕРНИ ЕДИНИЦИ",
+    "ПРОЕКТАНТСКА ГРЕШКА",
+    "ОДОБРЕНА КОРЕКЦИЯ",
+    "ВИЖ ЧЕРТЕЖ",
+    "ИЗКЛЮЧЕНО"
+  ],
+  "production_ready": false,
+  "rules": [],
+  "schema": "lion-rebar-engine/v1",
+  "settings": {
+    "max_segments": 12,
+    "project_pins_engine_version": true,
+    "published_snapshots_are_immutable": true,
+    "require_all_tests_to_pass_for_production": true,
+    "warning": "NO MASTER SHAPES LOADED"
+  },
+  "shapes": [],
+  "source_assets": [],
+  "state": "PUBLISHED",
+  "tests": [],
+  "title": "LION REBAR BOOTSTRAP — IMPORT MASTER BEFORE PRODUCTION",
+  "updated_at": "2026-07-24T14:57:28+00:00",
+  "version": "0.0.0"
+}

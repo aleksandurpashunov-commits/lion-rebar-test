@@ -1,0 +1,24 @@
+{
+  "schema": "lion-rebar-export-regression/v1",
+  "project": "Alfa_Test_Project",
+  "safe_positions": 408,
+  "drawing_frames": 6,
+  "drawing_grouped_rows": 168,
+  "total_grouped_rows": 154,
+  "sheet_names": [
+    "долна",
+    "долна усилване",
+    "горна",
+    "горна усилване",
+    "детайли",
+    "греди",
+    "Общо"
+  ],
+  "excluded_positions": 4,
+  "missing_master_positions": 16,
+  "template_sha256": "ed7e4e0bd6a225a0fbbd6a7c7c906cfede40a206f5d98908b0d98109ccb93438",
+  "vid_column_width": 34.0,
+  "data_row_height_pt": 78.0,
+  "image_width_px": 224,
+  "image_height_px": 88
+}

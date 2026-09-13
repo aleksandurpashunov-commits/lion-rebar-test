@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lion-rebar-desktop"
+version = "0.1.44.20-rc43"
+description = "Local DXF review shell and user-managed MASTER engine for rebar workflows"
+readme = "README_BG.md"
+requires-python = ">=3.11,<3.14"
+authors = [{name = "Lion Build Ltd."}]
+dependencies = [
+  "PySide6>=6.7,<7",
+  "ezdxf>=1.3,<2",
+  "openpyxl>=3.1,<4",
+]
+
+[project.scripts]
+lion-rebar = "lion_rebar.app:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lion_rebar*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.setuptools.package-data]
+lion_rebar = ["resources/*"]

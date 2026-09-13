@@ -1,0 +1,23 @@
+{
+  "code": "R-EXAMPLE-001",
+  "name": "Примерно правило",
+  "scope": "TEXT_PARSER",
+  "priority": 100,
+  "enabled": false,
+  "when": {
+    "all": [
+      {
+        "field": "source_text",
+        "operator": "regex",
+        "value": "(?P<count>\\d+)N(?P<diameter>\\d+)[x×](?P<length>\\d+)"
+      }
+    ]
+  },
+  "then": [
+    {
+      "action": "extract_named_groups"
+    }
+  ],
+  "requires_manual_approval": false,
+  "notes": "Схема за бъдещия rule executor. В v0.1.0 правилата се управляват и версионират, но не се изпълняват автоматично."
+}

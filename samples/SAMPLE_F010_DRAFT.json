@@ -1,0 +1,29 @@
+{
+  "schema": "lion-rebar-shape-draft/v1",
+  "package_status": "ЧЕРНОВА_ЗА_ПРОВЕРКА",
+  "forms": [
+    {
+      "proposedCode": "F010",
+      "name": "ПРИМЕРНА НОВА ФОРМА",
+      "initialDirection": "RIGHT",
+      "separateOverlap": true,
+      "notes": "Само пример. Не публикувай без реален еталон и тест.",
+      "segments": [
+        {
+          "length": 100,
+          "angle": 90,
+          "turn": "RIGHT",
+          "dimensionPosition": "AUTO",
+          "dimensionOffset": 6
+        },
+        {
+          "length": 50,
+          "angle": null,
+          "turn": null,
+          "dimensionPosition": "AUTO",
+          "dimensionOffset": 6
+        }
+      ]
+    }
+  ]
+}

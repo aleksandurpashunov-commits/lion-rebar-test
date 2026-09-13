@@ -1,0 +1,102 @@
+{
+  "schema": "lion-rebar-recovery6-real-dxf-smoke/v1",
+  "application_version": "0.1.44.15-recovery.6",
+  "engine_version": "0.3.13",
+  "matcher_sha256": "05210e71ba6dc68c4d98665194cece4a11b3ce15ea684680e070e1f9ac2f024b",
+  "layer_filter_rule": "Only NOISE with confidence >= 0.95 is excluded; UNKNOWN remains included.",
+  "results": [
+    {
+      "file": "original.dxf",
+      "entities_imported": 5068,
+      "entities_filtered": 4954,
+      "hidden_layers": [
+        "Defpoints",
+        "solid"
+      ],
+      "layer_summary": {
+        "layer_count": 26,
+        "relevant_layer_count": 24,
+        "noise_layer_count": 2,
+        "unknown_layer_count": 12,
+        "auto_hidden_layer_count": 2,
+        "role_counts": {
+          "DIMENSIONS": 3,
+          "FRAME": 1,
+          "LEGEND": 1,
+          "NOISE": 2,
+          "REBAR_GEOMETRY": 2,
+          "REBAR_TEXT": 4,
+          "STIRRUPS": 1,
+          "UNKNOWN": 12
+        }
+      },
+      "processed_annotations": 315,
+      "actionable": 150,
+      "dispositions": {
+        "CONTROL": 148,
+        "MANUAL": 2
+      },
+      "statuses": {
+        "СИЛЕН ПО ГЕОМЕТРИЯ": 116,
+        "СИЛНО СТРЕМЕ F006": 32,
+        "ЗА РЪЧЕН ПРЕГЛЕД": 2
+      },
+      "F005": 0,
+      "F006": 32,
+      "geometry_strong": 116,
+      "f006_strong": 32,
+      "review_count": 2,
+      "ownership_conflicts": 0,
+      "master_ambiguity": 0,
+      "errors": 0,
+      "candidate_count": 150
+    },
+    {
+      "file": "Греди тест - 003.dxf",
+      "entities_imported": 5301,
+      "entities_filtered": 5187,
+      "hidden_layers": [
+        "Defpoints",
+        "solid"
+      ],
+      "layer_summary": {
+        "layer_count": 27,
+        "relevant_layer_count": 25,
+        "noise_layer_count": 2,
+        "unknown_layer_count": 13,
+        "auto_hidden_layer_count": 2,
+        "role_counts": {
+          "DIMENSIONS": 3,
+          "FRAME": 1,
+          "LEGEND": 1,
+          "NOISE": 2,
+          "REBAR_GEOMETRY": 2,
+          "REBAR_TEXT": 4,
+          "STIRRUPS": 1,
+          "UNKNOWN": 13
+        }
+      },
+      "processed_annotations": 348,
+      "actionable": 166,
+      "dispositions": {
+        "CONTROL": 155,
+        "MANUAL": 11
+      },
+      "statuses": {
+        "СИЛЕН ПО ГЕОМЕТРИЯ": 123,
+        "СИЛНО СТРЕМЕ F006": 32,
+        "ЗА РЪЧЕН ПРЕГЛЕД": 11
+      },
+      "F005": 9,
+      "F006": 32,
+      "geometry_strong": 123,
+      "f006_strong": 32,
+      "review_count": 11,
+      "ownership_conflicts": 2,
+      "master_ambiguity": 0,
+      "errors": 0,
+      "candidate_count": 166
+    }
+  ],
+  "verdict": "PASS_UNCHANGED_FROM_RECOVERY5_3_BASELINE"
+}

@@ -1,0 +1,720 @@
+{
+  "schema": "lion-rebar/recovery5.3-local-detail-evidence@1",
+  "application_version": "0.1.44.14-recovery.5.3",
+  "generated_at": "2026-08-12T16:02:17.866940+00:00",
+  "identity": {
+    "engine_version": "0.3.13",
+    "engine_file_sha256": "4a0e3efe5445bcbf7dd818a64a442e28abf5d4bdabbcaecebbc2c8a617a41f93",
+    "matcher_sha256": "05210e71ba6dc68c4d98665194cece4a11b3ce15ea684680e070e1f9ac2f024b",
+    "shape_recognition_changed": false,
+    "matcher_evidence_changed": false,
+    "global_tolerances_changed": false
+  },
+  "problem_fixture": {
+    "source_filename": "Греди тест - 003.dxf",
+    "source_sha256": "1f4804deb9271cb9ac2125b128fbc5bccc23c55473e784b2581da8238ab194cc",
+    "baseline_report_sha256": "f38667649479ec32cafb96f0cac17c8006497c54b2e4c71b7afc8937532b13e9",
+    "recovery5_3_report_sha256": "927065f6a449419f0b9ebf3062f887cafbb9d362f7ee1d45eda5f605c0a2ef8f",
+    "baseline": {
+      "processed_annotations": 348,
+      "actionable_positions": 166,
+      "control": 140,
+      "manual": 26,
+      "unknown": 0,
+      "geometry_strong": 116,
+      "f006_strong": 24,
+      "review": 26,
+      "ownership_conflicts": 17,
+      "master_ambiguities": 0,
+      "errors": 0,
+      "f006_production_exact": 24
+    },
+    "recovery5_3": {
+      "processed_annotations": 348,
+      "actionable_positions": 166,
+      "control": 155,
+      "manual": 11,
+      "unknown": 0,
+      "geometry_strong": 123,
+      "f006_strong": 32,
+      "review": 11,
+      "ownership_conflicts": 2,
+      "master_ambiguities": 0,
+      "errors": 0,
+      "f006_production_exact": 32
+    },
+    "auto_export_gate": {
+      "actionable_positions": 166,
+      "included_positions": 155,
+      "blocked_positions": 11,
+      "rounded_f006_positions_exportable": true
+    },
+    "manual_to_control_count": 15,
+    "manual_to_control": [
+      {
+        "annotation_handle": "4EBD::BJ-FI-L",
+        "annotation_text": "32N10x150",
+        "before_shape": "F003",
+        "after_shape": "F006",
+        "before_candidate_handles": [
+          "4EE5",
+          "4EE6",
+          "4EE7"
+        ],
+        "after_candidate_handles": [
+          "4EB1",
+          "4EB2",
+          "4EB3",
+          "4EB4",
+          "4EB5",
+          "4EB6",
+          "4EB7",
+          "4EB8",
+          "4EB9",
+          "4EC4"
+        ],
+        "after_segments_cm": [
+          10.0,
+          34.0,
+          30.0,
+          34.0,
+          30.0,
+          10.0
+        ],
+        "local_label": "%%Uстр.:"
+      },
+      {
+        "annotation_handle": "4EEA::BJ-FI-L",
+        "annotation_text": "32N8x94",
+        "before_shape": "F005",
+        "after_shape": "F005",
+        "before_candidate_handles": [
+          "4EE5",
+          "4EE6",
+          "4EE7"
+        ],
+        "after_candidate_handles": [
+          "4EE5",
+          "4EE6",
+          "4EE7"
+        ],
+        "after_segments_cm": [
+          40.0,
+          14.0,
+          40.0
+        ],
+        "local_label": "%%Uфиби.:"
+      },
+      {
+        "annotation_handle": "4F74::BJ-FI-L",
+        "annotation_text": "32N10x150",
+        "before_shape": "F003",
+        "after_shape": "F006",
+        "before_candidate_handles": [
+          "4F9C",
+          "4F9D",
+          "4F9E"
+        ],
+        "after_candidate_handles": [
+          "4F68",
+          "4F69",
+          "4F6A",
+          "4F6B",
+          "4F6C",
+          "4F6D",
+          "4F6E",
+          "4F6F",
+          "4F70",
+          "4F7B"
+        ],
+        "after_segments_cm": [
+          10.0,
+          34.0,
+          30.0,
+          34.0,
+          30.0,
+          10.0
+        ],
+        "local_label": "%%Uстр.:"
+      },
+      {
+        "annotation_handle": "4FA1::BJ-FI-L",
+        "annotation_text": "32N8x94",
+        "before_shape": "F005",
+        "after_shape": "F005",
+        "before_candidate_handles": [
+          "4F9C",
+          "4F9D",
+          "4F9E"
+        ],
+        "after_candidate_handles": [
+          "4F9C",
+          "4F9D",
+          "4F9E"
+        ],
+        "after_segments_cm": [
+          40.0,
+          14.0,
+          40.0
+        ],
+        "local_label": "%%Uфиби.:"
+      },
+      {
+        "annotation_handle": "502B::BJ-FI-L",
+        "annotation_text": "32N10x150",
+        "before_shape": "F003",
+        "after_shape": "F006",
+        "before_candidate_handles": [
+          "5053",
+          "5054",
+          "5055"
+        ],
+        "after_candidate_handles": [
+          "501F",
+          "5020",
+          "5021",
+          "5022",
+          "5023",
+          "5024",
+          "5025",
+          "5026",
+          "5027",
+          "5032"
+        ],
+        "after_segments_cm": [
+          10.0,
+          34.0,
+          30.0,
+          34.0,
+          30.0,
+          10.0
+        ],
+        "local_label": "%%Uстр.:"
+      },
+      {
+        "annotation_handle": "5058::BJ-FI-L",
+        "annotation_text": "32N8x94",
+        "before_shape": "F005",
+        "after_shape": "F005",
+        "before_candidate_handles": [
+          "5053",
+          "5054",
+          "5055"
+        ],
+        "after_candidate_handles": [
+          "5053",
+          "5054",
+          "5055"
+        ],
+        "after_segments_cm": [
+          40.0,
+          14.0,
+          40.0
+        ],
+        "local_label": "%%Uфиби.:"
+      },
+      {
+        "annotation_handle": "50E2::BJ-FI-L",
+        "annotation_text": "32N10x150",
+        "before_shape": "F003",
+        "after_shape": "F006",
+        "before_candidate_handles": [
+          "510A",
+          "510B",
+          "510C"
+        ],
+        "after_candidate_handles": [
+          "50D6",
+          "50D7",
+          "50D8",
+          "50D9",
+          "50DA",
+          "50DB",
+          "50DC",
+          "50DD",
+          "50DE",
+          "50E9"
+        ],
+        "after_segments_cm": [
+          10.0,
+          34.0,
+          30.0,
+          34.0,
+          30.0,
+          10.0
+        ],
+        "local_label": "%%Uстр.:"
+      },
+      {
+        "annotation_handle": "510F::BJ-FI-L",
+        "annotation_text": "32N8x94",
+        "before_shape": "F005",
+        "after_shape": "F005",
+        "before_candidate_handles": [
+          "510A",
+          "510B",
+          "510C"
+        ],
+        "after_candidate_handles": [
+          "510A",
+          "510B",
+          "510C"
+        ],
+        "after_segments_cm": [
+          40.0,
+          14.0,
+          40.0
+        ],
+        "local_label": "%%Uфиби.:"
+      },
+      {
+        "annotation_handle": "5144::BJ-FI-L",
+        "annotation_text": "60N8x150",
+        "before_shape": "F003",
+        "after_shape": "F006",
+        "before_candidate_handles": [
+          "516C",
+          "516D",
+          "516E"
+        ],
+        "after_candidate_handles": [
+          "5138",
+          "5139",
+          "513A",
+          "513B",
+          "513C",
+          "513D",
+          "513E",
+          "513F",
+          "5140",
+          "514B"
+        ],
+        "after_segments_cm": [
+          10.0,
+          34.0,
+          30.0,
+          34.0,
+          30.0,
+          10.0
+        ],
+        "local_label": "%%Uстр.:"
+      },
+      {
+        "annotation_handle": "51F5::BJ-FI-L",
+        "annotation_text": "29N10x150",
+        "before_shape": "F003",
+        "after_shape": "F006",
+        "before_candidate_handles": [
+          "521D",
+          "521E",
+          "521F"
+        ],
+        "after_candidate_handles": [
+          "51E9",
+          "51EA",
+          "51EB",
+          "51EC",
+          "51ED",
+          "51EE",
+          "51EF",
+          "51F0",
+          "51F1",
+          "51FC"
+        ],
+        "after_segments_cm": [
+          10.0,
+          34.0,
+          30.0,
+          34.0,
+          30.0,
+          10.0
+        ],
+        "local_label": "%%Uстр.:"
+      },
+      {
+        "annotation_handle": "5222::BJ-FI-L",
+        "annotation_text": "29N8x94",
+        "before_shape": "F005",
+        "after_shape": "F005",
+        "before_candidate_handles": [
+          "521D",
+          "521E",
+          "521F"
+        ],
+        "after_candidate_handles": [
+          "521D",
+          "521E",
+          "521F"
+        ],
+        "after_segments_cm": [
+          40.0,
+          14.0,
+          40.0
+        ],
+        "local_label": "%%Uфиби.:"
+      },
+      {
+        "annotation_handle": "52A9::BJ-FI-L",
+        "annotation_text": "29N10x150",
+        "before_shape": "F003",
+        "after_shape": "F006",
+        "before_candidate_handles": [
+          "52D0",
+          "52D1",
+          "52D2"
+        ],
+        "after_candidate_handles": [
+          "529D",
+          "529E",
+          "529F",
+          "52A0",
+          "52A1",
+          "52A2",
+          "52A3",
+          "52A4",
+          "52A5",
+          "52AF"
+        ],
+        "after_segments_cm": [
+          10.0,
+          34.0,
+          30.0,
+          34.0,
+          30.0,
+          10.0
+        ],
+        "local_label": "%%Uстр.:"
+      },
+      {
+        "annotation_handle": "52D5::BJ-FI-L",
+        "annotation_text": "29N8x94",
+        "before_shape": "F005",
+        "after_shape": "F005",
+        "before_candidate_handles": [
+          "52D0",
+          "52D1",
+          "52D2"
+        ],
+        "after_candidate_handles": [
+          "52D0",
+          "52D1",
+          "52D2"
+        ],
+        "after_segments_cm": [
+          40.0,
+          14.0,
+          40.0
+        ],
+        "local_label": "%%Uфиби.:"
+      },
+      {
+        "annotation_handle": "535C::BJ-FI-L",
+        "annotation_text": "29N10x150",
+        "before_shape": "F003",
+        "after_shape": "F006",
+        "before_candidate_handles": [
+          "5383",
+          "5384",
+          "5385"
+        ],
+        "after_candidate_handles": [
+          "5350",
+          "5351",
+          "5352",
+          "5353",
+          "5354",
+          "5355",
+          "5356",
+          "5357",
+          "5358",
+          "5362"
+        ],
+        "after_segments_cm": [
+          10.0,
+          34.0,
+          30.0,
+          34.0,
+          30.0,
+          10.0
+        ],
+        "local_label": "%%Uстр.:"
+      },
+      {
+        "annotation_handle": "5388::BJ-FI-L",
+        "annotation_text": "29N8x94",
+        "before_shape": "F005",
+        "after_shape": "F005",
+        "before_candidate_handles": [
+          "5383",
+          "5384",
+          "5385"
+        ],
+        "after_candidate_handles": [
+          "5383",
+          "5384",
+          "5385"
+        ],
+        "after_segments_cm": [
+          40.0,
+          14.0,
+          40.0
+        ],
+        "local_label": "%%Uфиби.:"
+      }
+    ],
+    "remaining_manual": [
+      {
+        "annotation_handle": "3FE2::BJ-FI-L",
+        "annotation_text": "2N10x270",
+        "shape": "F001",
+        "segments_cm": [],
+        "ownership_conflict": false,
+        "blocker_codes": [],
+        "review_reason_codes": [],
+        "numeric_difference_cm": 5.358784852054214,
+        "candidate_handles": [
+          "3F84"
+        ]
+      },
+      {
+        "annotation_handle": "4BA5::BJ-FI-L",
+        "annotation_text": "2N12x270",
+        "shape": "F001",
+        "segments_cm": [],
+        "ownership_conflict": false,
+        "blocker_codes": [],
+        "review_reason_codes": [],
+        "numeric_difference_cm": 6.883299767853714,
+        "candidate_handles": [
+          "4BA2"
+        ]
+      },
+      {
+        "annotation_handle": "4E78::BJ-FI-L",
+        "annotation_text": "2N12x700",
+        "shape": "F003",
+        "segments_cm": [
+          20.0,
+          660.0,
+          20.0
+        ],
+        "ownership_conflict": false,
+        "blocker_codes": [
+          "WEAK_CANDIDATE_SEPARATION"
+        ],
+        "review_reason_codes": [],
+        "numeric_difference_cm": 0.0,
+        "candidate_handles": [
+          "4E70",
+          "4E95",
+          "4E99"
+        ]
+      },
+      {
+        "annotation_handle": "4F2F::BJ-FI-L",
+        "annotation_text": "2N12x700",
+        "shape": "F003",
+        "segments_cm": [
+          20.0,
+          660.0,
+          20.0
+        ],
+        "ownership_conflict": false,
+        "blocker_codes": [
+          "WEAK_CANDIDATE_SEPARATION"
+        ],
+        "review_reason_codes": [],
+        "numeric_difference_cm": 0.0,
+        "candidate_handles": [
+          "4F27",
+          "4F4C",
+          "4F50"
+        ]
+      },
+      {
+        "annotation_handle": "4FE6::BJ-FI-L",
+        "annotation_text": "2N12x700",
+        "shape": "F003",
+        "segments_cm": [
+          20.0,
+          660.0,
+          20.0
+        ],
+        "ownership_conflict": false,
+        "blocker_codes": [
+          "WEAK_CANDIDATE_SEPARATION"
+        ],
+        "review_reason_codes": [],
+        "numeric_difference_cm": 0.0,
+        "candidate_handles": [
+          "4FDE",
+          "5003",
+          "5007"
+        ]
+      },
+      {
+        "annotation_handle": "509D::BJ-FI-L",
+        "annotation_text": "2N12x700",
+        "shape": "F003",
+        "segments_cm": [
+          20.0,
+          660.0,
+          20.0
+        ],
+        "ownership_conflict": false,
+        "blocker_codes": [
+          "WEAK_CANDIDATE_SEPARATION"
+        ],
+        "review_reason_codes": [],
+        "numeric_difference_cm": 0.0,
+        "candidate_handles": [
+          "5095",
+          "50BA",
+          "50BE"
+        ]
+      },
+      {
+        "annotation_handle": "5171::BJ-FI-L",
+        "annotation_text": "60N8x94",
+        "shape": "F005",
+        "segments_cm": [
+          40.0,
+          14.0,
+          40.0
+        ],
+        "ownership_conflict": true,
+        "blocker_codes": [
+          "GEOMETRY_OWNERSHIP_CONFLICT"
+        ],
+        "review_reason_codes": [],
+        "numeric_difference_cm": 0.0,
+        "candidate_handles": [
+          "516C",
+          "516D",
+          "516E"
+        ]
+      },
+      {
+        "annotation_handle": "517A::BJ-FI-L",
+        "annotation_text": "60N8x130",
+        "shape": "F005",
+        "segments_cm": [],
+        "ownership_conflict": true,
+        "blocker_codes": [
+          "GEOMETRY_OWNERSHIP_CONFLICT",
+          "SCHEMATIC_SCALE",
+          "WEAK_CANDIDATE_SEPARATION"
+        ],
+        "review_reason_codes": [
+          "SCHEMATIC_SCALE"
+        ],
+        "numeric_difference_cm": 0.0,
+        "candidate_handles": [
+          "516C",
+          "516D",
+          "516E"
+        ]
+      },
+      {
+        "annotation_handle": "51B4::BJ-FI-L",
+        "annotation_text": "2N12x640",
+        "shape": "F003",
+        "segments_cm": [
+          20.0,
+          600.0,
+          20.0
+        ],
+        "ownership_conflict": false,
+        "blocker_codes": [
+          "WEAK_CANDIDATE_SEPARATION"
+        ],
+        "review_reason_codes": [],
+        "numeric_difference_cm": 0.0,
+        "candidate_handles": [
+          "51AC",
+          "51CE",
+          "51D2"
+        ]
+      },
+      {
+        "annotation_handle": "5268::BJ-FI-L",
+        "annotation_text": "2N12x640",
+        "shape": "F003",
+        "segments_cm": [
+          20.0,
+          600.0,
+          20.0
+        ],
+        "ownership_conflict": false,
+        "blocker_codes": [
+          "WEAK_CANDIDATE_SEPARATION"
+        ],
+        "review_reason_codes": [],
+        "numeric_difference_cm": 0.0,
+        "candidate_handles": [
+          "5260",
+          "5282",
+          "5286"
+        ]
+      },
+      {
+        "annotation_handle": "531B::BJ-FI-L",
+        "annotation_text": "2N12x640",
+        "shape": "F003",
+        "segments_cm": [
+          20.0,
+          600.0,
+          20.0
+        ],
+        "ownership_conflict": false,
+        "blocker_codes": [
+          "WEAK_CANDIDATE_SEPARATION"
+        ],
+        "review_reason_codes": [],
+        "numeric_difference_cm": 0.0,
+        "candidate_handles": [
+          "5313",
+          "5335",
+          "5339"
+        ]
+      }
+    ]
+  },
+  "previous_fixture_regression": {
+    "source_filename": "original.dxf",
+    "source_sha256": "66da0575ef0d4055f7fcd1e36519e7e0ca9a0de9a6ac47ad1df5f6ac645723ee",
+    "recovery5_3_report_sha256": "c5f541498af348a80683ef29dcb957754a03752e5f784fc2170c9a0db062c9bd",
+    "result": {
+      "processed_annotations": 315,
+      "actionable_positions": 150,
+      "control": 148,
+      "manual": 2,
+      "unknown": 0,
+      "geometry_strong": 116,
+      "f006_strong": 32,
+      "review": 2,
+      "ownership_conflicts": 0,
+      "master_ambiguities": 0,
+      "errors": 0,
+      "f006_production_exact": 32
+    },
+    "expected_control": 148,
+    "expected_manual": 2,
+    "regression_detected": false
+  },
+  "tests": {
+    "passed": 339,
+    "skipped": 12,
+    "environment_blocked": 1,
+    "environment_blocked_test": "tests/test_recovery_auto_approval.py::test_batch_worker_no_longer_generates_the_auto_draft_excel",
+    "environment_blocked_reason": "PySide6 is not installed in the Linux audit environment.",
+    "local_detail_tests": 4,
+    "targeted_export_and_f006_tests_passed": 50,
+    "targeted_export_and_f006_tests_skipped": 1
+  },
+  "release_gate": {
+    "linux_code_and_real_dxf_audit": "PASS",
+    "windows_packaged_exe_smoke": "REQUIRED",
+    "release_ready": false
+  }
+}

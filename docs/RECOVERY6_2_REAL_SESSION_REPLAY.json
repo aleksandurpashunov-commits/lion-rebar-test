@@ -1,0 +1,28 @@
+{
+  "schema": "lion-rebar-recovery6.2-real-session-replay/v1",
+  "source_learning_pack_sha256": "c546c0c8d6d20fb88d55831700385d4a1eb98d0e49c8fdb6a4bbd8053ef77e1f",
+  "source_session_id": "S-20260813-153211-6989e478",
+  "purpose": "Replay the exact Recovery 6.1 user session through the Recovery 6.2 Review Summary classifier.",
+  "results": {
+    "R6_SESSION_TEST_A": {
+      "actionable": 166,
+      "approved_or_resolved": 165,
+      "safe_confirmation_pending": 0,
+      "engineering_decisions_pending": 1,
+      "ready_for_final_confirmation": false,
+      "complete": false
+    },
+    "R6_SESSION_TEST_A-1": {
+      "actionable": 315,
+      "approved_or_resolved": 38,
+      "safe_confirmation_pending": 271,
+      "engineering_decisions_pending": 6,
+      "ready_for_final_confirmation": false,
+      "complete": false
+    }
+  },
+  "interpretation": {
+    "R6_SESSION_TEST_A-1": "The original blocked scenario is split into 271 safe positions for one explicit final confirmation and only 6 true engineering cases.",
+    "safety": "Recorded diagnostic problems are not swept into the safe confirmation set."
+  }
+}

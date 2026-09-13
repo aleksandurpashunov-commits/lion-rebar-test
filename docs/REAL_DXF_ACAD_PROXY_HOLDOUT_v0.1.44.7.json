@@ -1,0 +1,110 @@
+{
+  "schema": "lion-rebar/real-dxf-acad-proxy-holdout@1",
+  "release": {
+    "app_version": "0.1.44.7",
+    "engine_version": "0.3.12",
+    "engine_changed": false,
+    "shape_recognition_changed": false,
+    "shape_recognition_sha256": "fe46be28af71d50a490298809ef8e8688abe371ce4563ae17d9c140e6ae5fe69"
+  },
+  "sources": {
+    "new_designer_dxf": {
+      "filename": "71_83_GA_tipov.dxf",
+      "sha256": "afa7216812f16d373e21b183ebb561af9f62789d19a11076d48d9b5aa9990ce3"
+    },
+    "visual_reference_pdf": {
+      "filename": "71_83_GA_tipov.pdf",
+      "sha256": "017059615bbbc75515733371eb9cf0409ff07b204a25e7ffe01853b9af6c162b"
+    },
+    "legacy_holdout_dxf": {
+      "filename": "Test v.0.1.43.1(1).dxf"
+    }
+  },
+  "proxy_import": {
+    "source_proxy_entities": 298,
+    "text_fragments": 1136,
+    "polylines": 1316,
+    "arcs": 260,
+    "parsed_annotations": 130,
+    "resolved_annotations": 130,
+    "unresolved_annotations": 0,
+    "derived_geometry_records": 198,
+    "scale_factor": 1.0,
+    "scale_evidence": {
+      "0.01": 0,
+      "0.1": 0,
+      "1": 130,
+      "10": 0,
+      "100": 0
+    },
+    "header_units_code": 4,
+    "header_units_name": "mm",
+    "header_units_used_as_scale": false,
+    "missing_position_keys": [128],
+    "automatic_missing_position_creation": false
+  },
+  "new_designer_batch": {
+    "total_annotations_including_native_context": 136,
+    "actionable_positions": 132,
+    "proxy_parent_provenance": 130,
+    "proxy_geometry_strong": 130,
+    "proxy_manual_review": 0,
+    "proxy_risk": 0,
+    "proxy_no_candidate": 0,
+    "proxy_master_ambiguities": 0,
+    "proxy_ownership_conflicts": 0,
+    "native_context_or_incomplete": 4,
+    "native_risk_rows_outside_proxy_adapter": 2,
+    "proxy_master_counts": {
+      "F001": 63,
+      "F003": 1,
+      "F004": 66
+    }
+  },
+  "association_audit": {
+    "one_off_diagnostic_associations_compared": 130,
+    "same_parent_geometry": 117,
+    "changed_to_nearer_exact_predecessor": 13,
+    "new_geometry_was_closer_in_all_changed_cases": true,
+    "minimum_distance_improvement_raw": 97.624,
+    "maximum_distance_improvement_raw": 2009.273,
+    "master_family_changed": false
+  },
+  "legacy_holdout_regression": {
+    "actionable_positions": 627,
+    "strong_total": 609,
+    "strong_with_layer_diameter": 297,
+    "geometry_strong": 208,
+    "f006_strong": 104,
+    "manual_review": 11,
+    "risk": 5,
+    "no_candidate": 2,
+    "errors": 0,
+    "master_ambiguities": 0,
+    "ownership_conflicts": 0,
+    "report_rows": 802,
+    "changed_rows_vs_v0.1.44.6": 0,
+    "proxy_parent_provenance": 0
+  },
+  "tests": {
+    "base_v0.1.44.6_current_environment": {
+      "passed": 235,
+      "skipped": 7
+    },
+    "v0.1.44.7_current_environment": {
+      "passed": 240,
+      "skipped": 7
+    },
+    "new_proxy_tests": 5,
+    "engine_control_tests": {
+      "passed": 20,
+      "total": 20
+    },
+    "transformation_fixture": {
+      "passed": 210,
+      "total": 210,
+      "failures": 0,
+      "omissions": 0
+    }
+  }
+}

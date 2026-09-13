@@ -1,0 +1,71 @@
+{
+  "error_count": 0,
+  "errors": [],
+  "pack_count": 2,
+  "packs": [
+    {
+      "accepted_complete": 0,
+      "activated_rule_count": 0,
+      "application_version": "0.1.44.16-recovery.6.1",
+      "candidate_count": 6,
+      "conflict": 0,
+      "duplicate": 0,
+      "incomplete": 51,
+      "metrics": {
+        "activated_rule_count": 0,
+        "auto_decision_count": 0,
+        "bulk_confirmation_count": 0,
+        "conflict_instance_count": 0,
+        "current_labeled_instance_count": 51,
+        "duplicate_event_row_count": 0,
+        "event_row_count": 51,
+        "incomplete_instance_count": 51,
+        "independent_drawing_family_count": 2,
+        "independent_observation_count": 51,
+        "individual_confirmation_count": 45,
+        "synthetic_variant_count": 0,
+        "unique_event_count": 51
+      },
+      "pack_schema": "lion-rebar-learning-pack/v1",
+      "path": "C:\\Users\\Александър\\AppData\\Local\\LionBuild\\LionRebarDesktop\\session_core\\learning_packs\\LION_REBAR_LEARNING_20260813181533_S-20260813-153211-6989e478.zip",
+      "status": "AUDITED_NOT_IMPORTED_NOT_ACTIVATED"
+    },
+    {
+      "accepted_complete": 74,
+      "activated_rule_count": 0,
+      "application_version": "0.1.44.20-rc38",
+      "candidate_count": 31,
+      "conflict": 12,
+      "duplicate": 10,
+      "incomplete": 20,
+      "metrics": {
+        "activated_rule_count": 0,
+        "auto_decision_count": 0,
+        "bulk_confirmation_count": 4,
+        "conflict_instance_count": 12,
+        "current_labeled_instance_count": 94,
+        "duplicate_event_row_count": 10,
+        "event_row_count": 330,
+        "incomplete_instance_count": 20,
+        "independent_drawing_family_count": 7,
+        "independent_observation_count": 80,
+        "individual_confirmation_count": 40,
+        "synthetic_variant_count": 0,
+        "unique_event_count": 320
+      },
+      "pack_schema": "lion-rebar-learning-pack/v1",
+      "path": "C:\\Users\\Александър\\AppData\\Local\\LionBuild\\LionRebarDesktop\\session_core\\learning_packs\\LION_REBAR_LEARNING_20260905171214_S-20260814-112823-ff8e8df8.zip",
+      "status": "AUDITED_NOT_IMPORTED_NOT_ACTIVATED"
+    }
+  ],
+  "policy": "READ_ONLY_AUDIT_NO_RULE_ACTIVATION",
+  "schema": "lion-rebar-learning-migration-report/v1",
+  "totals": {
+    "accepted_complete": 74,
+    "activated_rule_count": 0,
+    "candidate_count": 37,
+    "conflict": 12,
+    "duplicate": 10,
+    "incomplete": 71
+  }
+}

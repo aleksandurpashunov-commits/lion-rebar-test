@@ -1,0 +1,82 @@
+{
+  "schema": "lion-rebar/recovery-6.3.1-acceptance-contract/v1",
+  "app_version": "0.1.44.19-recovery.6.3.1",
+  "release_status": "SOURCE_RELEASE_CANDIDATE",
+  "baseline_package": {
+    "filename": "LION_REBAR_v0_1_44_17-recovery_6_2_ENGINEER_DECISION_SYSTEM.zip",
+    "sha256": "31c146c391b510094e5d4baaf3a02e2959cdec294f462b0a21c531cefe161216"
+  },
+  "protected_recognition_pair": {
+    "matcher_sha256": "05210e71ba6dc68c4d98665194cece4a11b3ce15ea684680e070e1f9ac2f024b",
+    "engine_version": "0.3.13",
+    "engine_sha256": "4a0e3efe5445bcbf7dd818a64a442e28abf5d4bdabbcaecebbc2c8a617a41f93"
+  },
+  "locked_holdout": {
+    "accepted_filenames": [
+      "Test_v_0_1_43_1.dxf",
+      "Test v.0.1.43.1(1).dxf"
+    ],
+    "available_in_source_package": false,
+    "expected": {
+      "actionable_positions": 627,
+      "strong_total": 605,
+      "strong_rate_percent": 96.49,
+      "f006_strong": 100,
+      "f006_manual_review": 15,
+      "errors": 0,
+      "ambiguous": 0,
+      "silent_wrong": 0
+    },
+    "production_requirements": {
+      "f006_production_review_exported": 0,
+      "no_synthetic_symmetric_hooks": true,
+      "recognition_and_production_confidence_reported_separately": true
+    }
+  },
+  "windows_acceptance": {
+    "required": true,
+    "steps": [
+      "INSTALL_LION_REBAR.bat",
+      "BUILD_EXE.bat",
+      "dist smoke PASS",
+      "dynamic MASTER list includes forms after F008",
+      "NON_PRODUCTION_POSITION unblocks Final Control with evidence",
+      "problem beam stirrup size matches the original DXF",
+      "Excel and DXF contain the same production positions",
+      "a second different DXF inherits no rows or decisions from the first"
+    ]
+  },
+  "local_verification": {
+    "environment": "Linux source release package; PySide6 and Windows dist unavailable",
+    "full_pytest": {
+      "passed": 410,
+      "skipped": 12,
+      "failed": 0,
+      "errors": 0
+    },
+    "targeted_f006": {
+      "passed": 28,
+      "skipped": 0,
+      "failed": 0
+    },
+    "skipped_reasons": {
+      "pyside6_qt_tests": 5,
+      "windows_dist_smoke_tests": 5,
+      "missing_historical_engine_holdout_fixtures": 2
+    },
+    "targeted_data_integrity_export": {
+      "passed": 54,
+      "skipped": 1,
+      "failed": 0
+    },
+    "synthetic_f006_67_replay": {
+      "rows": 67,
+      "strong_f006": 67,
+      "typed_asymmetric_signals": 67,
+      "generic_downgrades": 0,
+      "status": "PASS",
+      "limitation": "Synthetic regression-mechanism replay; not the locked real DXF holdout"
+    }
+  },
+  "release_rule": "Do not mark READY/ACCEPTED unless every locked holdout and Windows requirement passes."
+}

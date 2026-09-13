@@ -1,0 +1,115 @@
+{
+  "scale": 1.25,
+  "engine_version": "0.3.14",
+  "shapes": {
+    "F005": {
+      "screenshot": "scale-125_F005_engineer-dialog.png",
+      "saved": true,
+      "segment_field_count": 3,
+      "expanded_segment_count": 3,
+      "dimension_label_count": 3,
+      "label_intersections": 0,
+      "save_enabled": true,
+      "note_required": false,
+      "fake_50_visible": false
+    },
+    "F006": {
+      "screenshot": "scale-125_F006_engineer-dialog.png",
+      "saved": true,
+      "segment_field_count": 3,
+      "expanded_segment_count": 6,
+      "dimension_label_count": 3,
+      "label_intersections": 0,
+      "save_enabled": true,
+      "note_required": false,
+      "fake_50_visible": false
+    },
+    "F007": {
+      "screenshot": "scale-125_F007_engineer-dialog.png",
+      "saved": true,
+      "segment_field_count": 2,
+      "expanded_segment_count": 3,
+      "dimension_label_count": 2,
+      "label_intersections": 0,
+      "save_enabled": true,
+      "note_required": false,
+      "fake_50_visible": false
+    }
+  },
+  "main_1366x768": {
+    "screenshot": "scale-125_1366x768_review-dock.png",
+    "saved": true,
+    "window_size": [
+      1366,
+      768
+    ],
+    "dock_width": 500,
+    "drawing_width": 590,
+    "embedded": true,
+    "diagnostics_collapsed": true,
+    "expert_actions_collapsed": true,
+    "control_status_collapsed": true,
+    "daily_button_heights": [
+      32,
+      32,
+      32,
+      32,
+      32,
+      32
+    ],
+    "daily_buttons_visible": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "daily_button_texts": [
+      "Изисква инженерно решение",
+      "Инженерно решение",
+      "Избери друга геометрия",
+      "Остави за после",
+      "Покажи надписа и избери",
+      "Откажи избора (Esc)"
+    ]
+  },
+  "main_1920x1080": {
+    "screenshot": "scale-125_1920x1080_review-dock.png",
+    "saved": true,
+    "window_size": [
+      1920,
+      1080
+    ],
+    "dock_width": 500,
+    "drawing_width": 1144,
+    "embedded": true,
+    "diagnostics_collapsed": true,
+    "expert_actions_collapsed": true,
+    "control_status_collapsed": true,
+    "daily_button_heights": [
+      32,
+      32,
+      32,
+      32,
+      32,
+      32
+    ],
+    "daily_buttons_visible": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "daily_button_texts": [
+      "Изисква инженерно решение",
+      "Инженерно решение",
+      "Избери друга геометрия",
+      "Остави за после",
+      "Покажи надписа и избери",
+      "Откажи избора (Esc)"
+    ]
+  }
+}

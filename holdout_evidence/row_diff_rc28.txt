@@ -1,0 +1,7 @@
+comparison: rc23 -> rc28
+rc23 rows: 802
+rc28 rows: 802
+CHANGED ROWS: 0
+
+clarification: rows_rc28.json differs from rows_baseline_6_3_1.json in 111 rows.
+The zero-diff claim applies only to the immediately preceding rc23 result.

@@ -1,0 +1,323 @@
+{
+  "acceptance_report": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\rc38_r4_acceptance_report.json",
+  "baseline": {
+    "active_links": 583,
+    "affected_manual_handles": [
+      "12221::BJ-FI-L"
+    ],
+    "approval_origins": {
+      "AUTO": 570,
+      "MANUAL": 13
+    },
+    "beam_vector_assertions": 96,
+    "f003_f005_links": 69,
+    "review_decisions": 16,
+    "review_decisions_sha256": "f783d51f547e2d7aece82f6c2373802e21475812a00c4e04755ec67f23da5324"
+  },
+  "copy": {
+    "completed": true,
+    "target": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1"
+  },
+  "finished_at": "2026-09-05T15:18:04+03:00",
+  "ignored_volatile_policy": [
+    "*.dwl",
+    "*.dwl2"
+  ],
+  "original_guard": {
+    "delta": {
+      "added": [],
+      "changed": [],
+      "removed": []
+    },
+    "files_hashed_after": 24,
+    "files_hashed_before": 24,
+    "ignored_volatile_after": [
+      "R-4_СПЕЦИФИКАЦИЯ_ПОЗИЦИИ.dwl",
+      "R-4_СПЕЦИФИКАЦИЯ_ПОЗИЦИИ.dwl2"
+    ],
+    "ignored_volatile_before": [
+      "R-4_СПЕЦИФИКАЦИЯ_ПОЗИЦИИ.dwl",
+      "R-4_СПЕЦИФИКАЦИЯ_ПОЗИЦИИ.dwl2"
+    ],
+    "source_original_dxf_sha256": "955ef8ec95d9422a3edf4f708442967d4eab597b15f164d2380f108f296fa5d5",
+    "unchanged": true
+  },
+  "pipeline": {
+    "active_links": 583,
+    "approval_origins": {
+      "AUTO": 570,
+      "MANUAL": 13
+    },
+    "auto_gate": {
+      "actionable_count": 586,
+      "approved_links_path": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\working\\approved_geometry_links.json",
+      "blocked_count": 3,
+      "blocked_handles": [
+        "EC0D::BJ-FI-L",
+        "11C51::BJ-FI-L",
+        "1222A::BJ-FI-L"
+      ],
+      "blocked_reason_counts": {
+        "BATCH_STATUS": 3,
+        "MATCHER_REVIEW": 3,
+        "MISSING_ACTIVE_MASTER": 2,
+        "MISSING_GEOMETRY": 2
+      },
+      "error": "",
+      "gate_passed_count": 583,
+      "kept_manual_count": 13,
+      "newly_approved_count": 570,
+      "revoked_stale_count": 0
+    },
+    "batch": {
+      "actionable_count": 586,
+      "approved_count": 10,
+      "cancelled": false,
+      "candidate_count": 582,
+      "conflict_count": 0,
+      "context_count": 182,
+      "csv_path": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\04_REVIEW_REPORTS\\R-4_BATCH_REVIEW_20260905_151411\\R-4_geometry_batch.csv",
+      "dimension_candidate_tiebreak_count": 12,
+      "dimension_evidence_applied_count": 125,
+      "dimension_master_resolved_count": 0,
+      "error_count": 0,
+      "f001_extended_exact_length_count": 2,
+      "f006_asymmetric_hook_count": 64,
+      "f006_form_strong_count": 92,
+      "f006_printed_dimensions_mismatch_count": 0,
+      "f006_printed_dimensions_missing_count": 64,
+      "f006_production_derived_count": 64,
+      "f006_production_exact_count": 32,
+      "f006_production_review_count": 0,
+      "f006_strong_count": 92,
+      "f007_extended_association_count": 16,
+      "geometry_strong_count": 182,
+      "html_path": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\04_REVIEW_REPORTS\\R-4_BATCH_REVIEW_20260905_151411\\R-4_geometry_batch.html",
+      "json_path": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\04_REVIEW_REPORTS\\R-4_BATCH_REVIEW_20260905_151411\\R-4_geometry_batch.json",
+      "master_ambiguity_count": 0,
+      "named_u_subtype_context_resolved_count": 7,
+      "no_candidate_count": 4,
+      "ownership_conflict_count": 0,
+      "ownership_reassigned_count": 1,
+      "ownership_recovery_verified_count": 0,
+      "ownership_tiebreak_resolved_count": 0,
+      "position_key_legend_resolved_count": 20,
+      "position_key_manual_override_count": 10,
+      "processed_annotations": 768,
+      "proxy_parent_provenance_count": 0,
+      "report_dir": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\04_REVIEW_REPORTS\\R-4_BATCH_REVIEW_20260905_151411",
+      "review_count": 14,
+      "review_group_count": 309,
+      "risk_count": 1,
+      "stirrup_length_group_resolved_count": 13,
+      "strong_count": 283,
+      "total_annotations": 768,
+      "zip_path": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\04_REVIEW_REPORTS\\R-4_BATCH_REVIEW_20260905_151411.zip"
+    },
+    "data_identity": {
+      "analysis_run_id": "d18e74f7-7f9a-4f00-94cf-3f92af301c16",
+      "project_id": "7d39bc32-b98a-4289-87a2-f87903010b6f",
+      "schema": "lion-rebar-data-identity/v1",
+      "source_generation_id": "9d7edbfc-ae01-48ee-9525-3cee6127272d",
+      "source_sha256": "955ef8ec95d9422a3edf4f708442967d4eab597b15f164d2380f108f296fa5d5"
+    },
+    "exact_positions": {
+      "CD20::BJ-FI-L": {
+        "geometry_handles": [
+          "CD1A",
+          "CD1B",
+          "CD1C"
+        ],
+        "quantity_diameter_length": [
+          350,
+          "10",
+          "140"
+        ],
+        "segments_cm": [
+          61.0,
+          18.0,
+          61.0
+        ],
+        "shape_code": "F005"
+      },
+      "DB78::BJ-FI-L": {
+        "geometry_handles": [
+          "DB72",
+          "DB73",
+          "DB74"
+        ],
+        "quantity_diameter_length": [
+          1354,
+          "10",
+          "160"
+        ],
+        "segments_cm": [
+          90.0,
+          20.0,
+          50.0
+        ],
+        "shape_code": "F005"
+      }
+    },
+    "export": {
+      "files": {
+        "dxf": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\R-4_rc38_ACCEPTANCE_ПОЗИЦИИ.dxf",
+        "dxf_trace": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\R-4_rc38_ACCEPTANCE_ПОЗИЦИИ_TRACEABILITY.json",
+        "excel": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\R-4_rc38_ACCEPTANCE.xlsx",
+        "excel_trace": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\R-4_rc38_ACCEPTANCE_TRACEABILITY.json",
+        "manifest": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\FINAL_EXPORT_MANIFEST.json"
+      },
+      "frame_count": 7,
+      "grouped_row_count": 315,
+      "marker_count": 583,
+      "safe_position_count": 583,
+      "status": "PRODUCTION VERIFIED",
+      "total_group_count": 158,
+      "unique_position_count": 158
+    },
+    "final_control": {
+      "accounted_positions": 586,
+      "actionable_positions": 586,
+      "applied": true,
+      "approved_after": 583,
+      "approved_before": 583,
+      "backup_directory": null,
+      "beam_assignments_frozen": 583,
+      "data_identity": {
+        "analysis_run_id": "d18e74f7-7f9a-4f00-94cf-3f92af301c16",
+        "project_id": "7d39bc32-b98a-4289-87a2-f87903010b6f",
+        "schema": "lion-rebar-data-identity/v1",
+        "source_generation_id": "9d7edbfc-ae01-48ee-9525-3cee6127272d",
+        "source_sha256": "955ef8ec95d9422a3edf4f708442967d4eab597b15f164d2380f108f296fa5d5"
+      },
+      "duplicate_groups_found": 0,
+      "duplicate_groups_remaining": 0,
+      "duplicate_links_removed": 0,
+      "duplicate_links_repaired": 0,
+      "engineer_resolved_without_geometry_count": 3,
+      "engineering_decisions_pending": 0,
+      "explicit_exclusions": 0,
+      "export_preflight_error": "",
+      "freeze_manifest_path": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\working\\final_control_freeze.json",
+      "freeze_required": true,
+      "full_specification_complete": true,
+      "generated_at": "2026-09-05T15:16:57+03:00",
+      "identity_failures": 0,
+      "integrity_passed": true,
+      "intrinsic_missing_master": 0,
+      "issues": [
+        {
+          "annotation_handles": [],
+          "code": "ENGINEER_RESOLVED_WITHOUT_GEOMETRY",
+          "details": {
+            "count": 3
+          },
+          "geometry_handles": [],
+          "message": "Production positions without DXF geometry are present and are supported only by an explicit owner engineer decision.",
+          "repaired": false,
+          "severity": "WARNING"
+        }
+      ],
+      "ledger_path": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\working\\final_integrity_ledger.csv",
+      "non_production_positions": 3,
+      "project_name": "R-4",
+      "report_path": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\working\\final_control_sources\\batch_report.json",
+      "safe_confirmation_pending": 0,
+      "stale_approvals_revoked": 0,
+      "unresolved_positions": 0,
+      "vertical_assignments_frozen": 126,
+      "vertical_sections_frozen": 12
+    },
+    "freeze": {
+      "path": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\working\\final_control_freeze.json",
+      "reason": "RECORDED",
+      "roles": [
+        "APPROVED_LINKS",
+        "BATCH_REPORT",
+        "ENGINE_SNAPSHOT",
+        "EXPORT_CONFIG",
+        "EXTRACTED_ENTITIES",
+        "FINAL_INTEGRITY_REPORT",
+        "FINAL_LEDGER",
+        "REVIEW_CENTER_STATE",
+        "SOURCE_DXF"
+      ],
+      "status": "VALID"
+    },
+    "import": {
+      "analysis_entities": 21885,
+      "declared_layers": 69,
+      "entities": 22221
+    },
+    "ledger": {
+      "active_ledger_rows": 583,
+      "beam_count": 32,
+      "beam_rows": 165,
+      "exact_beam_vectors": 96,
+      "known_duplicate_pairs_preserved": 4,
+      "ledger_rows": 586
+    },
+    "manifest": {
+      "build": {
+        "app_version": "0.1.44.20-rc38",
+        "engine_content_sha256": "97b8a282ac8b18b01264a987f4bb35e8fe72d632e76dc6fed61a15eeddcdf48d",
+        "engine_id": "lion-rebar-master",
+        "engine_sha256": "87233943e535fc736e4fc3678035efe2faa53c65b4de16f1c3e368433274f1bf",
+        "engine_version": "0.3.14",
+        "matcher_sha256": "05210e71ba6dc68c4d98665194cece4a11b3ce15ea684680e070e1f9ac2f024b"
+      },
+      "completeness": {
+        "complete": true,
+        "ledger_excel_equation": "586 - 3 = 583",
+        "ledger_matches_excel": true,
+        "missing_artifacts": []
+      },
+      "counts": {
+        "engineer_resolved_without_geometry": 6,
+        "excel_rows": 583,
+        "final_ledger_rows": 586,
+        "non_production_positions": 3,
+        "unresolved_frames": 0
+      },
+      "path": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1\\output\\FINAL_EXPORT_MANIFEST.json",
+      "sha256": "d5ea09966dedd9107c278c69d57167e8aad0fea63eed5b68de513b4e340f83bf"
+    },
+    "migration_returned_to_review": 69,
+    "owner_links_revalidated": [
+      "12221::BJ-FI-L"
+    ],
+    "quantity_diameter_length_invariant": {
+      "changed": 0,
+      "checked": 583
+    },
+    "traces": {
+      "dxf_markers": 583,
+      "dxf_unique_position_numbers": 158,
+      "excel_beam_rows": 165,
+      "excel_global_positions": 158,
+      "excel_safe_positions": 583,
+      "excel_vertical_source_rows": 85
+    }
+  },
+  "release": {
+    "app_version": "0.1.44.20-rc38",
+    "engine_bundle": "I:\\Моят диск\\Lion-Rebar\\LION_REBAR_v0_1_44_20-rc38_WINDOWS\\release\\engine_updates\\lion-rebar-master_v0.3.14_F005_INDEPENDENT_ARMS_PRODUCTION_DRAFT.lionengine",
+    "engine_bundle_manifest": {
+      "assets": [],
+      "bundle_schema": "lion-rebar-engine-bundle/v1",
+      "engine_file": "engine.json",
+      "engine_id": "lion-rebar-master",
+      "engine_sha256": "97b8a282ac8b18b01264a987f4bb35e8fe72d632e76dc6fed61a15eeddcdf48d",
+      "engine_version": "0.3.14"
+    },
+    "engine_content_sha256": "97b8a282ac8b18b01264a987f4bb35e8fe72d632e76dc6fed61a15eeddcdf48d",
+    "engine_id": "lion-rebar-master",
+    "engine_version": "0.3.14",
+    "release_root": "I:\\Моят диск\\Lion-Rebar\\LION_REBAR_v0_1_44_20-rc38_WINDOWS\\release"
+  },
+  "schema": "lion-rebar-rc38-r4-acceptance/v1",
+  "source": "C:\\LION_TEST_A\\R-4",
+  "started_at": "2026-09-05T15:13:44+03:00",
+  "status": "PASS",
+  "target": "I:\\Моят диск\\Lion-Rebar\\verification_projects\\R-4_rc38_acceptance_run1"
+}

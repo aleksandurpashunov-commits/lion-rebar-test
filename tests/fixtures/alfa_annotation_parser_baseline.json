@@ -1,0 +1,4774 @@
+{
+  "schema": "lion-rebar-parser-baseline/v1",
+  "source": "Alfa_Test_Project batch report 2026-07-25T17:05:05+03:00",
+  "rows": [
+    {
+      "handle": "8D20::BJ-FI-L",
+      "text": "90N12x750",
+      "count": 90,
+      "diameter_mm": 12.0,
+      "length_cm": 750.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D26::BJ-FI-L",
+      "text": "50N12x1200",
+      "count": 50,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D2C::BJ-FI-L",
+      "text": "40N12x850",
+      "count": 40,
+      "diameter_mm": 12.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D32::BJ-FI-L",
+      "text": "50N12x1200",
+      "count": 50,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D38::BJ-FI-L",
+      "text": "10N12x1100",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 1100.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D3E::BJ-FI-L",
+      "text": "8N12x1200",
+      "count": 8,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D44::BJ-FI-L",
+      "text": "7N12x1200",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D4A::BJ-FI-L",
+      "text": "9N12x850",
+      "count": 9,
+      "diameter_mm": 12.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D50::BJ-FI-L",
+      "text": "50N12x1200",
+      "count": 50,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D56::BJ-FI-L",
+      "text": "10N12x1100",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 1100.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D5C::BJ-FI-L",
+      "text": "8N12x1200",
+      "count": 8,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D62::BJ-FI-L",
+      "text": "6N12x1200",
+      "count": 6,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D68::BJ-FI-L",
+      "text": "9N12x850",
+      "count": 9,
+      "diameter_mm": 12.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D6E::BJ-FI-L",
+      "text": "50N12x1200",
+      "count": 50,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D74::BJ-FI-L",
+      "text": "56N12x850",
+      "count": 56,
+      "diameter_mm": 12.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D7A::BJ-FI-L",
+      "text": "34N12x800",
+      "count": 34,
+      "diameter_mm": 12.0,
+      "length_cm": 800.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D80::BJ-FI-L",
+      "text": "46N12x1000",
+      "count": 46,
+      "diameter_mm": 12.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D86::BJ-FI-L",
+      "text": "49N12x1100",
+      "count": 49,
+      "diameter_mm": 12.0,
+      "length_cm": 1100.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D8C::BJ-FI-L",
+      "text": "39N12x950",
+      "count": 39,
+      "diameter_mm": 12.0,
+      "length_cm": 950.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D92::BJ-FI-L",
+      "text": "15N12x995",
+      "count": 15,
+      "diameter_mm": 12.0,
+      "length_cm": 995.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D98::BJ-FI-L",
+      "text": "39N12x1100",
+      "count": 39,
+      "diameter_mm": 12.0,
+      "length_cm": 1100.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8D9E::BJ-FI-L",
+      "text": "9N10x330",
+      "count": 9,
+      "diameter_mm": 10.0,
+      "length_cm": 330.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DA8::BJ-FI-L",
+      "text": "8N10x180",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 180.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DAE::BJ-FI-L",
+      "text": "32N10x1200",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DB4::BJ-FI-L",
+      "text": "39N12x1200",
+      "count": 39,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DBA::BJ-FI-L",
+      "text": "15N12x995",
+      "count": 15,
+      "diameter_mm": 12.0,
+      "length_cm": 995.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DC0::BJ-FI-L",
+      "text": "98N12x1200",
+      "count": 98,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DC6::BJ-FI-L",
+      "text": "15N12x995",
+      "count": 15,
+      "diameter_mm": 12.0,
+      "length_cm": 995.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DCC::BJ-FI-L",
+      "text": "72N12x1200",
+      "count": 72,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DD2::BJ-FI-L",
+      "text": "8N12x1200",
+      "count": 8,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DD8::BJ-FI-L",
+      "text": "14N12x925",
+      "count": 14,
+      "diameter_mm": 12.0,
+      "length_cm": 925.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DDE::BJ-FI-L",
+      "text": "7N12x1100",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 1100.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DE4::BJ-FI-L",
+      "text": "10N12x975",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 975.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DEA::BJ-FI-L",
+      "text": "50N12x1200",
+      "count": 50,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DF0::BJ-FI-L",
+      "text": "39N10x1000",
+      "count": 39,
+      "diameter_mm": 10.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DF6::BJ-FI-L",
+      "text": "32N10x800",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 800.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8DFC::BJ-FI-L",
+      "text": "39N10x1000",
+      "count": 39,
+      "diameter_mm": 10.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8E02::BJ-FI-L",
+      "text": "7N10x950",
+      "count": 7,
+      "diameter_mm": 10.0,
+      "length_cm": 950.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8E08::BJ-FI-L",
+      "text": "50N12x950",
+      "count": 50,
+      "diameter_mm": 12.0,
+      "length_cm": 950.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8E0E::BJ-FI-L",
+      "text": "90N12x1200",
+      "count": 90,
+      "diameter_mm": 12.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8E14::BJ-FI-L",
+      "text": "33N10x525",
+      "count": 33,
+      "diameter_mm": 10.0,
+      "length_cm": 525.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8E3D::BJ-FI-L",
+      "text": "32N10x950",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 950.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8E43::BJ-FI-L",
+      "text": "32N10x1100",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 1100.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8EEC::BJ-FI-L",
+      "text": "74N10x750",
+      "count": 74,
+      "diameter_mm": 10.0,
+      "length_cm": 750.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8EF2::BJ-FI-L",
+      "text": "42N10x1200",
+      "count": 42,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8EF8::BJ-FI-L",
+      "text": "33N10x850",
+      "count": 33,
+      "diameter_mm": 10.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8EFE::BJ-FI-L",
+      "text": "7N10x790",
+      "count": 7,
+      "diameter_mm": 10.0,
+      "length_cm": 790.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F04::BJ-FI-L",
+      "text": "42N10x1200",
+      "count": 42,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F0A::BJ-FI-L",
+      "text": "10N10x1100",
+      "count": 10,
+      "diameter_mm": 10.0,
+      "length_cm": 1100.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F10::BJ-FI-L",
+      "text": "8N10x1200",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F16::BJ-FI-L",
+      "text": "9N10x850",
+      "count": 9,
+      "diameter_mm": 10.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F1C::BJ-FI-L",
+      "text": "42N10x1200",
+      "count": 42,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F22::BJ-FI-L",
+      "text": "10N10x1100",
+      "count": 10,
+      "diameter_mm": 10.0,
+      "length_cm": 1100.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F28::BJ-FI-L",
+      "text": "8N10x1200",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F2E::BJ-FI-L",
+      "text": "7N10x850",
+      "count": 7,
+      "diameter_mm": 10.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F34::BJ-FI-L",
+      "text": "42N10x1200",
+      "count": 42,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F3A::BJ-FI-L",
+      "text": "33N10x850",
+      "count": 33,
+      "diameter_mm": 10.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F40::BJ-FI-L",
+      "text": "7N10x790",
+      "count": 7,
+      "diameter_mm": 10.0,
+      "length_cm": 790.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F46::BJ-FI-L",
+      "text": "48N10x850",
+      "count": 48,
+      "diameter_mm": 10.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F4C::BJ-FI-L",
+      "text": "26N10x800",
+      "count": 26,
+      "diameter_mm": 10.0,
+      "length_cm": 800.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F52::BJ-FI-L",
+      "text": "46N10x1000",
+      "count": 46,
+      "diameter_mm": 10.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F58::BJ-FI-L",
+      "text": "29N10x960",
+      "count": 29,
+      "diameter_mm": 10.0,
+      "length_cm": 960.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F5E::BJ-FI-L",
+      "text": "39N10x950",
+      "count": 39,
+      "diameter_mm": 10.0,
+      "length_cm": 950.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F64::BJ-FI-L",
+      "text": "15N10x995",
+      "count": 15,
+      "diameter_mm": 10.0,
+      "length_cm": 995.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F6A::BJ-FI-L",
+      "text": "39N10x1100",
+      "count": 39,
+      "diameter_mm": 10.0,
+      "length_cm": 1100.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F70::BJ-FI-L",
+      "text": "9N10x215",
+      "count": 9,
+      "diameter_mm": 10.0,
+      "length_cm": 215.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F7A::BJ-FI-L",
+      "text": "8N10x180",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 180.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F80::BJ-FI-L",
+      "text": "32N10x1060",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 1060.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F86::BJ-FI-L",
+      "text": "39N10x1200",
+      "count": 39,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F8C::BJ-FI-L",
+      "text": "15N10x995",
+      "count": 15,
+      "diameter_mm": 10.0,
+      "length_cm": 995.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F92::BJ-FI-L",
+      "text": "20N10x1200",
+      "count": 20,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F98::BJ-FI-L",
+      "text": "15N10x995",
+      "count": 15,
+      "diameter_mm": 10.0,
+      "length_cm": 995.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8F9E::BJ-FI-L",
+      "text": "39N10x1200",
+      "count": 39,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8FA4::BJ-FI-L",
+      "text": "8N10x1200",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8FAA::BJ-FI-L",
+      "text": "14N10x925",
+      "count": 14,
+      "diameter_mm": 10.0,
+      "length_cm": 925.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8FB0::BJ-FI-L",
+      "text": "7N10x1100",
+      "count": 7,
+      "diameter_mm": 10.0,
+      "length_cm": 1100.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8FB6::BJ-FI-L",
+      "text": "10N10x975",
+      "count": 10,
+      "diameter_mm": 10.0,
+      "length_cm": 975.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8FBC::BJ-FI-L",
+      "text": "42N10x1200",
+      "count": 42,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8FC2::BJ-FI-L",
+      "text": "39N10x1000",
+      "count": 39,
+      "diameter_mm": 10.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8FC8::BJ-FI-L",
+      "text": "39N10x1000",
+      "count": 39,
+      "diameter_mm": 10.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8FCE::BJ-FI-L",
+      "text": "7N10x950",
+      "count": 7,
+      "diameter_mm": 10.0,
+      "length_cm": 950.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8FD4::BJ-FI-L",
+      "text": "50N10x950",
+      "count": 50,
+      "diameter_mm": 10.0,
+      "length_cm": 950.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8FDA::BJ-FI-L",
+      "text": "74N10x1200",
+      "count": 74,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "8FE0::BJ-FI-L",
+      "text": "33N10x525",
+      "count": 33,
+      "diameter_mm": 10.0,
+      "length_cm": 525.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9005::BJ-FI-L",
+      "text": "32N10x810",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 810.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "900B::BJ-FI-L",
+      "text": "32N10x960",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 960.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9024::BJ-FI-L",
+      "text": "32N10x350",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "902B::BJ-FI-L",
+      "text": "33N10x800",
+      "count": 33,
+      "diameter_mm": 10.0,
+      "length_cm": 800.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9037::BJ-FI-L",
+      "text": "32N10x665",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 665.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9044::BJ-FI-L",
+      "text": "32N10x350",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "904C::BJ-FI-L",
+      "text": "33N10x865",
+      "count": 33,
+      "diameter_mm": 10.0,
+      "length_cm": 865.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9058::BJ-FI-L",
+      "text": "33N10x350",
+      "count": 33,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9068::BJ-FI-L",
+      "text": "8N10x800",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 800.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9071::BJ-FI-L",
+      "text": "8N10x850",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "907B::BJ-FI-L",
+      "text": "20N10x1100",
+      "count": 20,
+      "diameter_mm": 10.0,
+      "length_cm": 1100.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9088::BJ-FI-L",
+      "text": "8N10x6335",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 6335.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9095::BJ-FI-L",
+      "text": "8N10x750",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 750.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "909D::BJ-FI-L",
+      "text": "8N10x800",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 800.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "90A6::BJ-FI-L",
+      "text": "8N10x1200",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "90B4::BJ-FI-L",
+      "text": "32N10x350",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "90C0::BJ-FI-L",
+      "text": "29N10x350",
+      "count": 29,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "90CA::BJ-FI-L",
+      "text": "32N10x350",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "90DD::BJ-FI-L",
+      "text": "32N10x350",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "90EA::BJ-FI-L",
+      "text": "8N10x575",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 575.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "90F7::BJ-FI-L",
+      "text": "8N10x800",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 800.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9112::BJ-FI-L",
+      "text": "59N10x1060",
+      "count": 59,
+      "diameter_mm": 10.0,
+      "length_cm": 1060.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "911B::BJ-FI-L",
+      "text": "20N10x1200",
+      "count": 20,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9127::BJ-FI-L",
+      "text": "8N10x515",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 515.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "912E::BJ-FI-L",
+      "text": "8N10x515",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 515.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9137::BJ-FI-L",
+      "text": "59N10x350",
+      "count": 59,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "913F::BJ-FI-L",
+      "text": "8N10x1000",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "914C::BJ-FI-L",
+      "text": "8N10x1140",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 1140.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9159::BJ-FI-L",
+      "text": "33N10x1060",
+      "count": 33,
+      "diameter_mm": 10.0,
+      "length_cm": 1060.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9167::BJ-FI-L",
+      "text": "33N10x350",
+      "count": 33,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "916D::BJ-FI-L",
+      "text": "8N10x900",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 900.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9173::BJ-FI-L",
+      "text": "8N10x900",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 900.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9189::BJ-FI-L",
+      "text": "33N10x350",
+      "count": 33,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "919A::BJ-FI-L",
+      "text": "8N10x850",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "91AC::BJ-FI-L",
+      "text": "29N10x350",
+      "count": 29,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "91BE::BJ-FI-L",
+      "text": "8N10x775",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 775.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "91D0::BJ-FI-L",
+      "text": "32N10x350",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "91E2::BJ-FI-L",
+      "text": "8N10x835",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 835.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "91F4::BJ-FI-L",
+      "text": "32N10x350",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9206::BJ-FI-L",
+      "text": "59N10x350",
+      "count": 59,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9218::BJ-FI-L",
+      "text": "33N10x350",
+      "count": 33,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9234::BJ-FI-L",
+      "text": "8N10x835",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 835.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9245::BJ-FI-L",
+      "text": "8N10x835",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 835.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9256::BJ-FI-L",
+      "text": "8N10x895",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 895.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "925D::BJ-FI-L",
+      "text": "8N10x895",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 895.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "926E::BJ-FI-L",
+      "text": "8N10x1020",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 1020.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9299::BJ-FI-L",
+      "text": "32N10x350",
+      "count": 32,
+      "diameter_mm": 10.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "92A1::BJ-FI-L",
+      "text": "8N10x835",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 835.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "97C1::BJ-FI-L",
+      "text": "79N12x450",
+      "count": 79,
+      "diameter_mm": 12.0,
+      "length_cm": 450.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "97CC::BJ-FI-L",
+      "text": "80N10x450",
+      "count": 80,
+      "diameter_mm": 10.0,
+      "length_cm": 450.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "97D8::BJ-FI-L",
+      "text": "56N12x450",
+      "count": 56,
+      "diameter_mm": 12.0,
+      "length_cm": 450.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "97E4::BJ-FI-L",
+      "text": "10N10x400",
+      "count": 10,
+      "diameter_mm": 10.0,
+      "length_cm": 400.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "97F9::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9803::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "980D::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9819::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9823::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9834::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9845::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9856::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9867::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9878::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9889::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "989A::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "98AB::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "98BC::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "98CD::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "98DE::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "98EF::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9900::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9911::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9922::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9932::BJ-FI-L",
+      "text": "7N12x200",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "993F::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9949::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9957::BJ-FI-L",
+      "text": "7N12x200",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "996D::BJ-FI-L",
+      "text": "15N12x200",
+      "count": 15,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9977::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9983::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9994::BJ-FI-L",
+      "text": "17N12x200",
+      "count": 17,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "99AC::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "99BD::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "99CF::BJ-FI-L",
+      "text": "6N12x200",
+      "count": 6,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "99D9::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "99E7::BJ-FI-L",
+      "text": "7N12x200",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "99F4::BJ-FI-L",
+      "text": "6N12x800",
+      "count": 6,
+      "diameter_mm": 12.0,
+      "length_cm": 800.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A01::BJ-FI-L",
+      "text": "6N12x700",
+      "count": 6,
+      "diameter_mm": 12.0,
+      "length_cm": 700.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A0E::BJ-FI-L",
+      "text": "6N12x700",
+      "count": 6,
+      "diameter_mm": 12.0,
+      "length_cm": 700.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A20::BJ-FI-L",
+      "text": "7N12x200",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A29::BJ-FI-L",
+      "text": "3N12x300",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A3A::BJ-FI-L",
+      "text": "7N12x200",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A41::BJ-FI-L",
+      "text": "3N12x300",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A4B::BJ-FI-L",
+      "text": "3N12x300",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A54::BJ-FI-L",
+      "text": "14N10x450",
+      "count": 14,
+      "diameter_mm": 10.0,
+      "length_cm": 450.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A64::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A6E::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A78::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A82::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A8E::BJ-FI-L",
+      "text": "81N12x450",
+      "count": 81,
+      "diameter_mm": 12.0,
+      "length_cm": 450.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9A99::BJ-FI-L",
+      "text": "7N10x450",
+      "count": 7,
+      "diameter_mm": 10.0,
+      "length_cm": 450.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9AA4::BJ-FI-L",
+      "text": "16N10x450",
+      "count": 16,
+      "diameter_mm": 10.0,
+      "length_cm": 450.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9AB6::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9AC7::BJ-FI-L",
+      "text": "10N12x200",
+      "count": 10,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9AD6::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9AE0::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9AEB::BJ-FI-L",
+      "text": "7N12x200",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9AF6::BJ-FI-L",
+      "text": "3N12x200",
+      "count": 3,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9AFF::BJ-FI-L",
+      "text": "56N10x450",
+      "count": 56,
+      "diameter_mm": 10.0,
+      "length_cm": 450.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9B0D::BJ-FI-L",
+      "text": "67N12x550",
+      "count": 67,
+      "diameter_mm": 12.0,
+      "length_cm": 550.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9B3C",
+      "text": "N10x141",
+      "count": null,
+      "diameter_mm": 10.0,
+      "length_cm": 141.0,
+      "annotation_class": "MISSING_COUNT"
+    },
+    {
+      "handle": "9B55",
+      "text": "4x2N12x(Lo+2x100)",
+      "count": 8,
+      "diameter_mm": 12.0,
+      "length_cm": null,
+      "annotation_class": "UNRESOLVED_LENGTH"
+    },
+    {
+      "handle": "9B86::BJ-FI-L",
+      "text": "400N12x300",
+      "count": 400,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9BA9::BJ-FI-L",
+      "text": "400N10x140",
+      "count": 400,
+      "diameter_mm": 10.0,
+      "length_cm": 140.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E07::BJ-FI-L",
+      "text": "1990N10x199",
+      "count": 1990,
+      "diameter_mm": 10.0,
+      "length_cm": 199.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E1B::BJ-FI-L",
+      "text": "4362N10x97",
+      "count": 4362,
+      "diameter_mm": 10.0,
+      "length_cm": 97.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E2B::BJ-FI-L",
+      "text": "40N12x850",
+      "count": 40,
+      "diameter_mm": 12.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E34::BJ-FI-L",
+      "text": "7N12x1050",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 1050.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E3B::BJ-FI-L",
+      "text": "7N12x1050",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 1050.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E46::BJ-FI-L",
+      "text": "11N10x850",
+      "count": 11,
+      "diameter_mm": 10.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E53::BJ-FI-L",
+      "text": "11N10x850",
+      "count": 11,
+      "diameter_mm": 10.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E5C::BJ-FI-L",
+      "text": "76N10x1000",
+      "count": 76,
+      "diameter_mm": 10.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E66::BJ-FI-L",
+      "text": "76N10x1000",
+      "count": 76,
+      "diameter_mm": 10.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E77::BJ-FI-L",
+      "text": "8N10x1200",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E7D::BJ-FI-L",
+      "text": "8N10x1200",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 1200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E83::BJ-FI-L",
+      "text": "11N10x850",
+      "count": 11,
+      "diameter_mm": 10.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E94::BJ-FI-L",
+      "text": "7N10x1050",
+      "count": 7,
+      "diameter_mm": 10.0,
+      "length_cm": 1050.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9E9C::BJ-FI-L",
+      "text": "7N10x1050",
+      "count": 7,
+      "diameter_mm": 10.0,
+      "length_cm": 1050.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "9EA6::BJ-FI-L",
+      "text": "10N10x850",
+      "count": 10,
+      "diameter_mm": 10.0,
+      "length_cm": 850.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BE25::BJ-FI-L",
+      "text": "3038N10x47",
+      "count": 3038,
+      "diameter_mm": 10.0,
+      "length_cm": 47.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BE2F::BJ-FI-L",
+      "text": "35N12x240",
+      "count": 35,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BE3C::BJ-FI-L",
+      "text": "53N12x240",
+      "count": 53,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BE42::BJ-FI-L",
+      "text": "12N12x1050",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 1050.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BE53::BJ-FI-L",
+      "text": "38N12x240",
+      "count": 38,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BE59::BJ-FI-L",
+      "text": "12N12x750",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 750.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BE69::BJ-FI-L",
+      "text": "24N12x240",
+      "count": 24,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BE78::BJ-FI-L",
+      "text": "18N12x240",
+      "count": 18,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BE7E::BJ-FI-L",
+      "text": "12N12x350",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BE8F::BJ-FI-L",
+      "text": "18N12x240",
+      "count": 18,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BE95::BJ-FI-L",
+      "text": "12N12x350",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BEA6::BJ-FI-L",
+      "text": "18N12x240",
+      "count": 18,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BEAC::BJ-FI-L",
+      "text": "12N12x350",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BEBD::BJ-FI-L",
+      "text": "18N14x240",
+      "count": 18,
+      "diameter_mm": 14.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BEC3::BJ-FI-L",
+      "text": "12N14x350",
+      "count": 12,
+      "diameter_mm": 14.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BED4::BJ-FI-L",
+      "text": "23N12x240",
+      "count": 23,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BEDA::BJ-FI-L",
+      "text": "12N12x450",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 450.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BEE9::BJ-FI-L",
+      "text": "74N14x240",
+      "count": 74,
+      "diameter_mm": 14.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BEF4::BJ-FI-L",
+      "text": "40N12x240",
+      "count": 40,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF00::BJ-FI-L",
+      "text": "18N14x240",
+      "count": 18,
+      "diameter_mm": 14.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF06::BJ-FI-L",
+      "text": "12N14x350",
+      "count": 12,
+      "diameter_mm": 14.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF17::BJ-FI-L",
+      "text": "25N12x240",
+      "count": 25,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF1D::BJ-FI-L",
+      "text": "12N12x500",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 500.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF2D::BJ-FI-L",
+      "text": "12N12x240",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF33::BJ-FI-L",
+      "text": "12N12x240",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF40::BJ-FI-L",
+      "text": "13N12x300",
+      "count": 13,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF4A::BJ-FI-L",
+      "text": "49N12x300",
+      "count": 49,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF53::BJ-FI-L",
+      "text": "19N12x300",
+      "count": 19,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF5E::BJ-FI-L",
+      "text": "9N12x400",
+      "count": 9,
+      "diameter_mm": 12.0,
+      "length_cm": 400.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF76::BJ-FI-L",
+      "text": "7N12x200",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF7D::BJ-FI-L",
+      "text": "7N12x200",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF8E::BJ-FI-L",
+      "text": "9N16x200",
+      "count": 9,
+      "diameter_mm": 16.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF95::BJ-FI-L",
+      "text": "7N16x200",
+      "count": 7,
+      "diameter_mm": 16.0,
+      "length_cm": 200.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BF9C::BJ-FI-L",
+      "text": "39N12x240",
+      "count": 39,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BFA9::BJ-FI-L",
+      "text": "24N12x350",
+      "count": 24,
+      "diameter_mm": 12.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BFB1::BJ-FI-L",
+      "text": "39N12x240",
+      "count": 39,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BFC0::BJ-FI-L",
+      "text": "24N12x350",
+      "count": 24,
+      "diameter_mm": 12.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BFC8::BJ-FI-L",
+      "text": "12N12x475",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 475.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BFD2::BJ-FI-L",
+      "text": "24N12x240",
+      "count": 24,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BFDE::BJ-FI-L",
+      "text": "12N12x475",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 475.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BFE8::BJ-FI-L",
+      "text": "24N12x240",
+      "count": 24,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BFF4::BJ-FI-L",
+      "text": "12N12x475",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 475.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "BFFE::BJ-FI-L",
+      "text": "16N14x240",
+      "count": 16,
+      "diameter_mm": 14.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C00A::BJ-FI-L",
+      "text": "7N14x315",
+      "count": 7,
+      "diameter_mm": 14.0,
+      "length_cm": 315.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C013::BJ-FI-L",
+      "text": "5N14x475",
+      "count": 5,
+      "diameter_mm": 14.0,
+      "length_cm": 475.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C01F::BJ-FI-L",
+      "text": "24N12x240",
+      "count": 24,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C02B::BJ-FI-L",
+      "text": "12N12x475",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 475.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C035::BJ-FI-L",
+      "text": "24N16x240",
+      "count": 24,
+      "diameter_mm": 16.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C041::BJ-FI-L",
+      "text": "12N16x475",
+      "count": 12,
+      "diameter_mm": 16.0,
+      "length_cm": 475.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C04B::BJ-FI-L",
+      "text": "16N12x240",
+      "count": 16,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C057::BJ-FI-L",
+      "text": "7N12x475",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 475.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C060::BJ-FI-L",
+      "text": "5N12x315",
+      "count": 5,
+      "diameter_mm": 12.0,
+      "length_cm": 315.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C070::BJ-FI-L",
+      "text": "37N12x240",
+      "count": 37,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C07D::BJ-FI-L",
+      "text": "25N12x240",
+      "count": 25,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C083::BJ-FI-L",
+      "text": "12N12x500",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 500.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C093::BJ-FI-L",
+      "text": "25N12x240",
+      "count": 25,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C099::BJ-FI-L",
+      "text": "12N12x500",
+      "count": 12,
+      "diameter_mm": 12.0,
+      "length_cm": 500.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C0A9::BJ-FI-L",
+      "text": "16N12x240",
+      "count": 16,
+      "diameter_mm": 12.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C0AF::BJ-FI-L",
+      "text": "5N12x340",
+      "count": 5,
+      "diameter_mm": 12.0,
+      "length_cm": 340.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C0BD::BJ-FI-L",
+      "text": "7N12x500",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 500.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C0C8::BJ-FI-L",
+      "text": "74N14x300",
+      "count": 74,
+      "diameter_mm": 14.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C0D2::BJ-FI-L",
+      "text": "7N12x300",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C0DD::BJ-FI-L",
+      "text": "31N12x300",
+      "count": 31,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C0E7::BJ-FI-L",
+      "text": "11N12x300",
+      "count": 11,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C0F1::BJ-FI-L",
+      "text": "39N14x240",
+      "count": 39,
+      "diameter_mm": 14.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C0FB::BJ-FI-L",
+      "text": "13N14x350",
+      "count": 13,
+      "diameter_mm": 14.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C106::BJ-FI-L",
+      "text": "13N14x350",
+      "count": 13,
+      "diameter_mm": 14.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C10F::BJ-FI-L",
+      "text": "14N12x450",
+      "count": 14,
+      "diameter_mm": 12.0,
+      "length_cm": 450.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C119::BJ-FI-L",
+      "text": "7N12x350",
+      "count": 7,
+      "diameter_mm": 12.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C132::BJ-FI-L",
+      "text": "48N12x300",
+      "count": 48,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C163",
+      "text": "стр. 32N8/s=20",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C164::BJ-FI-L",
+      "text": "3N20x700",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": 700.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C169",
+      "text": "2N12",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C16A",
+      "text": "3N20",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C16B::BJ-FI-L",
+      "text": "2N12x700",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": 700.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C1AC::BJ-FI-L",
+      "text": "32N8x120",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": 120.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C1F2",
+      "text": "стр. 8N8/s=20",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C1F3::BJ-FI-L",
+      "text": "3N14x250",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 250.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C1F8",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C1F9",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C1FA::BJ-FI-L",
+      "text": "3N14x320",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 320.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C208",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C20D::BJ-FI-L",
+      "text": "2N8x240",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C228::BJ-FI-L",
+      "text": "8N8x150",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": 150.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C272",
+      "text": "стр. 8N8/s=20",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C273::BJ-FI-L",
+      "text": "3N14x250",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 250.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C278",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C279",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C27A::BJ-FI-L",
+      "text": "3N14x320",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 320.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C288",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C28D::BJ-FI-L",
+      "text": "2N8x240",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C2A8::BJ-FI-L",
+      "text": "8N8x150",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": 150.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C2F2",
+      "text": "стр. 32N8/s=20",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C2F3::BJ-FI-L",
+      "text": "3N20x715",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": 715.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C2F8",
+      "text": "2N12",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C2F9",
+      "text": "3N20",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C2FA::BJ-FI-L",
+      "text": "2N12x715",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": 715.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C33B::BJ-FI-L",
+      "text": "32N8x120",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": 120.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C381",
+      "text": "стр. 8N8/s=20",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C382::BJ-FI-L",
+      "text": "3N25x980",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 980.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C387",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C388",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C389::BJ-FI-L",
+      "text": "3N25x1040",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 1040.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C38E",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C390::BJ-FI-L",
+      "text": "2N8x970",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 970.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C3AE",
+      "text": "стр. 32N8/s=20",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C3E9::BJ-FI-L",
+      "text": "40N8x150",
+      "count": 40,
+      "diameter_mm": 8.0,
+      "length_cm": 150.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C430",
+      "text": "стр. 4N8/s=20",
+      "count": 4,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C431::BJ-FI-L",
+      "text": "3N14x190",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 190.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C436",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C437",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C438::BJ-FI-L",
+      "text": "3N14x300",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C441",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C443::BJ-FI-L",
+      "text": "2N8x190",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 190.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C458::BJ-FI-L",
+      "text": "4N8x160",
+      "count": 4,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C4B6",
+      "text": "стр. 16N8/s=20",
+      "count": 16,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C4B7::BJ-FI-L",
+      "text": "3N14x400",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 400.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C4BC",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C4BD",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C4BE::BJ-FI-L",
+      "text": "3N14x845",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 845.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C4C3",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C4C6::BJ-FI-L",
+      "text": "2N8x390",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 390.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C4E5",
+      "text": "стр. 16N8/s=20",
+      "count": 16,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C516::BJ-FI-L",
+      "text": "32N8x160",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C541::BJ-FI-L",
+      "text": "3N14x400",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 400.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C546",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C547",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C548::BJ-FI-L",
+      "text": "2N8x390",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 390.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C56B",
+      "text": "стр. 4N8/s=20",
+      "count": 4,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C56C::BJ-FI-L",
+      "text": "3N14x190",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 190.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C571",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C572",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C573::BJ-FI-L",
+      "text": "3N14x300",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C57C",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C57E::BJ-FI-L",
+      "text": "2N8x190",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 190.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C593::BJ-FI-L",
+      "text": "4N8x160",
+      "count": 4,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C5E3",
+      "text": "стр. 8N8/s=20",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C5E4::BJ-FI-L",
+      "text": "3N14x270",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 270.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C5E9",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C5EA",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C5EB::BJ-FI-L",
+      "text": "3N14x390",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 390.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C5F5",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C5F7::BJ-FI-L",
+      "text": "2N8x270",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 270.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C611::BJ-FI-L",
+      "text": "8N8x160",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C667",
+      "text": "стр. 32N8/s=20",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C668::BJ-FI-L",
+      "text": "3N20x700",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": 700.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C66D",
+      "text": "2N12",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C66E",
+      "text": "3N20",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C66F::BJ-FI-L",
+      "text": "2N12x700",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": 700.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C6B0::BJ-FI-L",
+      "text": "32N8x120",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": 120.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C6F8",
+      "text": "стр. 29N8/s=20",
+      "count": 29,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C6F9::BJ-FI-L",
+      "text": "3N25x670",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 670.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C6FE",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C732::BJ-FI-L",
+      "text": "58N8x120",
+      "count": 58,
+      "diameter_mm": 8.0,
+      "length_cm": 120.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C784",
+      "text": "стр. 29N8/s=20",
+      "count": 29,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C785::BJ-FI-L",
+      "text": "3N25x670",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 670.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C793::BJ-FI-L",
+      "text": "3N25x210",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 210.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C799::BJ-FI-L",
+      "text": "3N25x810",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 810.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C79F",
+      "text": "2N14",
+      "count": 2,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C7A0",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C7A1",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C7A3::BJ-FI-L",
+      "text": "2N14x350",
+      "count": 2,
+      "diameter_mm": 14.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C7A8",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C7CA",
+      "text": "стр. 32N8/s=20",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C7CB::BJ-FI-L",
+      "text": "3N20x715",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": 715.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C7D0",
+      "text": "2N12",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C7D1",
+      "text": "3N20",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C7D2::BJ-FI-L",
+      "text": "2N12x715",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": 715.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C813::BJ-FI-L",
+      "text": "32N8x120",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": 120.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C85B",
+      "text": "стр. 11N8/s=20",
+      "count": 11,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C85C::BJ-FI-L",
+      "text": "3N14x290",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 290.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C861",
+      "text": "2N10",
+      "count": 2,
+      "diameter_mm": 10.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C862",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C863::BJ-FI-L",
+      "text": "2N10x290",
+      "count": 2,
+      "diameter_mm": 10.0,
+      "length_cm": 290.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C88B::BJ-FI-L",
+      "text": "11N8x130",
+      "count": 11,
+      "diameter_mm": 8.0,
+      "length_cm": 130.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C8D6",
+      "text": "стр. 11N8/s=20",
+      "count": 11,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C8D7::BJ-FI-L",
+      "text": "3N16x740",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": 740.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C8DC",
+      "text": "3N16",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C8DD::BJ-FI-L",
+      "text": "2N10x210",
+      "count": 2,
+      "diameter_mm": 10.0,
+      "length_cm": 210.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C8E7",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C8EA::BJ-FI-L",
+      "text": "2N8x740",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 740.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C8F9",
+      "text": "стр. 16N8/s=20",
+      "count": 16,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C903::BJ-FI-L",
+      "text": "3N25x675",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 675.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C908::BJ-FI-L",
+      "text": "2N8x675",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 675.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C90E",
+      "text": "стр. 28N8/s=20",
+      "count": 28,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C915",
+      "text": "3N16",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C916",
+      "text": "2N10",
+      "count": 2,
+      "diameter_mm": 10.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C917::BJ-FI-L",
+      "text": "3N16x530",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": 530.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C91D::BJ-FI-L",
+      "text": "3N25x950",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 950.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C95C",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C95D",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C95E",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C971::BJ-FI-L",
+      "text": "55N8x160",
+      "count": 55,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C9C6",
+      "text": "стр. 11N8/s=20",
+      "count": 11,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C9C7::BJ-FI-L",
+      "text": "3N16x690",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": 690.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C9CC",
+      "text": "3N16",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C9D2",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "C9D5::BJ-FI-L",
+      "text": "2N8x690",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 690.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "C9E4",
+      "text": "стр. 14N8/s=20",
+      "count": 14,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CA09",
+      "text": "стр. 8N8/s=20",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CA0C",
+      "text": "3N16",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CA0D::BJ-FI-L",
+      "text": "3N16x900",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": 900.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CA32",
+      "text": "стр. 14N8/s=20",
+      "count": 14,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CA4C",
+      "text": "стр. 11N8/s=20",
+      "count": 11,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CA50::BJ-FI-L",
+      "text": "3N16x925",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": 925.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CA55",
+      "text": "3N16",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CA56",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CA57::BJ-FI-L",
+      "text": "2N8x925",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 925.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CA5D::BJ-FI-L",
+      "text": "3N16x1150",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": 1150.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CA63",
+      "text": "3N16",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CA76::BJ-FI-L",
+      "text": "58N8x150",
+      "count": 58,
+      "diameter_mm": 8.0,
+      "length_cm": 150.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CAD4",
+      "text": "стр. 16N8/s=20",
+      "count": 16,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CAD5::BJ-FI-L",
+      "text": "3N16x525",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": 525.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CADC::BJ-FI-L",
+      "text": "2N8x525",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 525.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CAEB",
+      "text": "стр. 15N8/s=20",
+      "count": 15,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CB09",
+      "text": "стр. 21N8/s=20",
+      "count": 21,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CB0A",
+      "text": "3N16",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CB0B::BJ-FI-L",
+      "text": "3N16x1020",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": 1020.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CB24",
+      "text": "3N16",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CB25",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CB2A",
+      "text": "2N10",
+      "count": 2,
+      "diameter_mm": 10.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CB2D::BJ-FI-L",
+      "text": "3N14x815",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 815.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CB32::BJ-FI-L",
+      "text": "2N8x815",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 815.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CB38",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CB39",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CB4B::BJ-FI-L",
+      "text": "52N8x150",
+      "count": 52,
+      "diameter_mm": 8.0,
+      "length_cm": 150.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CB7C::BJ-FI-L",
+      "text": "2N10x265",
+      "count": 2,
+      "diameter_mm": 10.0,
+      "length_cm": 265.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CB86::BJ-FI-L",
+      "text": "3N16x240",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CB8B",
+      "text": "3N16",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CBAE::BJ-FI-L",
+      "text": "3N16x500",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": 500.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CBB3",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CBB4",
+      "text": "3N16",
+      "count": 3,
+      "diameter_mm": 16.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CBB5::BJ-FI-L",
+      "text": "3N25x920",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 920.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CBBA",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CBBD::BJ-FI-L",
+      "text": "2N8x500",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 500.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CBE3",
+      "text": "стр. 20N8/s=20",
+      "count": 20,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CBFB",
+      "text": "стр. 28N8/s=20",
+      "count": 28,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CC03::BJ-FI-L",
+      "text": "3N25x680",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 680.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CC08::BJ-FI-L",
+      "text": "2N8x680",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 680.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CC0E::BJ-FI-L",
+      "text": "3N25x300",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CC13::BJ-FI-L",
+      "text": "2N14x340",
+      "count": 2,
+      "diameter_mm": 14.0,
+      "length_cm": 340.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CC18",
+      "text": "2N14",
+      "count": 2,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CC19",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CC1A",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CC1B",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CC2E::BJ-FI-L",
+      "text": "48N8x160",
+      "count": 48,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CC80",
+      "text": "стр. 11N8/s=20",
+      "count": 11,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CC81::BJ-FI-L",
+      "text": "3N14x290",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 290.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CC86",
+      "text": "2N10",
+      "count": 2,
+      "diameter_mm": 10.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CC87",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CC88::BJ-FI-L",
+      "text": "2N10x290",
+      "count": 2,
+      "diameter_mm": 10.0,
+      "length_cm": 290.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CCB0::BJ-FI-L",
+      "text": "11N8x130",
+      "count": 11,
+      "diameter_mm": 8.0,
+      "length_cm": 130.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CCF2",
+      "text": "стр. 8N8/s=20",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CCF3::BJ-FI-L",
+      "text": "3N14x270",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 270.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CCF8",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CCF9",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CCFA::BJ-FI-L",
+      "text": "3N14x390",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 390.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CD04",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CD06::BJ-FI-L",
+      "text": "2N8x270",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 270.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CD20::BJ-FI-L",
+      "text": "8N8x160",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CD7D",
+      "text": "стр. 8N8/s=20",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CD7E::BJ-FI-L",
+      "text": "3N25x1000",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CD83",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CD89",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CD8C::BJ-FI-L",
+      "text": "2N8x1000",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CD9B",
+      "text": "стр. 32N8/s=20",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CDCB",
+      "text": "стр. 24N8/s=20",
+      "count": 24,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CDCC",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CDCD::BJ-FI-L",
+      "text": "3N25x570",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 570.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CDEB",
+      "text": "стр. 7N8/s=20",
+      "count": 7,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CDF0::BJ-FI-L",
+      "text": "3N20x800",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": 800.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CDF5",
+      "text": "3N20",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CDF6",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CDF7::BJ-FI-L",
+      "text": "2N8x790",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 790.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CDFD::BJ-FI-L",
+      "text": "3N25x1040",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 1040.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CE03",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CE26::BJ-FI-L",
+      "text": "2N14x350",
+      "count": 2,
+      "diameter_mm": 14.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CE2D",
+      "text": "2N14",
+      "count": 2,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CE40::BJ-FI-L",
+      "text": "71N8x160",
+      "count": 71,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CE8B",
+      "text": "стр. 8N8/s=20",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CE8C::BJ-FI-L",
+      "text": "3N14x270",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 270.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CE91",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CE92",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CE93::BJ-FI-L",
+      "text": "3N14x390",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 390.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CE9D",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CE9F::BJ-FI-L",
+      "text": "2N8x270",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 270.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CEB9::BJ-FI-L",
+      "text": "8N8x160",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CF12",
+      "text": "стр. 11N8/s=20",
+      "count": 11,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CF13::BJ-FI-L",
+      "text": "3N14x290",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 290.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CF18",
+      "text": "2N10",
+      "count": 2,
+      "diameter_mm": 10.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CF19",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CF1A::BJ-FI-L",
+      "text": "2N10x290",
+      "count": 2,
+      "diameter_mm": 10.0,
+      "length_cm": 290.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CF41::BJ-FI-L",
+      "text": "11N8x130",
+      "count": 11,
+      "diameter_mm": 8.0,
+      "length_cm": 130.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CF87",
+      "text": "стр. 8N8/s=20",
+      "count": 8,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CF88::BJ-FI-L",
+      "text": "3N25x1000",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CF8D",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CF93",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CF95::BJ-FI-L",
+      "text": "2N8x1000",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 1000.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CFA3",
+      "text": "стр. 32N8/s=20",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CFA4",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CFA5::BJ-FI-L",
+      "text": "3N25x570",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 570.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CFD9::BJ-FI-L",
+      "text": "2N14x350",
+      "count": 2,
+      "diameter_mm": 14.0,
+      "length_cm": 350.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "CFDE",
+      "text": "2N14",
+      "count": 2,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "CFF1::BJ-FI-L",
+      "text": "40N8x160",
+      "count": 40,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D01C::BJ-FI-L",
+      "text": "3N25x320",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 320.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D021",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D03E",
+      "text": "стр. 7N8/s=20",
+      "count": 7,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D03F::BJ-FI-L",
+      "text": "3N14x240",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 240.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D044",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D045",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D046::BJ-FI-L",
+      "text": "3N14x275",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 275.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D04C",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D04E::BJ-FI-L",
+      "text": "2N8x230",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 230.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D082::BJ-FI-L",
+      "text": "7N8x160",
+      "count": 7,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D0D5",
+      "text": "стр. 9N8/s=20",
+      "count": 9,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D0D6::BJ-FI-L",
+      "text": "3N14x250",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 250.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D0DB",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D0DC",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D0DD::BJ-FI-L",
+      "text": "3N14x250",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 250.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D0EB",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D0F0::BJ-FI-L",
+      "text": "2N8x230",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 230.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D116::BJ-FI-L",
+      "text": "9N8x150",
+      "count": 9,
+      "diameter_mm": 8.0,
+      "length_cm": 150.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D16F",
+      "text": "стр. 10N8/s=20",
+      "count": 10,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D170::BJ-FI-L",
+      "text": "3N20x1125",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": 1125.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D17C::BJ-FI-L",
+      "text": "2N8x1125",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 1125.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D18B",
+      "text": "стр. 25N8/s=20",
+      "count": 25,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D1A9",
+      "text": "стр. 22N8/s=20",
+      "count": 22,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D1AA",
+      "text": "3N20",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D1AB::BJ-FI-L",
+      "text": "3N20x700",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": 700.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D1C5",
+      "text": "3N20",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D1C6",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D1C7::BJ-FI-L",
+      "text": "3N20x800",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": 800.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D1CC",
+      "text": "3N20",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D1E0::BJ-FI-L",
+      "text": "2N12x300",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D1E5",
+      "text": "2N12",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D1ED::BJ-FI-L",
+      "text": "3N14x300",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D1F2::BJ-FI-L",
+      "text": "2N8x300",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 300.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D1F8",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D1F9",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D20C::BJ-FI-L",
+      "text": "57N8x150",
+      "count": 57,
+      "diameter_mm": 8.0,
+      "length_cm": 150.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D257",
+      "text": "стр. 32N8/s=20",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D258::BJ-FI-L",
+      "text": "3N20x700",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": 700.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D25D",
+      "text": "2N12",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D25E",
+      "text": "3N20",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D25F::BJ-FI-L",
+      "text": "2N12x700",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": 700.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D2A0::BJ-FI-L",
+      "text": "32N8x120",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": 120.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D2EF",
+      "text": "стр. 17N8/s=20",
+      "count": 17,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D2F0::BJ-FI-L",
+      "text": "3N25x1070",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 1070.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D2F5",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D2F6",
+      "text": "3N25",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D2F7::BJ-FI-L",
+      "text": "3N25x1070",
+      "count": 3,
+      "diameter_mm": 25.0,
+      "length_cm": 1070.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D2FC",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D2FE::BJ-FI-L",
+      "text": "2N8x1050",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 1050.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D32E",
+      "text": "стр. 32N8/s=20",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D35A::BJ-FI-L",
+      "text": "49N8x160",
+      "count": 49,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D3A2",
+      "text": "стр. 4N8/s=20",
+      "count": 4,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D3A3::BJ-FI-L",
+      "text": "3N14x170",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 170.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D3A8",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D3A9",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D3AA::BJ-FI-L",
+      "text": "3N14x235",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 235.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D3B8",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D3BD::BJ-FI-L",
+      "text": "2N8x160",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D3D3::BJ-FI-L",
+      "text": "4N8x160",
+      "count": 4,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D425",
+      "text": "стр. 11N8/s=20",
+      "count": 11,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D426::BJ-FI-L",
+      "text": "3N14x330",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 330.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D42B",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D42C",
+      "text": "3N14",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D42D::BJ-FI-L",
+      "text": "3N14x390",
+      "count": 3,
+      "diameter_mm": 14.0,
+      "length_cm": 390.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D43B",
+      "text": "2N8",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D440::BJ-FI-L",
+      "text": "2N8x320",
+      "count": 2,
+      "diameter_mm": 8.0,
+      "length_cm": 320.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D45C::BJ-FI-L",
+      "text": "11N8x160",
+      "count": 11,
+      "diameter_mm": 8.0,
+      "length_cm": 160.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D4A7",
+      "text": "стр. 32N8/s=20",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D4A8::BJ-FI-L",
+      "text": "3N20x700",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": 700.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D4AD",
+      "text": "2N12",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D4AE",
+      "text": "3N20",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D4AF::BJ-FI-L",
+      "text": "2N12x700",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": 700.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D4F0::BJ-FI-L",
+      "text": "32N8x120",
+      "count": 32,
+      "diameter_mm": 8.0,
+      "length_cm": 120.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D535",
+      "text": "стр. 29N8/s=20",
+      "count": 29,
+      "diameter_mm": 8.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D536::BJ-FI-L",
+      "text": "3N20x640",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": 640.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D53B",
+      "text": "2N12",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D53C",
+      "text": "3N20",
+      "count": 3,
+      "diameter_mm": 20.0,
+      "length_cm": null,
+      "annotation_class": "MISSING_LENGTH"
+    },
+    {
+      "handle": "D53D::BJ-FI-L",
+      "text": "2N12x640",
+      "count": 2,
+      "diameter_mm": 12.0,
+      "length_cm": 640.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D57B::BJ-FI-L",
+      "text": "29N8x120",
+      "count": 29,
+      "diameter_mm": 8.0,
+      "length_cm": 120.0,
+      "annotation_class": "ACTIONABLE"
+    },
+    {
+      "handle": "D6AE::BJ-FI-L",
+      "text": "8N10x800",
+      "count": 8,
+      "diameter_mm": 10.0,
+      "length_cm": 800.0,
+      "annotation_class": "ACTIONABLE"
+    }
+  ]
+}

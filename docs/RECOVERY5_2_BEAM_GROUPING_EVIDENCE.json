@@ -1,0 +1,385 @@
+{
+  "schema": "lion-rebar-recovery5.2-beam-grouping-evidence/v1",
+  "version": "0.1.44.14-recovery.5.2",
+  "source_dxf": "111_ПОЗИЦИИ(1).dxf",
+  "source_excel": "111.xlsx",
+  "manual_ground_truth_layer": "Gredi",
+  "runtime_uses_manual_layer": false,
+  "detector": "AUTO_BEAM_REGION_V1",
+  "before": {
+    "beam_sections_in_excel": 27,
+    "missing_beams": [
+      "B.1",
+      "B.2",
+      "B.5",
+      "B.7",
+      "B.18"
+    ]
+  },
+  "after_expected": {
+    "detected_beam_titles": 32,
+    "assigned_positions": 150,
+    "unassigned_positions": 0,
+    "ambiguous_positions": 0,
+    "beam_sections_in_excel": 32,
+    "beam_rows_policy": "one Excel row per approved DXF annotation",
+    "global_aggregation_policy": "only sheet Общо aggregates identical production identities",
+    "beam_row_order": "F006 stirrups first, then remaining bars by diameter and length"
+  },
+  "b1_expected": [
+    "32N8x120",
+    "2N12x700",
+    "3N20x700"
+  ],
+  "beam_ledger": [
+    {
+      "beam": "Гр. B.1 25/34",
+      "annotation_count": 3,
+      "annotations": [
+        "32N8x120",
+        "2N12x700",
+        "3N20x700"
+      ]
+    },
+    {
+      "beam": "Гр. B.2 25/50",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x250",
+        "3N14x320",
+        "2N8x240",
+        "8N8x150"
+      ]
+    },
+    {
+      "beam": "Гр. B.3 25/50",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x250",
+        "3N14x320",
+        "2N8x240",
+        "8N8x150"
+      ]
+    },
+    {
+      "beam": "Гр. B.4 25/34",
+      "annotation_count": 3,
+      "annotations": [
+        "3N20x700",
+        "2N12x700",
+        "32N8x120"
+      ]
+    },
+    {
+      "beam": "Гр. B.5 25/55R",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x175",
+        "3N14x225",
+        "2N8x165",
+        "4N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.6 25/55",
+      "annotation_count": 8,
+      "annotations": [
+        "3N16x820",
+        "2N8x810",
+        "3N16x900",
+        "72N8x160",
+        "3N16x825",
+        "2N8x825",
+        "2N10x270",
+        "3N16x550"
+      ]
+    },
+    {
+      "beam": "Гр. B.7 25/55R",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x175",
+        "3N14x225",
+        "2N8x165",
+        "4N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.8 25/55",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x455",
+        "3N14x455",
+        "2N8x435",
+        "19N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.9 25/55",
+      "annotation_count": 4,
+      "annotations": [
+        "3N25x1070",
+        "3N25x1070",
+        "2N8x1050",
+        "49N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.10 25/34",
+      "annotation_count": 3,
+      "annotations": [
+        "3N20x700",
+        "2N12x700",
+        "32N8x120"
+      ]
+    },
+    {
+      "beam": "Гр. B.11 25/34",
+      "annotation_count": 6,
+      "annotations": [
+        "3N20x700",
+        "60N8x120",
+        "3N20x700",
+        "3N20x750",
+        "2N14x350",
+        "2N14x350"
+      ]
+    },
+    {
+      "beam": "Гр. B.12 25/34",
+      "annotation_count": 3,
+      "annotations": [
+        "3N20x700",
+        "2N12x700",
+        "32N8x120"
+      ]
+    },
+    {
+      "beam": "Гр. B.13 25/50",
+      "annotation_count": 8,
+      "annotations": [
+        "3N16x685",
+        "2N8x685",
+        "3N16x860",
+        "3N16x900",
+        "2N8x900",
+        "3N16x700",
+        "60N8x150",
+        "2N10x215"
+      ]
+    },
+    {
+      "beam": "Гр. B.14 25/55",
+      "annotation_count": 8,
+      "annotations": [
+        "3N25x1000",
+        "2N8x1000",
+        "3N25x570",
+        "3N20x580",
+        "2N8x580",
+        "3N25x880",
+        "2N14x350",
+        "64N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.15 25/40",
+      "annotation_count": 3,
+      "annotations": [
+        "3N14x290",
+        "2N10x290",
+        "11N8x130"
+      ]
+    },
+    {
+      "beam": "Гр. B.16 25/55",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x270",
+        "3N14x390",
+        "2N8x270",
+        "8N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.17 25/55",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x270",
+        "3N14x390",
+        "2N8x270",
+        "8N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.18 25/55",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x400",
+        "3N14x520",
+        "2N8x400",
+        "15N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.19 25/55",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x270",
+        "3N14x390",
+        "2N8x270",
+        "8N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.20 25/40",
+      "annotation_count": 3,
+      "annotations": [
+        "3N14x290",
+        "2N10x290",
+        "11N8x130"
+      ]
+    },
+    {
+      "beam": "Гр. B.21 25/55",
+      "annotation_count": 4,
+      "annotations": [
+        "3N16x580",
+        "3N16x700",
+        "2N8x580",
+        "24N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.22 25/50",
+      "annotation_count": 8,
+      "annotations": [
+        "3N20x580",
+        "3N25x920",
+        "2N8x580",
+        "3N25x675",
+        "2N8x675",
+        "3N25x290",
+        "2N14x335",
+        "52N8x150"
+      ]
+    },
+    {
+      "beam": "Гр. B.23 25/50",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x250",
+        "3N14x320",
+        "2N8x240",
+        "8N8x150"
+      ]
+    },
+    {
+      "beam": "Гр. B.24 25/34",
+      "annotation_count": 3,
+      "annotations": [
+        "3N20x640",
+        "2N12x640",
+        "29N8x120"
+      ]
+    },
+    {
+      "beam": "Гр. B.25 25/55R",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x170",
+        "3N14x235",
+        "2N8x160",
+        "4N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.26 25/34",
+      "annotation_count": 3,
+      "annotations": [
+        "3N20x640",
+        "2N12x640",
+        "29N8x120"
+      ]
+    },
+    {
+      "beam": "Гр. B.27 25/34",
+      "annotation_count": 3,
+      "annotations": [
+        "3N20x640",
+        "2N12x640",
+        "29N8x120"
+      ]
+    },
+    {
+      "beam": "Гр. B.28 25/50",
+      "annotation_count": 8,
+      "annotations": [
+        "3N20x580",
+        "3N25x870",
+        "2N8x580",
+        "3N25x750",
+        "2N8x750",
+        "3N25x310",
+        "2N14x370",
+        "56N8x150"
+      ]
+    },
+    {
+      "beam": "Гр. B.29 25/55",
+      "annotation_count": 4,
+      "annotations": [
+        "3N14x270",
+        "3N14x390",
+        "2N8x270",
+        "8N8x160"
+      ]
+    },
+    {
+      "beam": "Гр. B.30 25/40",
+      "annotation_count": 3,
+      "annotations": [
+        "3N14x290",
+        "2N10x290",
+        "11N8x130"
+      ]
+    },
+    {
+      "beam": "Гр. B.31 25/55",
+      "annotation_count": 10,
+      "annotations": [
+        "3N16x500",
+        "3N16x240",
+        "2N8x500",
+        "3N25x925",
+        "2N8x925",
+        "2N14x335",
+        "56N8x160",
+        "2N12x270",
+        "3N25x540",
+        "3N25x540"
+      ]
+    },
+    {
+      "beam": "Гр. B.32 25/50",
+      "annotation_count": 8,
+      "annotations": [
+        "3N25x1000",
+        "2N8x1000",
+        "3N25x570",
+        "3N20x580",
+        "2N8x580",
+        "3N25x880",
+        "2N14x350",
+        "64N8x150"
+      ]
+    }
+  ],
+  "tests": {
+    "passed": 335,
+    "skipped": 12,
+    "environment_blocked": 1,
+    "beam_region_detector_tests": 5,
+    "beam_excel_integration_tests": 1
+  }
+}

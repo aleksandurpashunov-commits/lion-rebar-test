@@ -1,0 +1,1511 @@
+{
+  "schema": "lion-rebar-beam-region-ground-truth/v1",
+  "source": {
+    "dxf": "111_ПОЗИЦИИ(1).dxf",
+    "excel": "111.xlsx",
+    "ground_truth_note": "Expected beam ownership was extracted from the user's manually drawn Gredi layer. Runtime detector input deliberately excludes that layer."
+  },
+  "expected": {
+    "beam_count": 32,
+    "position_count": 150,
+    "beam_counts": {
+      "Гр. B.1 25/34": 3,
+      "Гр. B.2 25/50": 4,
+      "Гр. B.3 25/50": 4,
+      "Гр. B.4 25/34": 3,
+      "Гр. B.5 25/55R": 4,
+      "Гр. B.6 25/55": 8,
+      "Гр. B.7 25/55R": 4,
+      "Гр. B.8 25/55": 4,
+      "Гр. B.9 25/55": 4,
+      "Гр. B.10 25/34": 3,
+      "Гр. B.11 25/34": 6,
+      "Гр. B.12 25/34": 3,
+      "Гр. B.13 25/50": 8,
+      "Гр. B.14 25/55": 8,
+      "Гр. B.15 25/40": 3,
+      "Гр. B.16 25/55": 4,
+      "Гр. B.17 25/55": 4,
+      "Гр. B.18 25/55": 4,
+      "Гр. B.19 25/55": 4,
+      "Гр. B.20 25/40": 3,
+      "Гр. B.21 25/55": 4,
+      "Гр. B.22 25/50": 8,
+      "Гр. B.23 25/50": 4,
+      "Гр. B.24 25/34": 3,
+      "Гр. B.25 25/55R": 4,
+      "Гр. B.26 25/34": 3,
+      "Гр. B.27 25/34": 3,
+      "Гр. B.28 25/50": 8,
+      "Гр. B.29 25/55": 4,
+      "Гр. B.30 25/40": 3,
+      "Гр. B.31 25/55": 10,
+      "Гр. B.32 25/50": 8
+    },
+    "b1_annotations": [
+      "32N8x120",
+      "2N12x700",
+      "3N20x700"
+    ]
+  },
+  "labels": [
+    {
+      "frame_index": 1,
+      "handle": "3E31",
+      "title": "Гр. B.6 25/55",
+      "x": 6914.521617,
+      "y": 3977.601051,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "3B76",
+      "title": "Гр. B.1 25/34",
+      "x": 2917.942491,
+      "y": 3964.297415,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "3D06",
+      "title": "Гр. B.4 25/34",
+      "x": 5255.548545,
+      "y": 3964.297415,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "3C0A",
+      "title": "Гр. B.2 25/50",
+      "x": 3993.132473,
+      "y": 3958.084263,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "3C8B",
+      "title": "Гр. B.3 25/50",
+      "x": 4619.203351,
+      "y": 3958.084263,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "3D99",
+      "title": "Гр. B.5 25/55R",
+      "x": 6324.78928,
+      "y": 3958.084263,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4069",
+      "title": "Гр. B.10 25/34",
+      "x": 5683.836532,
+      "y": 3510.976806,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "40F6",
+      "title": "Гр. B.11 25/34",
+      "x": 6737.033275,
+      "y": 3504.763655,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "3F30",
+      "title": "Гр. B.7 25/55R",
+      "x": 2902.262162,
+      "y": 3504.763655,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "3AE5",
+      "title": "Гр. B.8 25/55",
+      "x": 3487.364993,
+      "y": 3504.763655,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "3FAE",
+      "title": "Гр. B.9 25/55",
+      "x": 4254.147818,
+      "y": 3504.763655,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "41BA",
+      "title": "Гр. B.12 25/34",
+      "x": 8302.216109,
+      "y": 3498.550503,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4543",
+      "title": "Гр. B.17 25/55",
+      "x": 8156.495105,
+      "y": 3035.530222,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "44C0",
+      "title": "Гр. B.16 25/55",
+      "x": 7448.076097,
+      "y": 3032.073677,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4259",
+      "title": "Гр. B.13 25/50",
+      "x": 2923.117032,
+      "y": 3027.358265,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4361",
+      "title": "Гр. B.14 25/55",
+      "x": 4896.175448,
+      "y": 3027.358265,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "444B",
+      "title": "Гр. B.15 25/40",
+      "x": 6896.061911,
+      "y": 3026.711576,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "47C5",
+      "title": "Гр. B.22 25/50",
+      "x": 6321.265537,
+      "y": 2565.135321,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4898",
+      "title": "Гр. B.23 25/50",
+      "x": 8120.906569,
+      "y": 2559.863504,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "45C7",
+      "title": "Гр. B.18 25/55",
+      "x": 2890.067224,
+      "y": 2558.883359,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4642",
+      "title": "Гр. B.19 25/55",
+      "x": 3829.730061,
+      "y": 2558.883359,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "46C6",
+      "title": "Гр. B.20 25/40",
+      "x": 4551.710244,
+      "y": 2558.883359,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "473C",
+      "title": "Гр. B.21 25/55",
+      "x": 5139.24132,
+      "y": 2558.883359,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4B39",
+      "title": "Гр. B.28 25/50",
+      "x": 6741.275351,
+      "y": 2100.179473,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4913",
+      "title": "Гр. B.24 25/34",
+      "x": 2903.107696,
+      "y": 2079.925832,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "49A4",
+      "title": "Гр. B.25 25/55R",
+      "x": 3934.244074,
+      "y": 2073.71268,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4A1B",
+      "title": "Гр. B.26 25/34",
+      "x": 4601.077845,
+      "y": 2073.71268,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4AA6",
+      "title": "Гр. B.27 25/34",
+      "x": 5669.202312,
+      "y": 2073.71268,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4E16",
+      "title": "Гр. B.32 25/50",
+      "x": 6341.418537,
+      "y": 1633.945965,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4C0D",
+      "title": "Гр. B.29 25/55",
+      "x": 2887.117806,
+      "y": 1633.299277,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4C91",
+      "title": "Гр. B.30 25/40",
+      "x": 3609.097989,
+      "y": 1633.299277,
+      "height": 25.0
+    },
+    {
+      "frame_index": 1,
+      "handle": "4D0A",
+      "title": "Гр. B.31 25/55",
+      "x": 4234.056095,
+      "y": 1633.299277,
+      "height": 25.0
+    }
+  ],
+  "positions": [
+    {
+      "annotation_handle": "3AFE::BJ-FI-L",
+      "annotation_text": "3N14x455",
+      "x": 3644.040055,
+      "y": 3121.617811,
+      "expected_beam": "Гр. B.8 25/55",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "3B05::BJ-FI-L",
+      "annotation_text": "3N14x455",
+      "x": 3642.507277,
+      "y": 3238.553407,
+      "expected_beam": "Гр. B.8 25/55",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "3B18::BJ-FI-L",
+      "annotation_text": "2N8x435",
+      "x": 3652.4353,
+      "y": 3177.330945,
+      "expected_beam": "Гр. B.8 25/55",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3B31::BJ-FI-L",
+      "annotation_text": "19N8x160",
+      "x": 4031.317033,
+      "y": 3105.720621,
+      "expected_beam": "Гр. B.8 25/55",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "3B89::BJ-FI-L",
+      "annotation_text": "3N20x700",
+      "x": 3202.204597,
+      "y": 3646.638612,
+      "expected_beam": "Гр. B.1 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "3B90::BJ-FI-L",
+      "annotation_text": "2N12x700",
+      "x": 3205.66384,
+      "y": 3713.087167,
+      "expected_beam": "Гр. B.1 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "3BD1::BJ-FI-L",
+      "annotation_text": "32N8x120",
+      "x": 3730.588671,
+      "y": 3643.041229,
+      "expected_beam": "Гр. B.1 25/34",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "3C18::BJ-FI-L",
+      "annotation_text": "3N14x250",
+      "x": 4046.231863,
+      "y": 3573.938419,
+      "expected_beam": "Гр. B.2 25/50",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3C1F::BJ-FI-L",
+      "annotation_text": "3N14x320",
+      "x": 4044.699086,
+      "y": 3690.874015,
+      "expected_beam": "Гр. B.2 25/50",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3C32::BJ-FI-L",
+      "annotation_text": "2N8x240",
+      "x": 4054.627109,
+      "y": 3629.651554,
+      "expected_beam": "Гр. B.2 25/50",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3C4D::BJ-FI-L",
+      "annotation_text": "8N8x150",
+      "x": 4390.081754,
+      "y": 3579.041229,
+      "expected_beam": "Гр. B.2 25/50",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "3C99::BJ-FI-L",
+      "annotation_text": "3N14x250",
+      "x": 4672.302741,
+      "y": 3573.938419,
+      "expected_beam": "Гр. B.3 25/50",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3CA0::BJ-FI-L",
+      "annotation_text": "3N14x320",
+      "x": 4670.769963,
+      "y": 3690.874015,
+      "expected_beam": "Гр. B.3 25/50",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3CB3::BJ-FI-L",
+      "annotation_text": "2N8x240",
+      "x": 4680.697986,
+      "y": 3629.651554,
+      "expected_beam": "Гр. B.3 25/50",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3CCE::BJ-FI-L",
+      "annotation_text": "8N8x150",
+      "x": 5016.152631,
+      "y": 3579.041229,
+      "expected_beam": "Гр. B.3 25/50",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "3D19::BJ-FI-L",
+      "annotation_text": "3N20x700",
+      "x": 5539.810651,
+      "y": 3646.638612,
+      "expected_beam": "Гр. B.4 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "3D20::BJ-FI-L",
+      "annotation_text": "2N12x700",
+      "x": 5543.269895,
+      "y": 3713.087167,
+      "expected_beam": "Гр. B.4 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "3D61::BJ-FI-L",
+      "annotation_text": "32N8x120",
+      "x": 6068.194725,
+      "y": 3643.041229,
+      "expected_beam": "Гр. B.4 25/34",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "3DA4::BJ-FI-L",
+      "annotation_text": "3N14x175",
+      "x": 6468.375857,
+      "y": 3568.938419,
+      "expected_beam": "Гр. B.5 25/55R",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3DAB::BJ-FI-L",
+      "annotation_text": "3N14x225",
+      "x": 6466.843079,
+      "y": 3685.874015,
+      "expected_beam": "Гр. B.5 25/55R",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3DB6::BJ-FI-L",
+      "annotation_text": "2N8x165",
+      "x": 6476.771102,
+      "y": 3624.651554,
+      "expected_beam": "Гр. B.5 25/55R",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3DCB::BJ-FI-L",
+      "annotation_text": "4N8x160",
+      "x": 6708.285715,
+      "y": 3559.787654,
+      "expected_beam": "Гр. B.5 25/55R",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "3E3A::BJ-FI-L",
+      "annotation_text": "3N16x820",
+      "x": 7039.314325,
+      "y": 3587.769296,
+      "expected_beam": "Гр. B.6 25/55",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3E48::BJ-FI-L",
+      "annotation_text": "2N8x810",
+      "x": 7047.70957,
+      "y": 3642.449113,
+      "expected_beam": "Гр. B.6 25/55",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3E8C::BJ-FI-L",
+      "annotation_text": "3N16x900",
+      "x": 7045.020627,
+      "y": 3704.900931,
+      "expected_beam": "Гр. B.6 25/55",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3EC9::BJ-FI-L",
+      "annotation_text": "72N8x160",
+      "x": 8584.197343,
+      "y": 3577.911329,
+      "expected_beam": "Гр. B.6 25/55",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "3EFF::BJ-FI-L",
+      "annotation_text": "3N16x825",
+      "x": 8177.841947,
+      "y": 3577.769296,
+      "expected_beam": "Гр. B.6 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "3F04::BJ-FI-L",
+      "annotation_text": "2N8x825",
+      "x": 8186.237192,
+      "y": 3632.449113,
+      "expected_beam": "Гр. B.6 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "3F12::BJ-FI-L",
+      "annotation_text": "2N10x270",
+      "x": 7805.662599,
+      "y": 3694.900931,
+      "expected_beam": "Гр. B.6 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "3F17::BJ-FI-L",
+      "annotation_text": "3N16x550",
+      "x": 8177.841947,
+      "y": 3704.715157,
+      "expected_beam": "Гр. B.6 25/55",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3F3B::BJ-FI-L",
+      "annotation_text": "3N14x175",
+      "x": 3045.848739,
+      "y": 3115.617811,
+      "expected_beam": "Гр. B.7 25/55R",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3F42::BJ-FI-L",
+      "annotation_text": "3N14x225",
+      "x": 3044.315961,
+      "y": 3232.553407,
+      "expected_beam": "Гр. B.7 25/55R",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3F4D::BJ-FI-L",
+      "annotation_text": "2N8x165",
+      "x": 3054.243984,
+      "y": 3171.330945,
+      "expected_beam": "Гр. B.7 25/55R",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "3F62::BJ-FI-L",
+      "annotation_text": "4N8x160",
+      "x": 3285.758597,
+      "y": 3106.467045,
+      "expected_beam": "Гр. B.7 25/55R",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "3FD4::BJ-FI-L",
+      "annotation_text": "3N25x1070",
+      "x": 4404.048596,
+      "y": 3121.617811,
+      "expected_beam": "Гр. B.9 25/55",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "3FDB::BJ-FI-L",
+      "annotation_text": "3N25x1070",
+      "x": 4410.191225,
+      "y": 3238.553407,
+      "expected_beam": "Гр. B.9 25/55",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "3FE2::BJ-FI-L",
+      "annotation_text": "2N8x1050",
+      "x": 4404.76796,
+      "y": 3177.330945,
+      "expected_beam": "Гр. B.9 25/55",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "402F::BJ-FI-L",
+      "annotation_text": "49N8x160",
+      "x": 5407.745923,
+      "y": 3105.720621,
+      "expected_beam": "Гр. B.9 25/55",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "407C::BJ-FI-L",
+      "annotation_text": "3N20x700",
+      "x": 5968.098639,
+      "y": 3193.318003,
+      "expected_beam": "Гр. B.10 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4083::BJ-FI-L",
+      "annotation_text": "2N12x700",
+      "x": 5971.557882,
+      "y": 3259.766558,
+      "expected_beam": "Гр. B.10 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "40C3::BJ-FI-L",
+      "annotation_text": "32N8x120",
+      "x": 6496.482712,
+      "y": 3189.720621,
+      "expected_beam": "Гр. B.10 25/34",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "410B::BJ-FI-L",
+      "annotation_text": "3N20x700",
+      "x": 7004.240903,
+      "y": 3187.104852,
+      "expected_beam": "Гр. B.11 25/34",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "4140::BJ-FI-L",
+      "annotation_text": "60N8x120",
+      "x": 8092.862525,
+      "y": 3183.507469,
+      "expected_beam": "Гр. B.11 25/34",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4190::BJ-FI-L",
+      "annotation_text": "3N20x700",
+      "x": 7608.613621,
+      "y": 3197.104852,
+      "expected_beam": "Гр. B.11 25/34",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "419F::BJ-FI-L",
+      "annotation_text": "3N20x750",
+      "x": 7357.584393,
+      "y": 3263.558993,
+      "expected_beam": "Гр. B.11 25/34",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "41A7::BJ-FI-L",
+      "annotation_text": "2N14x350",
+      "x": 6779.84396,
+      "y": 3254.89861,
+      "expected_beam": "Гр. B.11 25/34",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "41CD::BJ-FI-L",
+      "annotation_text": "3N20x700",
+      "x": 8586.478215,
+      "y": 3180.8917,
+      "expected_beam": "Гр. B.12 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "41D4::BJ-FI-L",
+      "annotation_text": "2N12x700",
+      "x": 8589.937459,
+      "y": 3247.340255,
+      "expected_beam": "Гр. B.12 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4214::BJ-FI-L",
+      "annotation_text": "32N8x120",
+      "x": 8924.998878,
+      "y": 3474.523329,
+      "expected_beam": "Гр. B.12 25/34",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4261::BJ-FI-L",
+      "annotation_text": "3N16x685",
+      "x": 3374.712335,
+      "y": 2642.526509,
+      "expected_beam": "Гр. B.13 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "426F::BJ-FI-L",
+      "annotation_text": "2N8x685",
+      "x": 3378.628753,
+      "y": 2697.206326,
+      "expected_beam": "Гр. B.13 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "42B6::BJ-FI-L",
+      "annotation_text": "3N16x860",
+      "x": 3368.898203,
+      "y": 2759.658144,
+      "expected_beam": "Гр. B.13 25/50",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "42DB::BJ-FI-L",
+      "annotation_text": "3N16x900",
+      "x": 4195.525192,
+      "y": 2632.526509,
+      "expected_beam": "Гр. B.13 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "42E2::BJ-FI-L",
+      "annotation_text": "2N8x900",
+      "x": 4203.920437,
+      "y": 2687.206326,
+      "expected_beam": "Гр. B.13 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "42E8::BJ-FI-L",
+      "annotation_text": "3N16x700",
+      "x": 4187.907121,
+      "y": 2759.658144,
+      "expected_beam": "Гр. B.13 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4300::BJ-FI-L",
+      "annotation_text": "60N8x150",
+      "x": 4658.743508,
+      "y": 2647.668543,
+      "expected_beam": "Гр. B.13 25/50",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4337::BJ-FI-L",
+      "annotation_text": "2N10x215",
+      "x": 3761.235151,
+      "y": 2750.862271,
+      "expected_beam": "Гр. B.13 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "436A::BJ-FI-L",
+      "annotation_text": "3N25x1000",
+      "x": 5490.141582,
+      "y": 2637.526509,
+      "expected_beam": "Гр. B.14 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4378::BJ-FI-L",
+      "annotation_text": "2N8x1000",
+      "x": 5498.536827,
+      "y": 2692.206326,
+      "expected_beam": "Гр. B.14 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "43A9::BJ-FI-L",
+      "annotation_text": "3N25x570",
+      "x": 5003.148186,
+      "y": 2754.658144,
+      "expected_beam": "Гр. B.14 25/55",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "43C5::BJ-FI-L",
+      "annotation_text": "3N20x580",
+      "x": 6135.113746,
+      "y": 2627.526509,
+      "expected_beam": "Гр. B.14 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "43CC::BJ-FI-L",
+      "annotation_text": "2N8x580",
+      "x": 6143.508992,
+      "y": 2682.206326,
+      "expected_beam": "Гр. B.14 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "43D2::BJ-FI-L",
+      "annotation_text": "3N25x880",
+      "x": 6139.097813,
+      "y": 2754.658144,
+      "expected_beam": "Гр. B.14 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "43F2::BJ-FI-L",
+      "annotation_text": "2N14x350",
+      "x": 5493.288059,
+      "y": 2745.637992,
+      "expected_beam": "Гр. B.14 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "440D::BJ-FI-L",
+      "annotation_text": "64N8x160",
+      "x": 6682.613722,
+      "y": 2627.668543,
+      "expected_beam": "Гр. B.14 25/55",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "445C::BJ-FI-L",
+      "annotation_text": "3N14x290",
+      "x": 6974.114441,
+      "y": 2685.267301,
+      "expected_beam": "Гр. B.15 25/40",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4463::BJ-FI-L",
+      "annotation_text": "2N10x290",
+      "x": 6972.581663,
+      "y": 2769.501328,
+      "expected_beam": "Гр. B.15 25/40",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "448B::BJ-FI-L",
+      "annotation_text": "11N8x130",
+      "x": 7286.408448,
+      "y": 2687.668543,
+      "expected_beam": "Гр. B.15 25/40",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "44CE::BJ-FI-L",
+      "annotation_text": "3N14x270",
+      "x": 7577.842976,
+      "y": 2648.927834,
+      "expected_beam": "Гр. B.16 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "44D5::BJ-FI-L",
+      "annotation_text": "3N14x390",
+      "x": 7576.310198,
+      "y": 2765.863429,
+      "expected_beam": "Гр. B.16 25/55",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "44E1::BJ-FI-L",
+      "annotation_text": "2N8x270",
+      "x": 7586.238221,
+      "y": 2704.640968,
+      "expected_beam": "Гр. B.16 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "44FB::BJ-FI-L",
+      "annotation_text": "8N8x160",
+      "x": 7939.553686,
+      "y": 2633.030643,
+      "expected_beam": "Гр. B.16 25/55",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4551::BJ-FI-L",
+      "annotation_text": "3N14x270",
+      "x": 8286.261984,
+      "y": 2652.384379,
+      "expected_beam": "Гр. B.17 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4558::BJ-FI-L",
+      "annotation_text": "3N14x390",
+      "x": 8284.729206,
+      "y": 2769.319974,
+      "expected_beam": "Гр. B.17 25/55",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4564::BJ-FI-L",
+      "annotation_text": "2N8x270",
+      "x": 8294.65723,
+      "y": 2708.097513,
+      "expected_beam": "Гр. B.17 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "457E::BJ-FI-L",
+      "annotation_text": "8N8x160",
+      "x": 8647.972694,
+      "y": 2636.487189,
+      "expected_beam": "Гр. B.17 25/55",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "45DB::BJ-FI-L",
+      "annotation_text": "3N14x400",
+      "x": 3140.738035,
+      "y": 2175.737515,
+      "expected_beam": "Гр. B.18 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "45E2::BJ-FI-L",
+      "annotation_text": "3N14x520",
+      "x": 3139.205257,
+      "y": 2292.673111,
+      "expected_beam": "Гр. B.18 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "45E9::BJ-FI-L",
+      "annotation_text": "2N8x400",
+      "x": 3149.13328,
+      "y": 2231.45065,
+      "expected_beam": "Гр. B.18 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4606::BJ-FI-L",
+      "annotation_text": "15N8x160",
+      "x": 3587.043998,
+      "y": 2159.840325,
+      "expected_beam": "Гр. B.18 25/55",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4650::BJ-FI-L",
+      "annotation_text": "3N14x270",
+      "x": 3959.49694,
+      "y": 2175.737515,
+      "expected_beam": "Гр. B.19 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4657::BJ-FI-L",
+      "annotation_text": "3N14x390",
+      "x": 3957.964162,
+      "y": 2292.673111,
+      "expected_beam": "Гр. B.19 25/55",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4663::BJ-FI-L",
+      "annotation_text": "2N8x270",
+      "x": 3967.892186,
+      "y": 2231.45065,
+      "expected_beam": "Гр. B.19 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "467D::BJ-FI-L",
+      "annotation_text": "8N8x160",
+      "x": 4321.20765,
+      "y": 2159.840325,
+      "expected_beam": "Гр. B.19 25/55",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "46D7::BJ-FI-L",
+      "annotation_text": "3N14x290",
+      "x": 4629.762773,
+      "y": 2217.439084,
+      "expected_beam": "Гр. B.20 25/40",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "46DE::BJ-FI-L",
+      "annotation_text": "2N10x290",
+      "x": 4628.229995,
+      "y": 2301.673111,
+      "expected_beam": "Гр. B.20 25/40",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4706::BJ-FI-L",
+      "annotation_text": "11N8x130",
+      "x": 4942.05678,
+      "y": 2219.840325,
+      "expected_beam": "Гр. B.20 25/40",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4758::BJ-FI-L",
+      "annotation_text": "3N16x580",
+      "x": 5470.872761,
+      "y": 2175.737515,
+      "expected_beam": "Гр. B.21 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "475F::BJ-FI-L",
+      "annotation_text": "3N16x700",
+      "x": 5469.339983,
+      "y": 2292.673111,
+      "expected_beam": "Гр. B.21 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4766::BJ-FI-L",
+      "annotation_text": "2N8x580",
+      "x": 5479.268006,
+      "y": 2231.45065,
+      "expected_beam": "Гр. B.21 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4783::BJ-FI-L",
+      "annotation_text": "24N8x160",
+      "x": 6009.67686,
+      "y": 2159.840325,
+      "expected_beam": "Гр. B.21 25/55",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "47D1::BJ-FI-L",
+      "annotation_text": "3N20x580",
+      "x": 7331.901344,
+      "y": 2181.989477,
+      "expected_beam": "Гр. B.22 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "47D8::BJ-FI-L",
+      "annotation_text": "3N25x920",
+      "x": 7330.368566,
+      "y": 2298.925073,
+      "expected_beam": "Гр. B.22 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "47E0::BJ-FI-L",
+      "annotation_text": "2N8x580",
+      "x": 7340.296589,
+      "y": 2237.702611,
+      "expected_beam": "Гр. B.22 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "482A::BJ-FI-L",
+      "annotation_text": "3N25x675",
+      "x": 6658.567396,
+      "y": 2181.989477,
+      "expected_beam": "Гр. B.22 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "482F::BJ-FI-L",
+      "annotation_text": "2N8x675",
+      "x": 6666.962642,
+      "y": 2237.702611,
+      "expected_beam": "Гр. B.22 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4835::BJ-FI-L",
+      "annotation_text": "3N25x290",
+      "x": 6324.591433,
+      "y": 2329.451051,
+      "expected_beam": "Гр. B.22 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "483A::BJ-FI-L",
+      "annotation_text": "2N14x335",
+      "x": 6655.296899,
+      "y": 2290.060073,
+      "expected_beam": "Гр. B.22 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "485A::BJ-FI-L",
+      "annotation_text": "52N8x150",
+      "x": 7898.406359,
+      "y": 2186.092287,
+      "expected_beam": "Гр. B.22 25/50",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "48A6::BJ-FI-L",
+      "annotation_text": "3N14x250",
+      "x": 8277.681224,
+      "y": 2175.71766,
+      "expected_beam": "Гр. B.23 25/50",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "48AD::BJ-FI-L",
+      "annotation_text": "3N14x320",
+      "x": 8276.148447,
+      "y": 2292.653256,
+      "expected_beam": "Гр. B.23 25/50",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "48C0::BJ-FI-L",
+      "annotation_text": "2N8x240",
+      "x": 8286.07647,
+      "y": 2231.430795,
+      "expected_beam": "Гр. B.23 25/50",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "48DB::BJ-FI-L",
+      "annotation_text": "8N8x150",
+      "x": 8576.346966,
+      "y": 2180.82047,
+      "expected_beam": "Гр. B.23 25/50",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4926::BJ-FI-L",
+      "annotation_text": "3N20x640",
+      "x": 3161.607745,
+      "y": 1762.267029,
+      "expected_beam": "Гр. B.24 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "492D::BJ-FI-L",
+      "annotation_text": "2N12x640",
+      "x": 3165.066988,
+      "y": 1828.715584,
+      "expected_beam": "Гр. B.24 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "496B::BJ-FI-L",
+      "annotation_text": "29N8x120",
+      "x": 3655.753876,
+      "y": 1758.669647,
+      "expected_beam": "Гр. B.24 25/34",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "49AE::BJ-FI-L",
+      "annotation_text": "3N14x170",
+      "x": 3950.624627,
+      "y": 1690.566837,
+      "expected_beam": "Гр. B.25 25/55R",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "49B5::BJ-FI-L",
+      "annotation_text": "3N14x235",
+      "x": 3949.091849,
+      "y": 1807.502432,
+      "expected_beam": "Гр. B.25 25/55R",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "49C8::BJ-FI-L",
+      "annotation_text": "2N8x160",
+      "x": 3974.481579,
+      "y": 1746.279971,
+      "expected_beam": "Гр. B.25 25/55R",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "49DE::BJ-FI-L",
+      "annotation_text": "4N8x160",
+      "x": 4270.681945,
+      "y": 1675.416071,
+      "expected_beam": "Гр. B.25 25/55R",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4A2E::BJ-FI-L",
+      "annotation_text": "3N20x640",
+      "x": 4859.577894,
+      "y": 1756.053877,
+      "expected_beam": "Гр. B.26 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4A35::BJ-FI-L",
+      "annotation_text": "2N12x640",
+      "x": 4863.037138,
+      "y": 1822.502432,
+      "expected_beam": "Гр. B.26 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4A73::BJ-FI-L",
+      "annotation_text": "29N8x120",
+      "x": 5353.724025,
+      "y": 1752.456495,
+      "expected_beam": "Гр. B.26 25/34",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4AB9::BJ-FI-L",
+      "annotation_text": "3N20x640",
+      "x": 5927.702361,
+      "y": 1756.053877,
+      "expected_beam": "Гр. B.27 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4AC0::BJ-FI-L",
+      "annotation_text": "2N12x640",
+      "x": 5931.161605,
+      "y": 1822.502432,
+      "expected_beam": "Гр. B.27 25/34",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4AFE::BJ-FI-L",
+      "annotation_text": "29N8x120",
+      "x": 6421.848492,
+      "y": 1752.456495,
+      "expected_beam": "Гр. B.27 25/34",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4B45::BJ-FI-L",
+      "annotation_text": "3N20x580",
+      "x": 7751.911157,
+      "y": 1707.03363,
+      "expected_beam": "Гр. B.28 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4B4C::BJ-FI-L",
+      "annotation_text": "3N25x870",
+      "x": 7750.37838,
+      "y": 1833.969225,
+      "expected_beam": "Гр. B.28 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4B54::BJ-FI-L",
+      "annotation_text": "2N8x580",
+      "x": 7760.306403,
+      "y": 1762.746764,
+      "expected_beam": "Гр. B.28 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4BA2::BJ-FI-L",
+      "annotation_text": "3N25x750",
+      "x": 7116.442999,
+      "y": 1717.03363,
+      "expected_beam": "Гр. B.28 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4BA7::BJ-FI-L",
+      "annotation_text": "2N8x750",
+      "x": 7124.838245,
+      "y": 1772.746764,
+      "expected_beam": "Гр. B.28 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4BAD::BJ-FI-L",
+      "annotation_text": "3N25x310",
+      "x": 6744.601246,
+      "y": 1864.495204,
+      "expected_beam": "Гр. B.28 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4BB2::BJ-FI-L",
+      "annotation_text": "2N14x370",
+      "x": 7113.172502,
+      "y": 1825.104226,
+      "expected_beam": "Гр. B.28 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4BD2::BJ-FI-L",
+      "annotation_text": "56N8x150",
+      "x": 8244.094737,
+      "y": 1721.13644,
+      "expected_beam": "Гр. B.28 25/50",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4C1B::BJ-FI-L",
+      "annotation_text": "3N14x270",
+      "x": 3016.884686,
+      "y": 1250.153434,
+      "expected_beam": "Гр. B.29 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4C22::BJ-FI-L",
+      "annotation_text": "3N14x390",
+      "x": 3015.351908,
+      "y": 1367.089029,
+      "expected_beam": "Гр. B.29 25/55",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4C2E::BJ-FI-L",
+      "annotation_text": "2N8x270",
+      "x": 3025.279931,
+      "y": 1305.866568,
+      "expected_beam": "Гр. B.29 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4C48::BJ-FI-L",
+      "annotation_text": "8N8x160",
+      "x": 3378.595396,
+      "y": 1234.256243,
+      "expected_beam": "Гр. B.29 25/55",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4CA2::BJ-FI-L",
+      "annotation_text": "3N14x290",
+      "x": 3687.150519,
+      "y": 1291.855002,
+      "expected_beam": "Гр. B.30 25/40",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4CA9::BJ-FI-L",
+      "annotation_text": "2N10x290",
+      "x": 3685.617741,
+      "y": 1376.089029,
+      "expected_beam": "Гр. B.30 25/40",
+      "shape_code": "F003"
+    },
+    {
+      "annotation_handle": "4CD1::BJ-FI-L",
+      "annotation_text": "11N8x130",
+      "x": 3999.444526,
+      "y": 1294.256243,
+      "expected_beam": "Гр. B.30 25/40",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4D17::BJ-FI-L",
+      "annotation_text": "3N16x500",
+      "x": 5509.711863,
+      "y": 1250.153434,
+      "expected_beam": "Гр. B.31 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4D1E::BJ-FI-L",
+      "annotation_text": "3N16x240",
+      "x": 5760.277869,
+      "y": 1393.944505,
+      "expected_beam": "Гр. B.31 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4D26::BJ-FI-L",
+      "annotation_text": "2N8x500",
+      "x": 5518.107109,
+      "y": 1305.866568,
+      "expected_beam": "Гр. B.31 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4D6C::BJ-FI-L",
+      "annotation_text": "3N25x925",
+      "x": 4804.068891,
+      "y": 1250.153434,
+      "expected_beam": "Гр. B.31 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4D71::BJ-FI-L",
+      "annotation_text": "2N8x925",
+      "x": 4812.464136,
+      "y": 1305.866568,
+      "expected_beam": "Гр. B.31 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4D77::BJ-FI-L",
+      "annotation_text": "2N14x335",
+      "x": 4800.798394,
+      "y": 1358.224029,
+      "expected_beam": "Гр. B.31 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4D96::BJ-FI-L",
+      "annotation_text": "56N8x160",
+      "x": 6021.786893,
+      "y": 1234.256243,
+      "expected_beam": "Гр. B.31 25/55",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4DC8::BJ-FI-L",
+      "annotation_text": "2N12x270",
+      "x": 5507.016639,
+      "y": 1358.224029,
+      "expected_beam": "Гр. B.31 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4DCD::BJ-FI-L",
+      "annotation_text": "3N25x540",
+      "x": 5194.570994,
+      "y": 1397.615008,
+      "expected_beam": "Гр. B.31 25/55",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4DED::BJ-FI-L",
+      "annotation_text": "3N25x540",
+      "x": 4335.04766,
+      "y": 1366.861388,
+      "expected_beam": "Гр. B.31 25/55",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "4E1F::BJ-FI-L",
+      "annotation_text": "3N25x1000",
+      "x": 6935.384671,
+      "y": 1249.11421,
+      "expected_beam": "Гр. B.32 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4E2D::BJ-FI-L",
+      "annotation_text": "2N8x1000",
+      "x": 6943.779917,
+      "y": 1303.794027,
+      "expected_beam": "Гр. B.32 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4E5E::BJ-FI-L",
+      "annotation_text": "3N25x570",
+      "x": 6448.391275,
+      "y": 1366.245845,
+      "expected_beam": "Гр. B.32 25/50",
+      "shape_code": "F004"
+    },
+    {
+      "annotation_handle": "4E7A::BJ-FI-L",
+      "annotation_text": "3N20x580",
+      "x": 7580.356836,
+      "y": 1239.11421,
+      "expected_beam": "Гр. B.32 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4E81::BJ-FI-L",
+      "annotation_text": "2N8x580",
+      "x": 7588.752081,
+      "y": 1293.794027,
+      "expected_beam": "Гр. B.32 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4E87::BJ-FI-L",
+      "annotation_text": "3N25x880",
+      "x": 7584.340902,
+      "y": 1366.245845,
+      "expected_beam": "Гр. B.32 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4EA7::BJ-FI-L",
+      "annotation_text": "2N14x350",
+      "x": 6938.531148,
+      "y": 1357.225693,
+      "expected_beam": "Гр. B.32 25/50",
+      "shape_code": "F001"
+    },
+    {
+      "annotation_handle": "4EC2::BJ-FI-L",
+      "annotation_text": "64N8x150",
+      "x": 8127.856812,
+      "y": 1244.256243,
+      "expected_beam": "Гр. B.32 25/50",
+      "shape_code": "F006"
+    },
+    {
+      "annotation_handle": "4EF3::BJ-FI-L",
+      "annotation_text": "2N14x350",
+      "x": 7820.315179,
+      "y": 3254.89861,
+      "expected_beam": "Гр. B.11 25/34",
+      "shape_code": "F004"
+    }
+  ]
+}
