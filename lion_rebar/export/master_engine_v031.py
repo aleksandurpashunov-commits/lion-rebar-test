@@ -435,10 +435,22 @@ def _generic_svg(code: str, values: dict[str, float], *, include_safe_zone: bool
             # optional values affect only dimension-line/text layout in the
             # compact Excel VID cell: offset, label dx and label dy.
             ("h", p[0], p[1], l1, "below", 16.0, 0.0, 0.0),
-            ("h", p[1], p[2], dx, "above"),
             ("v", p[1], p[2], abs(dy), "left", 11.0, -2.0, dy_text_shift),
             ("h", p[2], p[3], l3, "below"),
         ]
+        # Хоризонталната проекция се изписва САМО когато я има.
+        #
+        # Собственик, 2026-09-14, за „134N18x410" [260, 40, 110]: „виждаш ли
+        # този дефект в желязото с редукция, трябва да го оправим да изглежда
+        # както на DWG." Прътът в чертежа се качва под ПРЯВ ЪГЪЛ, тоест DX2 е
+        # нула — а рисунката въпреки това изписваше размер „0 cm" над едно
+        # несъществуващо отместване. В описа това изглежда като пропуснат
+        # размер, не като липсващ.
+        #
+        # Прагът е половин милиметър: под него отместването не съществува
+        # нито в чертежа, нито в цеха.
+        if abs(dx) >= 0.05:
+            dims.insert(1, ("h", p[1], p[2], dx, "above"))
     elif code == "F003":
         if l1 > l2 and l3 > l2:
             # Two dominant outer arms: canonical production view opens to the
