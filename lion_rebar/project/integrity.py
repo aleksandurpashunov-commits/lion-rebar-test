@@ -535,36 +535,41 @@ def _freeze_beam_assignments(
                 # ѝ файл, вързани със същата identity.
                 frozen["column_group_label"] = group_area.title_text
         if str(frame.category_code or "") == "BEAMS":
+            # Рамката, начертана от инженера, се пита ПЪРВА и печели.
+            #
+            # Собственик, 2026-09-13/14: „затова ти предложих да направим
+            # рамки преди Анализа, тогава програмата ще чете само от него."
+            # Основанието е измеримо: в ``s-9`` шест от тридесет и двете
+            # греди са начертани в рамка ДЕТАЙЛИ, а разстоянието не различава
+            # съседните заглавия (463 срещу 492 единици за една и съща
+            # позиция). Евристиката няма как да знае нещо, което инженерът
+            # знае, като гледа чертежа.
+            #
+            # ``frame_index`` НЕ се сверява: заглавието на гредата може да е
+            # в друга чертожна рамка от позициите ѝ — точно случаят с B.18 и
+            # B.29. Ограничението е самият правоъгълник.
+            beam_area = area_for_point(
+                operator_areas, point[0], point[1], kind=KIND_BEAM,
+            )
+            area_label = (
+                beam_labels_by_handle.get(beam_area.title_handle)
+                if beam_area is not None
+                else None
+            )
             assignment = _assign_beam_label(point[0], point[1], int(frame_index), labels)
+            if area_label is not None:
+                frozen.update(
+                    {
+                        "beam_name": area_label.title,
+                        "beam_label_handle": area_label.handle,
+                        "beam_assignment_method": OPERATOR_AREA_BEAM_METHOD,
+                        "beam_assignment_score": "",
+                        "beam_assignment_margin": "",
+                    }
+                )
+                assignments[handle] = frozen
+                continue
             if assignment is None:
-                # Първо рамката, начертана преди анализа: тя покрива цяла
-                # група наведнъж, затова е по-евтина за оператора от решение
-                # за всяка позиция поотделно. Достига се само след като
-                # автоматиката се е отказала — доказана връзка не се отменя.
-                beam_area = area_for_point(
-                    operator_areas,
-                    point[0],
-                    point[1],
-                    kind=KIND_BEAM,
-                    frame_index=int(frame_index),
-                )
-                area_label = (
-                    beam_labels_by_handle.get(beam_area.title_handle)
-                    if beam_area is not None
-                    else None
-                )
-                if area_label is not None:
-                    frozen.update(
-                        {
-                            "beam_name": area_label.title,
-                            "beam_label_handle": area_label.handle,
-                            "beam_assignment_method": OPERATOR_AREA_BEAM_METHOD,
-                            "beam_assignment_score": "",
-                            "beam_assignment_margin": "",
-                        }
-                    )
-                    assignments[handle] = frozen
-                    continue
                 decided_label = beam_labels_by_handle.get(
                     operator_beam_decisions.get(handle, "")
                 )

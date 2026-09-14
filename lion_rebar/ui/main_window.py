@@ -733,20 +733,29 @@ class MainWindow(QMainWindow):
             if resolution.kind == KIND_BEAM
             else "групата в описа"
         )
+        обхванати, премествани = self._operator_area_preview(resolution)
+        редове = [
+            f"Всичко в рамката ще се отнесе към {purpose}",
+            f"„{resolution.title_text}“.",
+            "",
+            f"Позиции в рамката: {обхванати}.",
+        ]
+        if премествани:
+            # Рамката бие автоматиката, затова какво точно се мести трябва
+            # да се види ПРЕДИ записа. Собственик, 2026-09-14: рамката да
+            # печели, но да показва какво премества.
+            редове.append("")
+            редове.append(
+                f"ВНИМАНИЕ: {len(премествани)} от тях автоматиката е свързала"
+            )
+            редове.append("с друга греда и ще бъдат преместени:")
+            for текст, стара in премествани[:8]:
+                редове.append(f"    {текст}: „{стара}“ → „{resolution.title_text}“")
+            if len(премествани) > 8:
+                редове.append(f"    … и още {len(премествани) - 8}")
+        редове.extend(["", "Обосновка:"])
         note, accepted = QInputDialog.getText(
-            self,
-            "Рамка с два клика",
-            "\n".join(
-                [
-                    f"Всичко в рамката ще се отнесе към {purpose}",
-                    f"„{resolution.title_text}“.",
-                    "",
-                    "Областта се чете при всеки анализ и Финален контрол —",
-                    "не пипа позиция, която автоматиката вече е свързала.",
-                    "",
-                    "Обосновка:",
-                ]
-            ),
+            self, "Рамка с два клика", "\n".join(редове)
         )
         if not accepted:
             return
@@ -862,6 +871,62 @@ class MainWindow(QMainWindow):
             "(Анализ → Рамка с два клика). Действието ги маха.",
             0,
         )
+
+    def _operator_area_preview(self, resolution):
+        """Колко позиции обхваща рамката и кои от тях премества.
+
+        Връща ``(брой_обхванати, [(надпис, сегашна_греда), …])``. Второто са
+        позициите, които автоматиката вече е свързала с ДРУГА греда — те се
+        показват поименно, за да не се мести нищо тихо.
+        """
+
+        from lion_rebar.export.excel_export import (
+            _assign_beam_label,
+            _detect_beam_labels,
+            _entity_insert,
+        )
+        from lion_rebar.export.frame_detection import (
+            assign_point_to_frame,
+            detect_drawing_frames,
+        )
+        from lion_rebar.export.operator_areas import KIND_BEAM
+
+        try:
+            entities = list(self.import_result.entities)
+            frames = detect_drawing_frames(entities)
+            labels = _detect_beam_labels(entities, frames)
+            approved = set(self._read_all_approved_geometry_links())
+        except Exception:  # noqa: BLE001 - прегледът не бива да чупи записа
+            return 0, []
+
+        x0, y0, x1, y1 = resolution.box
+        обхванати = 0
+        премествани: list[tuple[str, str]] = []
+        for record in entities:
+            handle = str(record.handle)
+            if approved and handle not in approved:
+                continue
+            point = _entity_insert(record)
+            if point is None:
+                continue
+            if not (x0 <= point[0] <= x1 and y0 <= point[1] <= y1):
+                continue
+            обхванати += 1
+            if resolution.kind != KIND_BEAM:
+                continue
+            index = assign_point_to_frame(point[0], point[1], list(frames))
+            if index is None:
+                continue
+            assignment = _assign_beam_label(
+                point[0], point[1], int(index), labels
+            )
+            if assignment is None:
+                continue
+            if assignment.label.handle == resolution.title_handle:
+                continue
+            текст = re.sub(r"\s+", " ", str(record.text or "")).strip() or handle
+            премествани.append((текст, assignment.label.title))
+        return обхванати, премествани
 
     def manage_operator_areas(self) -> None:
         """Показва начертаните рамки и оттегля сгрешена.

@@ -912,12 +912,23 @@ def load_export_context(
                     raise ExcelExportError(
                         f"Замразеният Ledger няма пълно beam решение за {annotation_text}."
                     )
+                # Заглавието се сверява по handle. ``frame_index`` не се
+                # изисква да съвпада, когато връзката е операторска: в ``s-9``
+                # шест греди са начертани в рамка ДЕТАЙЛИ, а позициите им — в
+                # рамка ГРЕДИ. За автоматичните връзки условието остава, там
+                # ``_assign_beam_label`` и без това търси само в своята рамка.
+                операторска = str(beam_assignment_method or "").startswith(
+                    "OPERATOR_"
+                )
                 matching_label = next(
                     (
                         label
                         for label in beam_labels
-                        if label.frame_index == int(frame_index)
-                        and label.handle == beam_label_handle
+                        if label.handle == beam_label_handle
+                        and (
+                            операторска
+                            or label.frame_index == int(frame_index)
+                        )
                     ),
                     None,
                 )
@@ -2886,8 +2897,20 @@ def _detect_beam_labels(entities: Sequence[DxfEntityRecord], frames: Sequence[Dr
         frame_index = assign_point_to_frame(point[0], point[1], list(frames))
         if frame_index is None or frame_map.get(frame_index) is None:
             continue
-        if frame_map[frame_index].category_code != "BEAMS":
-            continue
+        # Собственик, 2026-09-13, пред списъка с греди: „гр-13 я няма в
+        # списъка да я избера и да нанеса позициите."
+        #
+        # Дотук се четяха само заглавията в рамка BEAMS. В ``s-9`` шест от
+        # тридесет и двете греди -- B.1, B.7, B.13, B.18, B.24, B.29 -- са
+        # начертани в рамката ДЕТАЙЛИ, на същия слой ``Section``. По нищо не
+        # личи, че е грешка; просто така е чертано. Изхвърлянето им означава,
+        # че операторът НЕ МОЖЕ да ги посочи -- нито от списък, нито с рамка,
+        # която иска разпознато заглавие вътре.
+        #
+        # Автоматиката не се променя от това: ``_assign_beam_label`` търси
+        # само сред заглавията със СЪЩИЯ ``frame_index``, така че греда от
+        # рамка ДЕТАЙЛИ не може да открадне позиция от рамка ГРЕДИ.
+        # Разширява се само КАКВО ВИЖДА операторът.
         height = _positive_float(
             record.geometry.get("height")
             or record.geometry.get("char_height")

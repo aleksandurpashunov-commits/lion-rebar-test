@@ -213,11 +213,19 @@ def test_рамка_от_друг_чертеж_не_се_наследява(tmp_
     assert "14C11" not in assignments
 
 
-def test_рамката_не_отменя_доказана_връзка(tmp_path: Path) -> None:
-    """Позиция точно под заглавието си се решава от автоматиката.
+def test_рамката_отменя_и_доказана_връзка(tmp_path: Path) -> None:
+    """Вътре в рамката думата е на инженера — и над доказаното.
 
-    Рамката покрива и нея, но не бива да я пипа: операторско решение никога
-    не отменя доказана автоматична връзка — то само решава недоказана.
+    Решено от собственика на 2026-09-14, след като видя, че шест от
+    тридесет и двете греди в ``s-9`` изобщо не влизат в разпознатия списък
+    (начертани са в рамка ДЕТАЙЛИ), а разстоянието не различава съседните
+    заглавия: 463 срещу 492 единици за една и съща позиция.
+
+    Дотогава правилото беше обратното — рамката попълваше само празното.
+    То пазеше от невнимателна рамка, но и правеше невъзможно поправянето на
+    грешно свързана позиция. Замяната е съзнателна: рамката печели, а
+    главният прозорец показва предварително какво се мести, за да няма тихо
+    преместване.
     """
 
     proven = (113850.0, 2450.0)  # вдясно и под заглавието: в приетия прозорец
@@ -250,9 +258,53 @@ def test_рамката_не_отменя_доказана_връзка(tmp_path
         identity=_identity(),
     )
 
-    assert assignments["PROVEN"]["beam_assignment_method"] != OPERATOR_AREA_BEAM_METHOD
+    assert assignments["PROVEN"]["beam_assignment_method"] == OPERATOR_AREA_BEAM_METHOD
     assert assignments["14C11"]["beam_assignment_method"] == OPERATOR_AREA_BEAM_METHOD
+    # И двете сочат гредата на рамката, не тази от евристиката.
+    assert assignments["PROVEN"]["beam_name"] == _BEAM_TITLE
 
+
+def test_извън_рамката_автоматиката_не_се_пипа(tmp_path: Path) -> None:
+    """Рамката важи там, където е начертана — и никъде другаде.
+
+    Това е границата на новото правило: то не е „операторът превзема целия
+    чертеж", а „вътре в този правоъгълник думата е негова".
+    """
+
+    proven = (113850.0, 2450.0)  # вдясно и под заглавието: в приетия прозорец
+    entities = _beam_entities() + [
+        DxfEntityRecord(
+            "PROVEN", "BLOCK_ATTR_TEXT", "arm_gredi",
+            {"insert": [proven[0], proven[1], 0.0]}, "2N12x300",
+        )
+    ]
+    # Рамка, която НЕ покрива доказаната позиция.
+    record_operator_area(
+        tmp_path,
+        box=_BEAM_AREA,
+        kind=KIND_BEAM,
+        title_handle="BL19",
+        title_text=_BEAM_TITLE,
+        frame_index=1,
+        decided_by="Александър",
+        note="само неразпознатите, доказаната остава извън",
+        identity=_identity(),
+    )
+
+    assignments, _issues = _freeze_beam_assignments(
+        rows=[_row("14C11", "3N16x685"), _row("PROVEN", "2N12x300")],
+        links_by_annotation={
+            "14C11": _link("14C11", "3N16x685"),
+            "PROVEN": _link("PROVEN", "2N12x300"),
+        },
+        extracted_payload=_payload(entities),
+        project_root=tmp_path,
+        identity=_identity(),
+    )
+
+    assert assignments["14C11"]["beam_assignment_method"] == OPERATOR_AREA_BEAM_METHOD
+    assert assignments["PROVEN"]["beam_assignment_method"] != OPERATOR_AREA_BEAM_METHOD
+    assert assignments["PROVEN"]["beam_name"] == _BEAM_TITLE  # автоматиката
 
 # ---------------------------------------------------------------------------
 # ШАЙБИ
