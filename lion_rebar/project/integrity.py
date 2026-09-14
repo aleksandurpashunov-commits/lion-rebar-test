@@ -611,7 +611,46 @@ def _freeze_beam_assignments(
                     "beam_assignment_margin": assignment.margin,
                 }
             )
-        elif str(frame.category_code or "") == "VERTICALS":
+        elif str(frame.category_code or "") != "VERTICALS":
+            # Позиция, начертана ИЗВЪН рамката ГРЕДИ, но принадлежаща на
+            # греда. В ``s-9`` шест греди са начертани в рамката ДЕТАЙЛИ и
+            # армировката им отиваше в лист „детайли" анонимно: Гр. B.7 и
+            # Гр. B.24 нямаха НИТО ЕДНА позиция в листа с гредите, макар
+            # цялата им армировка да е в чертежа.
+            #
+            # Собственик, 2026-09-14: позицията да влиза при гредата си,
+            # независимо в коя чертожна рамка е нарисувана — арматуристът
+            # реже по греди, не по рамки.
+            #
+            # Добавка, не изискване: ако греда не се намери, редът си остава
+            # ``FINAL_CONTROL_NON_BEAM`` както досега и нищо не блокира.
+            извън_area = area_for_point(
+                operator_areas, point[0], point[1], kind=KIND_BEAM,
+            )
+            извън_label = (
+                beam_labels_by_handle.get(извън_area.title_handle)
+                if извън_area is not None
+                else None
+            )
+            метод = OPERATOR_AREA_BEAM_METHOD
+            if извън_label is None:
+                извън_assignment = _assign_beam_label(
+                    point[0], point[1], int(frame_index), labels
+                )
+                if извън_assignment is not None:
+                    извън_label = извън_assignment.label
+                    метод = извън_assignment.method
+            if извън_label is not None:
+                frozen.update(
+                    {
+                        "beam_name": извън_label.title,
+                        "beam_label_handle": извън_label.handle,
+                        "beam_assignment_method": метод,
+                        "beam_assignment_score": "",
+                        "beam_assignment_margin": "",
+                    }
+                )
+        if str(frame.category_code or "") == "VERTICALS":
             vertical_assignment = _assign_vertical_section(
                 point[0],
                 point[1],

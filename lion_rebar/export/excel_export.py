@@ -938,9 +938,25 @@ def load_export_context(
                         "Изпълни Финален контрол отново."
                     )
             elif beam_name or beam_label_handle:
-                raise ExcelExportError(
-                    f"Негредова рамка съдържа замразена греда за {annotation_text}."
+                # Позиция, начертана извън рамката ГРЕДИ, но принадлежаща на
+                # греда. Дотук това беше грешка; от 2026-09-14 е редовен
+                # случай: в ``s-9`` шест греди са начертани в рамката
+                # ДЕТАЙЛИ и армировката им излизаше в лист „детайли"
+                # анонимно. Гредата пак се сверява срещу DXF-а по handle --
+                # само изискването да е в същата чертожна рамка отпада.
+                matching_label = next(
+                    (
+                        label
+                        for label in beam_labels
+                        if label.handle == beam_label_handle
+                    ),
+                    None,
                 )
+                if matching_label is None or matching_label.title != beam_name:
+                    raise ExcelExportError(
+                        f"Замразената греда за {annotation_text} вече не съвпада "
+                        "с DXF. Изпълни Финален контрол отново."
+                    )
         elif frame.category_code == "BEAMS":
             assignment = _assign_beam_label(
                 point[0],
@@ -1187,8 +1203,34 @@ def generate_excel_export(
 
     shape_map = active_shapes
     positions_by_frame: dict[int, list[ExportPosition]] = defaultdict(list)
+    # Листът следва ГРЕДАТА, не чертожната рамка.
+    #
+    # Собственик, 2026-09-14, като видя описа: „в лист Детайли има позиции от
+    # гредите". В ``s-9`` шест греди са начертани в рамката ДЕТАЙЛИ, затова
+    # армировката им излизаше в лист „детайли" — Гр. B.7 и Гр. B.24 нямаха
+    # нито една позиция в листа с гредите. Арматуристът реже по греди, не по
+    # чертожни рамки, затова позиция с доказана греда отива при нея.
+    #
+    # Пренасочва се само когато има КЪДЕ: изисква се лист с категория BEAMS.
+    # Няма ли такъв, всичко си остава по рамката, както преди.
+    гредова_рамка = next(
+        (
+            frame.index
+            for frame in ordered_frames
+            if config_map[frame.index].category_code == "BEAMS"
+        ),
+        None,
+    )
     for position in positions:
-        positions_by_frame[position.frame_index].append(position)
+        index = position.frame_index
+        if (
+            гредова_рамка is not None
+            and str(getattr(position, "beam_name", "") or "")
+            and config_map.get(index) is not None
+            and config_map[index].category_code != "BEAMS"
+        ):
+            index = гредова_рамка
+        positions_by_frame[index].append(position)
 
     # Build every sheet before assigning numbers. A position number belongs to
     # the production identity, not to a particular sheet. Repeated identities
