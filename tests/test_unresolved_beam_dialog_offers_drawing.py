@@ -132,3 +132,95 @@ def test_изборът_от_списък_остава_възможен(tmp_path
     # „не решавай сега" плюс по едно на греда.
     assert combos[0].count() == len(_BEAMS) + 1
     assert combos[0].currentData() == ""
+
+
+class TestЛипсващаОбосновка:
+    """Собственик, 2026-09-14: „не ми дава да ги запазя."
+
+    Причината беше двойна. Проверката спираше на ПЪРВАТА липсваща
+    обосновка, тъй че при няколко празни реда предупреждението излизаше
+    отново и отново, все едно и също. И по-важно: когато осем позиции
+    отиват на една греда по една и съща причина, осемкратното изписване на
+    същия мотив не е решение, а преписване.
+
+    Мотивът остава задължителен — той прави решението проследимо. Просто
+    вече може да се въведе веднъж.
+    """
+
+    def _prepared(self, tmp_path: Path, с_обосновка: list[int]):
+        dialog = _dialog(tmp_path)
+        for combo in dialog._beam_boxes:
+            combo.setCurrentIndex(1)
+        for index in с_обосновка:
+            dialog._note_edits[index].setText("вярно")
+        return dialog
+
+    def test_намира_всички_липсващи_наведнъж(self, tmp_path: Path) -> None:
+        dialog = self._prepared(tmp_path, [0])
+
+        assert dialog._missing_notes() == [1]
+
+    def test_без_избрана_греда_не_иска_обосновка(self, tmp_path: Path) -> None:
+        """Позиция без избор остава нерешена — не е грешка."""
+
+        dialog = _dialog(tmp_path)
+
+        assert dialog._missing_notes() == []
+
+    def test_попълнените_не_се_броят(self, tmp_path: Path) -> None:
+        dialog = self._prepared(tmp_path, [0, 1])
+
+        assert dialog._missing_notes() == []
+
+    def test_общият_мотив_попълва_само_празните(self, tmp_path: Path) -> None:
+        """Написаното от оператора не се презаписва."""
+
+        from PySide6.QtWidgets import QInputDialog, QMessageBox
+
+        dialog = self._prepared(tmp_path, [0])
+        dialog._note_edits[0].setText("собствена бележка")
+
+        натиснат = {}
+
+        def _exec(self):
+            цел = [b for b in self.buttons() if "всички" in b.text()]
+            натиснат["има_бутон"] = bool(цел)
+            цел[0].click()
+            return 0
+
+        оригинал_exec = QMessageBox.exec
+        оригинал_text = QInputDialog.getText
+        QMessageBox.exec = _exec
+        QInputDialog.getText = staticmethod(lambda *a, **k: ("общ мотив", True))
+        try:
+            резултат = dialog._offer_shared_note(dialog._missing_notes())
+        finally:
+            QMessageBox.exec = оригинал_exec
+            QInputDialog.getText = оригинал_text
+
+        assert натиснат["има_бутон"]
+        assert резултат is True
+        assert dialog._note_edits[0].text() == "собствена бележка"
+        assert dialog._note_edits[1].text() == "общ мотив"
+
+    def test_отказан_общ_мотив_не_записва(self, tmp_path: Path) -> None:
+        """Празна обосновка не минава по никой път."""
+
+        from PySide6.QtWidgets import QInputDialog, QMessageBox
+
+        dialog = self._prepared(tmp_path, [0])
+
+        оригинал_exec = QMessageBox.exec
+        оригинал_text = QInputDialog.getText
+        QMessageBox.exec = lambda self: (
+            [b for b in self.buttons() if "всички" in b.text()][0].click() or 0
+        )
+        QInputDialog.getText = staticmethod(lambda *a, **k: ("", False))
+        try:
+            резултат = dialog._offer_shared_note(dialog._missing_notes())
+        finally:
+            QMessageBox.exec = оригинал_exec
+            QInputDialog.getText = оригинал_text
+
+        assert резултат is False
+        assert dialog._note_edits[1].text() == ""

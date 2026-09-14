@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QHeaderView,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -158,7 +159,75 @@ class UnresolvedBeamDialog(QDialog):
         self.wants_drawing_overview = True
         self.reject()
 
+    def _missing_notes(self) -> list[int]:
+        """Редовете с избрана греда, но без обосновка."""
+
+        липсващи = []
+        for index, (combo, note) in enumerate(
+            zip(self._beam_boxes, self._note_edits)
+        ):
+            if str(combo.currentData() or "") and not note.text().strip():
+                липсващи.append(index)
+        return липсващи
+
+    def _offer_shared_note(self, липсващи: list[int]) -> bool:
+        """Показва КОИ редове липсват и предлага един общ мотив.
+
+        Собственик, 2026-09-14: „не ми дава да ги запазя." Причината беше
+        двойна. Първо, проверката спираше на ПЪРВАТА липсваща обосновка, тъй
+        че при четири празни реда предупреждението излизаше четири пъти, все
+        едно и също. Второ — и по-важно — когато осем позиции отиват на една
+        греда по една и съща причина, осемкратното изписване на един и същи
+        мотив не е решение, а преписване.
+
+        Мотивът си остава задължителен: той е това, което прави решението
+        проследимо. Общият просто се въвежда веднъж.
+        """
+
+        имена = []
+        for index in липсващи:
+            text = self._positions[index][1]
+            греда = self._beam_boxes[index].currentText()
+            имена.append(f"    {text} → {греда}")
+            self._note_edits[index].setStyleSheet(
+                "border: 1px solid #d93025; background: #fff6f5;"
+            )
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle("Липсва обосновка")
+        box.setText(
+            f"{len(липсващи)} позиции имат избрана греда, но нямат обосновка:"
+            + "\n\n" + "\n".join(имена[:10])
+            + ("\n    …" if len(имена) > 10 else "")
+            + "\n\nРешение за производствена принадлежност изисква мотив."
+        )
+        общ = box.addButton(
+            "Един мотив за всички", QMessageBox.ButtonRole.AcceptRole
+        )
+        box.addButton("Ще ги напиша сам", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is not общ:
+            self._note_edits[липсващи[0]].setFocus()
+            return False
+
+        текст, прието = QInputDialog.getText(
+            self,
+            "Обосновка за всички",
+            "Мотивът ще бъде записан за всяка от изброените позиции:",
+        )
+        if not прието or not str(текст).strip():
+            self._note_edits[липсващи[0]].setFocus()
+            return False
+        for index in липсващи:
+            self._note_edits[index].setText(str(текст).strip())
+            self._note_edits[index].setStyleSheet("")
+        return True
+
     def _save(self) -> None:
+        липсващи = self._missing_notes()
+        if липсващи and not self._offer_shared_note(липсващи):
+            return
+
         pending: list[tuple[str, str, str, str]] = []
         for (handle, text), combo, note in zip(
             self._positions, self._beam_boxes, self._note_edits
@@ -168,12 +237,6 @@ class UnresolvedBeamDialog(QDialog):
                 continue
             reason = note.text().strip()
             if not reason:
-                QMessageBox.warning(
-                    self,
-                    "Липсва обосновка",
-                    f"Позиция „{text}“ има избрана греда, но няма обосновка.\n\n"
-                    "Решение за производствена принадлежност изисква мотив.",
-                )
                 return
             pending.append((handle, text, label_handle, reason))
 
