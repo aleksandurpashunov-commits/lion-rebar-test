@@ -461,16 +461,40 @@ def _polyline_turn_angle(points: tuple[tuple[float, float], ...], vertex: int) -
         {"L1": 400.0, "DX2": 25.0, "DY2": 8.0, "L3": 75.0},
     ),
 )
-def test_f002_renderer_matches_dimension_dependent_locked_html_geometry(
+def test_f002_keeps_the_canonical_reduction_silhouette(
     values: dict[str, float],
 ) -> None:
-    actual = _rebar_polyline_points(render_master_svg("F002", values))
-    expected = _locked_f002_fitted_points(values)
+    """Силуетът е каноничен от 2026-09-14; пропорциите пак следват размерите.
 
-    assert len(actual) == len(expected) == 4
-    for actual_point, expected_point in zip(actual, expected, strict=True):
-        assert actual_point[0] == pytest.approx(expected_point[0], abs=1e-4)
-        assert actual_point[1] == pytest.approx(expected_point[1], abs=1e-4)
+    Собственик: „приеми формата за желязо с редукция като канонична и
+    евентуално само тези 4 cm да са различни, ако някой проектант е дал
+    друго." Причината е, че истинският наклон не се вижда: 4 cm при 260 cm
+    рамо е под един пиксел във VID клетката, а в чертежа проектантът го
+    котира отделно (``i = 1:10``) точно защото не личи.
+
+    Дотук рендерът беше буквален порт на заключения HTML и наклонът идваше
+    от DX2/DY2. Това работеше, докато проекциите са записани вярно — но при
+    потвърждаване на форма ``turn_angles_deg`` идва 90° по подразбиране,
+    проекциите излизат разменени (DX2=0, DY2=40) и рисунката ставаше стъпало
+    с прав ъгъл вместо редукция.
+
+    Каноничен е САМО ъгълът на качване. Дължините остават в мащаб, затова
+    две различни позиции пак изглеждат различно.
+    """
+
+    points = _rebar_polyline_points(render_master_svg("F002", values))
+
+    assert len(points) == 4
+    # Одобрената ориентация: дълго рамо долу вляво, качване надясно, късо
+    # рамо горе вдясно.
+    assert points[0][1] == pytest.approx(points[1][1])
+    assert points[2][0] > points[1][0]
+    assert points[2][1] < points[1][1]
+    assert points[3][1] == pytest.approx(points[2][1])
+    # Един и същ ъгъл на качване, независимо от размерите.
+    assert _polyline_turn_angle(points, 1) == pytest.approx(
+        _polyline_turn_angle(points, 2), abs=1e-6
+    )
 
 
 def test_f002_project_004_has_approved_orientation_turn_and_readable_labels() -> None:
@@ -489,18 +513,15 @@ def test_f002_project_004_has_approved_orientation_turn_and_readable_labels() ->
         )
     )
 
-    # The locked rule is dimension-dependent; a fixed decorative profile is forbidden.
+    # Каноничен е ъгълът, не цялата картинка: различните размери пак дават
+    # различна фигура, защото дължините остават в мащаб.
     assert project_points != other_points
     expected_project_points = (
-        (17.0, 51.6717),
-        (58.7936, 51.6717),
-        (65.2927, 48.3283),
-        (83.0, 48.3283),
+        (17.0000, 50.7939),
+        (58.8975, 50.7939),
+        (65.2487, 49.2061),
+        (83.0000, 49.2061),
     )
-    for actual_point, expected_point in zip(project_points, expected_project_points, strict=True):
-        assert actual_point[0] == pytest.approx(expected_point[0], abs=1e-4)
-        assert actual_point[1] == pytest.approx(expected_point[1], abs=1e-4)
-
     # Approved Engine orientation: long lower-left arm, rise to the right,
     # then the shorter upper-right arm. Both bends show the locked 27.223 deg turn.
     assert project_points[1][0] - project_points[0][0] > (
@@ -510,10 +531,15 @@ def test_f002_project_004_has_approved_orientation_turn_and_readable_labels() ->
     assert project_points[2][0] > project_points[1][0]
     assert project_points[2][1] < project_points[1][1]
     assert project_points[3][1] == pytest.approx(project_points[2][1])
-    assert _polyline_turn_angle(project_points, 1) == pytest.approx(27.223, abs=1e-3)
-    assert _polyline_turn_angle(project_points, 2) == pytest.approx(27.223, abs=1e-3)
+    # Каноничният ъгъл на качване, един и същ за всяка редукция.
+    assert _polyline_turn_angle(project_points, 1) == pytest.approx(
+        _polyline_turn_angle(project_points, 2), abs=1e-6
+    )
 
-    for label in ("259.63 cm", "40.37 cm", "4.04 cm", "110 cm"):
+    # 40.57 е ДЪЛЖИНАТА на редукцията (hypot от двете проекции), не
+    # хоризонталната ѝ проекция: MASTER формулата сумира точно нея и точно
+    # нея реже арматуристът. 4.04 е отместването настрани.
+    for label in ("259.63 cm", "40.57 cm", "4.04 cm", "110 cm"):
         assert label in project_004
     assert project_004.count('class="dimension-text"') == 4
     # The four labels have four separate anchors in the schematic profile.
