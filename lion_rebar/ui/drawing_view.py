@@ -119,6 +119,9 @@ class DrawingView(QGraphicsView):
         self._box_origin = None
         self._markers: list[QGraphicsItem] = []
         self._marker_bounds: QRectF | None = None
+        # Отделен списък от маркерите: те са временна диагностика и се
+        # изчистват при всяко показване, а рамките са запазено състояние.
+        self._area_items: list[QGraphicsItem] = []
 
     # -----------------------------------------------------------------
     # Маркери върху чертежа
@@ -184,6 +187,94 @@ class DrawingView(QGraphicsView):
             self._marker_bounds = (
                 rect if self._marker_bounds is None else self._marker_bounds.united(rect)
             )
+
+    # -----------------------------------------------------------------
+    # Начертаните рамки
+    # -----------------------------------------------------------------
+
+    def show_operator_areas(
+        self,
+        areas: Sequence[tuple[float, float, float, float, str, str]],
+    ) -> None:
+        """Рисува запазените области: правоъгълник и заглавието, което носи.
+
+        ``areas`` са ``(x0, y0, x1, y1, надпис, цвят)`` в координатите на
+        ЧЕРТЕЖА. Обръщането на Y към сцената става тук, както навсякъде в
+        този изглед.
+
+        Рамките НЕ поемат кликове: операторът трябва да може да избере
+        обект под рамката, без да я мести или маркира.
+        """
+
+        scene = self.scene()
+        if scene is None:
+            return
+        self.clear_operator_areas()
+        for x0, y0, x1, y1, label, colour in areas:
+            тон = QColor(colour)
+            rect = QRectF(
+                QPointF(float(x0), -float(y0)),
+                QPointF(float(x1), -float(y1)),
+            ).normalized()
+            pen = QPen(тон)
+            pen.setCosmetic(True)
+            pen.setWidth(2)
+            fill = QColor(тон)
+            fill.setAlpha(20)
+            item = QGraphicsRectItem(rect)
+            item.setPen(pen)
+            item.setBrush(QBrush(fill))
+            item.setZValue(8_500.0)
+            item.setAcceptedMouseButtons(Qt.NoButton)
+            scene.addItem(item)
+            self._area_items.append(item)
+            text = str(label or "").strip()
+            if not text:
+                continue
+            # Надписът стои НАД рамката, не в нея.
+            #
+            # Операторът огражда гредата именно заради заглавието ѝ, тоест
+            # горният ляв ъгъл е точно мястото, където стои то. Сложен вътре,
+            # етикетът лягаше върху него и двата ставаха нечетими.
+            #
+            # Подложката е плътна, защото над рамката също може да мине
+            # чертеж. Всичко е в екранни единици (``ItemIgnoresTransformations``),
+            # за да се чете еднакво при всяко увеличение.
+            етикет = QGraphicsSimpleTextItem(text)
+            етикет.setBrush(QBrush(тон))
+            font = QFont()
+            font.setPointSizeF(10.0)
+            font.setBold(True)
+            етикет.setFont(font)
+            етикет.setFlag(QGraphicsItem.ItemIgnoresTransformations, True)
+            граници = етикет.boundingRect()
+            нагоре = QTransform().translate(1.0, -граници.height() - 4.0)
+            чип = QGraphicsRectItem(
+                -3.0, -2.0, граници.width() + 6.0, граници.height() + 4.0
+            )
+            чип.setFlag(QGraphicsItem.ItemIgnoresTransformations, True)
+            рамкиращ = QPen(тон)
+            рамкиращ.setCosmetic(True)
+            рамкиращ.setWidth(1)
+            чип.setPen(рамкиращ)
+            чип.setBrush(QBrush(QColor(255, 255, 255, 235)))
+            for елемент, z in ((чип, 8_501.0), (етикет, 8_502.0)):
+                елемент.setPos(rect.left(), rect.top())
+                елемент.setTransform(нагоре)
+                елемент.setZValue(z)
+                елемент.setAcceptedMouseButtons(Qt.NoButton)
+                scene.addItem(елемент)
+                self._area_items.append(елемент)
+
+    def clear_operator_areas(self) -> None:
+        scene = self.scene()
+        for item in self._area_items:
+            if scene is not None and item.scene() is scene:
+                scene.removeItem(item)
+        self._area_items = []
+
+    def has_operator_areas(self) -> bool:
+        return bool(self._area_items)
 
     def clear_markers(self) -> None:
         scene = self.scene()

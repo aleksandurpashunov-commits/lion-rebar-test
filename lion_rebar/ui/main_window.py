@@ -436,10 +436,13 @@ class MainWindow(QMainWindow):
         )
 
         self.action_operator_box = QAction("Рамка с два клика", self)
+        # Клавишът стои изписан до действието в менюто: рамките се чертаят
+        # една след друга и посягането към менюто всеки път е загубено време.
+        self.action_operator_box.setShortcut(QKeySequence("R"))
         self.action_operator_box.setToolTip(
             "Начертай с два клика област около заглавието на гредата, шайбата "
             "или групата колони. Анализът я чете и слага всичко вътре в тази "
-            "група. Чертае се ПРЕДИ анализа."
+            "група. Чертае се ПРЕДИ анализа.  (R)"
         )
         self.action_operator_box.triggered.connect(self.start_operator_box)
 
@@ -781,6 +784,8 @@ class MainWindow(QMainWindow):
             "OPERATOR_AREA_RECORDED",
             {"kind": area.kind, "title": area.title_text, "area_id": area.area_id},
         )
+        # Преди съобщението, за да е вече на чертежа, щом го затвори.
+        self._refresh_operator_areas()
         QMessageBox.information(
             self,
             "Записано",
@@ -792,6 +797,53 @@ class MainWindow(QMainWindow):
                     "минал), за да влезе в сила.",
                 ]
             ),
+        )
+
+    #: Цвят на рамката според вида на заглавието, което е хванала.
+    _ЦВЯТ_НА_РАМКА = {"BEAM": "#ef6c00", "GROUP": "#2e7d32"}
+
+    def _refresh_operator_areas(self) -> None:
+        """Пречертава запазените рамки върху чертежа.
+
+        Собственик, 2026-09-15: „рамката с два клика трябва да е видима за
+        да може оператора да вижда какво е маркирал."
+
+        Чете се от диска, не от паметта: рамките са състояние на проекта и
+        трябва да се появят и при отваряне на вече започнат проект, не само
+        веднага след чертането.
+
+        Никога не спира работата: ако областите не могат да се прочетат,
+        чертежът остава без рамки, но си работи.
+        """
+
+        view = getattr(self, "drawing_view", None)
+        if view is None:
+            return
+        try:
+            from lion_rebar.export.operator_areas import load_operator_areas
+            from lion_rebar.project.data_identity import current_identity
+
+            if self.project is None or self.import_result is None:
+                view.clear_operator_areas()
+                return
+            areas = load_operator_areas(
+                Path(self.project.root), current_identity(self.project)
+            )
+        except Exception:  # noqa: BLE001 - показването не бива да вали импорта
+            self.logger.exception("Cannot draw operator areas")
+            return
+        view.show_operator_areas(
+            [
+                (
+                    area.x0,
+                    area.y0,
+                    area.x1,
+                    area.y1,
+                    area.title_text,
+                    self._ЦВЯТ_НА_РАМКА.get(area.kind, "#2e7d32"),
+                )
+                for area in areas
+            ]
         )
 
     def show_beam_overview(self) -> None:
@@ -1000,6 +1052,7 @@ class MainWindow(QMainWindow):
             "OPERATOR_AREA_WITHDRAWN",
             {"kind": area.kind, "title": area.title_text, "area_id": area.area_id},
         )
+        self._refresh_operator_areas()
         QMessageBox.information(
             self,
             "Оттеглено",
@@ -1545,6 +1598,9 @@ class MainWindow(QMainWindow):
             raise
         finally:
             QApplicationOverrideCursor.restore()
+        # Сцената е нова: рамките се пречертават върху нея. Тук се хваща и
+        # отварянето на започнат проект, не само току-що начертана рамка.
+        self._refresh_operator_areas()
 
     def _on_scene_selection_changed(self) -> None:
         if self.scene_result is None:
