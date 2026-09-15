@@ -737,6 +737,11 @@ def load_export_context(
     frame_map = {frame.index: frame for frame in frames}
     beam_labels = _detect_beam_labels(entities, frames)
     vertical_section_labels = _detect_vertical_section_labels(entities, frames)
+    # Начертаните рамки се четат тук, а не при анализа: те са състояние на
+    # проекта и важат за всеки следващ експорт, докато не бъдат оттеглени.
+    from lion_rebar.export.operator_areas import load_operator_areas
+
+    operator_areas = load_operator_areas(root, current_identity(project))
 
     ledger_rows = list(csv.DictReader(ledger_path.open("r", encoding="utf-8-sig", newline="")))
     approved_payload = _read_json(approved_path)
@@ -1021,6 +1026,7 @@ def load_export_context(
                 point[1],
                 int(frame_index),
                 vertical_section_labels,
+                operator_areas=operator_areas,
             )
             if (
                 matching_section is None
@@ -1044,6 +1050,7 @@ def load_export_context(
                 point[1],
                 int(frame_index),
                 vertical_section_labels,
+                operator_areas=operator_areas,
             )
             if vertical_assignment is None:
                 raise ExcelExportError(
@@ -2814,7 +2821,48 @@ def _assign_vertical_section(
     *,
     x_margin: float = VERTICAL_SECTION_X_MARGIN,
     minimum_margin: float = VERTICAL_SECTION_MIN_MARGIN,
+    operator_areas: Sequence[Any] = (),
 ) -> VerticalAssignment | None:
+    """Коя вертикална секция държи тази позиция.
+
+    ОПЕРАТОРСКАТА РАМКА Е ПЪРВА. Тя сочи истински handle на заглавие, а
+    секциите се разпознават по същия handle: съвпадението е точно, не по
+    близост. Геометрията отдолу е само за незаградените.
+
+    Собственик, 2026-09-15: рамките „да са само оформящи за да знае
+    програмата коя шайба, колона и геометрията и надписите къде принадлежат".
+
+    Без това в ``s-10`` секцията „K.B.11,11a - 88x25" получи стремена 115x20
+    и 165x20 — невъзможни в елемент широк 88 cm. Те са двата най-слабо
+    назначени надписа в целия чертеж (марж 116 от 126), но прагът за отказ е
+    1.0 и ги пусна като сигурни.
+    """
+
+    if operator_areas:
+        from lion_rebar.export.operator_areas import KIND_GROUP, area_for_point
+
+        # Без сверяване на ``frame_index``: областта може да е записана преди
+        # рамките да получат граници и да носи стар индекс. Handle-ът на
+        # заглавието е по-силното доказателство и сам я връзва към рамката.
+        area = area_for_point(operator_areas, x, y, kind=KIND_GROUP)
+        if area is not None and str(area.title_handle or ""):
+            chosen = next(
+                (
+                    label
+                    for label in labels
+                    if label.frame_index == int(frame_index)
+                    and label.title_handle == area.title_handle
+                ),
+                None,
+            )
+            if chosen is not None:
+                return VerticalAssignment(
+                    section=chosen,
+                    score=0.0,
+                    margin=1_000_000_000.0,
+                    method="OPERATOR_AREA_VERTICAL",
+                )
+
     candidates: list[tuple[float, int, str, VerticalSectionLabel]] = []
     for label in labels:
         if label.frame_index != int(frame_index):
