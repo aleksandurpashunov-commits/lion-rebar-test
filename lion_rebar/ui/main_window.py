@@ -756,12 +756,37 @@ class MainWindow(QMainWindow):
                 редове.append(f"    {текст}: „{стара}“ → „{resolution.title_text}“")
             if len(премествани) > 8:
                 редове.append(f"    … и още {len(премествани) - 8}")
-        редове.extend(["", "Обосновка:"])
-        note, accepted = QInputDialog.getText(
-            self, "Рамка с два клика", "\n".join(редове)
-        )
-        if not accepted:
-            return
+        # Обосновка се иска САМО когато рамката отменя нещо.
+        #
+        # Собственик, 2026-09-15, докато огражда елементите в s-11: „в това
+        # съобщение, което трябва да опиша, не намирам логика."
+        #
+        # Прав е. Мотивът пази решение, което БИЕ автоматиката — затова е
+        # задължителен, когато позиции се местят от една греда на друга. Но
+        # когато рамката само огражда елемент преди анализа, няма какво да
+        # се оправдава: нищо не се отменя. Тридесет елемента значеха
+        # тридесет обосновки за нищо.
+        #
+        # Потвърждението остава: операторът трябва да види КОЛКО позиции е
+        # хванал, преди рамката да се запише.
+        if премествани:
+            редове.extend(["", "Обосновка:"])
+            note, accepted = QInputDialog.getText(
+                self, "Рамка с два клика", "\n".join(редове)
+            )
+            if not accepted:
+                return
+        else:
+            note = "Оградено преди анализа — нищо не се отменя."
+            редове.extend(["", "Да запиша ли рамката?"])
+            if QMessageBox.question(
+                self,
+                "Рамка с два клика",
+                "\n".join(редове),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            ) != QMessageBox.StandardButton.Yes:
+                return
         try:
             area = record_operator_area(
                 Path(self.project.root),

@@ -2532,8 +2532,11 @@ def _vertical_section_kind(text: str) -> str | None:
         .replace("\u0410", "A")
         .replace("\u0412", "B")
     )
+    # „Ядро" се пише и съкратено („Я."), а осовата буква я има само при
+    # единия проектант: „Стб.Ядро B.1" срещу „Стб.Я.1" и „Стб.ядро 5".
     if re.match(
-        r"^\s*\u0421\u0422\u0411\s*\.\s*\u042F\u0414\u0420\u041E\s+[A-Z]\s*\.\s*\d+",
+        r"^\s*\u0421\u0422\u0411\s*\.\s*(?:\u042F\u0414\u0420\u041E|\u042F)\s*\.?\s*"
+        r"(?:[A-Z]\s*\.\s*)?\d+",
         canonical,
     ):
         return "CORE"
@@ -2542,12 +2545,21 @@ def _vertical_section_kind(text: str) -> str | None:
         canonical,
     ):
         return "TYPE"
+    # След „Ш."/„К."/„К.Ш."/„П." идва осова буква ИЛИ номер, а „бр." го има
+    # само когато елементът се повтаря: „Ш.10 - 1 бр." срещу „Ш.4,61".
     if re.match(
-        r"^\s*(?:\u0428\s*\.\s*[A-Z]|K\s*\.\s*(?:\u0428\s*\.\s*)?[A-Z])",
+        r"^\s*(?:K\s*\.\s*\u0428\s*\.|\u0428\s*\.|K\s*\.|\u041F\s*\.)\s*"
+        r"(?:[A-Z]|\d)",
         canonical,
-    ) and re.search(r"\b\u0411\u0420\s*\.", canonical):
+    ):
         return "NAMED_VERTICAL"
-    return None
+    # ДОКАЗАТЕЛСТВОТО, НЕ СТИЛЪТ.
+    #
+    # Заглавие със „Сх.арм.", което не попада в познато семейство, не се
+    # отхвърля: допуска го подчертаващата линия, която остава задължителна
+    # и уникална. Отхвърлянето по изписване значеше, че цял проектант не
+    # може да огради нищо — в ``s-11`` 28 от 36 заглавия падаха тук.
+    return "SECTION"
 
 
 def _vertical_section_natural_key(kind: str, title: str) -> tuple:
@@ -2561,6 +2573,9 @@ def _vertical_section_natural_key(kind: str, title: str) -> tuple:
         .replace("\u0412", "B")
     )
     if kind == "CORE":
+        # Един и същ РАЗМЕР на ключа при всички изписвания. Иначе сортирането
+        # на чертеж, в който има и „Стб.Ядро B.1", и „Стб.Я.1", сравнява
+        # четворка с двойка и пада с TypeError.
         match = re.search(
             r"\u042F\u0414\u0420\u041E\s+([A-Z])\s*\.\s*(\d+)\s*([A-Z\u0410-\u042F]*)",
             canonical,
@@ -2572,6 +2587,13 @@ def _vertical_section_natural_key(kind: str, title: str) -> tuple:
                 match.group(3).casefold(),
                 normalized,
             )
+        кратко = re.search(
+            r"(?:\u042F\u0414\u0420\u041E|\u042F)\s*\.?\s*(\d+)\s*([A-Z\u0410-\u042F]*)",
+            canonical,
+        )
+        if кратко:
+            return ("", int(кратко.group(1)), кратко.group(2).casefold(), normalized)
+        return ("", 10**9, "", normalized)
     if kind == "TYPE":
         match = re.match(
             r"^\s*\u0422\u0418\u041F\s+(\d+)\s*([A-Z\u0410-\u042F]*)",
@@ -2579,7 +2601,7 @@ def _vertical_section_natural_key(kind: str, title: str) -> tuple:
         )
         if match:
             return (int(match.group(1)), match.group(2).casefold(), normalized)
-    if kind == "NAMED_VERTICAL":
+    if kind in {"NAMED_VERTICAL", "SECTION"}:
         canonical = canonical.replace("\u0428", "SH")
         compact = re.sub(r"\s+", "", canonical)
         prefix_rank = 3
