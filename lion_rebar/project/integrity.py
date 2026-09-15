@@ -651,11 +651,18 @@ def _freeze_beam_assignments(
                     }
                 )
         if str(frame.category_code or "") == "VERTICALS":
+            # Областите се подават и тук. Без тях Финалният контрол замразява
+            # по геометрия, а Excel export-ът чете по рамката — двете се
+            # разминават и се получава мъртъв възел: export-ът отказва с
+            # „Frozen vertical section ... no longer matches the DXF. Run
+            # Final Control again", а Финалният контрол е блокиран от същата
+            # проверка и не може да опресни замразяването.
             vertical_assignment = _assign_vertical_section(
                 point[0],
                 point[1],
                 int(frame_index),
                 vertical_labels,
+                operator_areas=operator_areas,
             )
             if vertical_assignment is None:
                 issues.append(

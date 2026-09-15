@@ -204,6 +204,43 @@ def collect_area_titles(
         seen.add(str(label.handle))
 
     frame_list = list(frames)
+
+    # ЗАГЛАВИЯТА НА ВЕРТИКАЛНИТЕ СЕКЦИИ.
+    #
+    # „Стб.Ядро B.1 - (Сх.арм.2 )", „K.B.11,11a - 88x25 - 2 бр.(Сх.арм.1 )".
+    # Взимат се от ``_detect_vertical_section_labels`` — същия източник, по
+    # който описът се подрежда секция по секция, — а не по нов образец: така
+    # handle-ът, който областта запазва, е точно този, по който
+    # ``_assign_vertical_section`` после я разпознава.
+    #
+    # Без тях операторът НЕ МОЖЕ да огради вертикален елемент: в ``s-10``
+    # ``collect_area_titles`` връщаше нула заглавия, тоест всяка рамка се
+    # отказваше с „в рамката няма заглавие".
+    from lion_rebar.export.excel_export import _detect_vertical_section_labels
+
+    by_handle = {
+        str(getattr(record, "handle", "") or ""): record for record in entities
+    }
+    for section in _detect_vertical_section_labels(list(entities), frame_list):
+        handle = str(section.title_handle or "")
+        if not handle or handle in seen:
+            continue
+        record = by_handle.get(handle)
+        point = _entity_insert(record) if record is not None else None
+        if point is None:
+            continue
+        titles.append(
+            AreaTitle(
+                handle=handle,
+                text=str(section.title),
+                x=float(point[0]),
+                y=float(point[1]),
+                frame_index=int(section.frame_index),
+                kind="GROUP",
+            )
+        )
+        seen.add(handle)
+
     for record in entities:
         handle = str(getattr(record, "handle", "") or "")
         if not handle or handle in seen:
