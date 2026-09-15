@@ -2838,6 +2838,7 @@ def _assign_vertical_section(
     1.0 и ги пусна като сигурни.
     """
 
+    framed: set[str] = set()
     if operator_areas:
         from lion_rebar.export.operator_areas import KIND_GROUP, area_for_point
 
@@ -2862,10 +2863,30 @@ def _assign_vertical_section(
                     margin=1_000_000_000.0,
                     method="OPERATOR_AREA_VERTICAL",
                 )
+        framed = {
+            str(item.title_handle)
+            for item in operator_areas
+            if item.kind == KIND_GROUP and str(item.title_handle or "")
+        }
 
     candidates: list[tuple[float, int, str, VerticalSectionLabel]] = []
     for label in labels:
         if label.frame_index != int(frame_index):
+            continue
+        # ОГРАДЕНАТА СЕКЦИЯ ВЗИМА САМО КАКВОТО Е В РАМКАТА ѝ.
+        #
+        # Без това ограждането на един елемент не го чисти: рамката прибира
+        # каквото е вътре, но каквото е вън пак пада върху него по близост.
+        # В ``s-10`` трите чужди позиции на „K.B.11,11a" стоят ИЗВЪН
+        # заглавието му — на x 4263..4314 при край 4267 — и рамка около
+        # колоната нямаше да ги премести.
+        #
+        # С изключването същата рамка ги праща в „Стб.Ядро B.3": ядро, където
+        # стреме 165x20 е възможно, за разлика от колона широка 88 cm.
+        if label.title_handle in framed and not any(
+            item.title_handle == label.title_handle and item.contains(x, y)
+            for item in operator_areas
+        ):
             continue
         vertical_distance = float(label.divider_y) - float(y)
         if vertical_distance < 0.0:
