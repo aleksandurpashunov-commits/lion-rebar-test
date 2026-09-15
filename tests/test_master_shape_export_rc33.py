@@ -539,12 +539,14 @@ def test_f002_project_004_has_approved_orientation_turn_and_readable_labels() ->
     # 40.57 е ДЪЛЖИНАТА на редукцията (hypot от двете проекции), не
     # хоризонталната ѝ проекция: MASTER формулата сумира точно нея и точно
     # нея реже арматуристът. 4.04 е отместването настрани.
-    for label in ("259.63 cm", "40.57 cm", "4.04 cm", "110 cm"):
+    for label in (">259.63<", ">40.57<", ">4.04<", ">110<"):
         assert label in project_004
     assert project_004.count('class="dimension-text"') == 4
     # The four labels have four separate anchors in the schematic profile.
+    # Стесненият надпис носи и style="font-size:...", затова между класа и
+    # координатите може да има още атрибути.
     anchors = re.findall(
-        r'<text class="dimension-text" x="([^"]+)" y="([^"]+)"',
+        r'<text class="dimension-text"[^>]*? x="([^"]+)" y="([^"]+)"',
         project_004,
     )
     assert len(anchors) == 4

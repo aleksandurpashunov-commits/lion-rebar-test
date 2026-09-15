@@ -483,7 +483,11 @@ def _generic_svg(code: str, values: dict[str, float], *, include_safe_zone: bool
         # Числата носят истината: трите дължини отдолу и отместването
         # отстрани. Рисунката носи разпознаваемостта.
         dx_vis = reduction * 0.97
-        dy_vis = dx_vis * 0.25 * (-1.0 if dy < 0 else 1.0)
+        # Качването е схематично преувеличено. При истинския наклон (4 cm на
+        # 40) редукцията е по-ниска от дебелината на линията в клетката на
+        # Excel: двете нива се сливат и размерът на отместването няма между
+        # какво да застане.
+        dy_vis = dx_vis * 0.62 * (-1.0 if dy < 0 else 1.0)
         p = [
             (0, 0),
             (l1, 0),
@@ -491,19 +495,39 @@ def _generic_svg(code: str, values: dict[str, float], *, include_safe_zone: bool
             (l1 + dx_vis + l3, dy_vis),
         ]
         lines = [p]
+        шрифт, на_един_ред = _fit_chain((l1, reduction, l3))
+        # Второто ниво е резервният изход: при дробни размери („259.63",
+        # „40.57") надписите не се разделят дори при най-малкия четим шрифт.
+        средно_ниво = 11.0 if на_един_ред else 24.0
         dims = [
             # The rebar polyline above is exact MASTER geometry. These three
             # optional values affect only dimension-line/text layout in the
             # compact Excel VID cell: offset, label dx and label dy.
-            # L1 и L3 на едно ниво; редукцията -- на второ, по-ниско.
-            # Тя е тесен участък между две дълги рамена (40 срещу 260 и 110),
-            # затова надписът ѝ не се побира между съседните и ги застъпва в
-            # тясната VID клетка. Второто ниво е единственото място, където и
-            # трите се четат.
-            ("h", p[0], p[1], l1, "below", 18.0, 0.0, 0.0),
-            ("h", p[1], p[2], reduction, "below", 40.0, 0.0, 0.0),
-            ("h", p[2], p[3], l3, "below", 18.0, 0.0, 0.0),
-            ("v", p[1], p[2], offset, "right", 9.0, 2.0, 0.0),
+            # Трите размера са на ЕДНА линия, близо до геометрията.
+            #
+            # Побират се, защото размерите са само числа. Със суфикса „cm"
+            # не се получаваше: редукцията е една десета от пръта, а надписът
+            # ѝ ставаше по-широк от самия участък и застъпваше съседните;
+            # едновременното им побиране искаше шрифт 3.9 вместо 5.6 px.
+            # Шестата стойност е общата база: и трите стъпват на нивото на
+            # долното рамо, затова излизат в ЕДИН ред, а не всяка на своя
+            # сегмент.
+            ("h", p[0], p[1], l1, "below", 11.0, 0.0, 0.0, шрифт, 0.0),
+            ("h", p[1], p[2], reduction, "below", средно_ниво, 0.0, 0.0, шрифт, 0.0),
+            ("h", p[2], p[3], l3, "below", 11.0, 0.0, 0.0, шрифт, 0.0),
+            # Отместването се мери в чистото поле ВДЯСНО ОТ ПРЪТА. Досега
+            # стоеше на 9 единици от върха на редукцията — тоест насред
+            # късото рамо — и се застъпваше с него.
+            (
+                "v",
+                (p[3][0], p[1][1]),
+                (p[3][0], p[2][1]),
+                offset,
+                "right",
+                5.0,
+                1.5,
+                0.0,
+            ),
         ]
     elif code == "F003":
         if l1 > l2 and l3 > l2:
@@ -779,7 +803,7 @@ def _f006_svg(values: dict[str, float], *, include_safe_zone: bool) -> str:
     svg += _dimension_group_vertical(dim_left, rect_top, rect_bottom, left, l3, text_side="left")
     svg += (
         f'<text class="dimension-text hook-inside-label" x="{hook_label_x:g}" y="{hook_label_y:g}" '
-        f'text-anchor="middle" dominant-baseline="central">{_fmt(l1)} cm</text>'
+        f'text-anchor="middle" dominant-baseline="central">{_fmt(l1)}</text>'
     )
     return svg
 
@@ -850,7 +874,7 @@ def _f009_dimension(start, end, value, position, offset, index, center) -> str:
         f'<line class="f009-extension" x1="{end[0]:g}" y1="{end[1]:g}" x2="{b[0]:g}" y2="{b[1]:g}"/>'
         f'<line class="f009-dimension" x1="{a[0]:g}" y1="{a[1]:g}" x2="{b[0]:g}" y2="{b[1]:g}"/>'
         f'<text class="f009-text" x="{text[0]:g}" y="{text[1]:g}" text-anchor="middle" dominant-baseline="central" '
-        f'transform="rotate({rotation:g} {text[0]:g} {text[1]:g})">{_fmt(value)} cm</text></g>'
+        f'transform="rotate({rotation:g} {text[0]:g} {text[1]:g})">{_fmt(value)}</text></g>'
     )
 
 
@@ -862,6 +886,62 @@ def _fit_geometry(points: Sequence[tuple[float, float]]):
     return lambda point: (50 + (point[0] - center_x) * scale, 50 - (point[1] - center_y) * scale)
 
 
+#: Колко широк е един знак спрямо височината на шрифта. Измерено срещу
+#: самия растеризатор (``shape_image``), не взето от таблица. Нарочно е
+#: щедър: късите надписи носят странични отстъпи, а подценяването води до
+#: застъпване, което изглежда като дефект в описа.
+_GLYPH_WIDTH_RATIO = 1.05
+#: Въздух между два съседни надписа, за да не се допират.
+_LABEL_BREATHING = 1.12
+#: Ширината, в която ``render_master_svg`` вписва фигурата.
+_FIT_VIEW_WIDTH = 66.0
+#: Базовият шрифт на размерните надписи.
+_FIT_BASE_FONT_PX = 5.6
+#: Под този мащаб надписът става нечетим; тогава се оставя както е и се
+#: разчита на изнасящите линии.
+_MIN_LABEL_SCALE = 0.62
+
+
+def _fit_chain(values: Sequence[float]) -> float:
+    """Общ шрифт, при който съседните надписи в една размерна верига не се
+    застъпват.
+
+    Собственик, 2026-09-14: „размерите в една линия, по-близо до геометрията,
+    за да излиза професионално в Excel."
+
+    Надписите стоят центрирани над своите участъци, затова определящо е
+    разстоянието между СЪСЕДНИТЕ центрове, а не дали всеки се побира в своя
+    участък. Второто е невъзможно условие: при „134N18x410" редукцията заема
+    една десета от фигурата и надписът ѝ не би слязъл под 2 px.
+
+    Шрифтът е общ за веригата — разноглед размерен ред изглежда като дефект,
+    не като решение.
+
+    Връща ``(шрифт, побира_ли_се)``. Шрифтът е 0, когато базовият стига.
+    Вторият е ``False``, когато дори най-малкият четим шрифт не разделя
+    надписите — тогава викащият ги разнася на две нива вместо да ги смачка.
+    """
+
+    дължини = [float(value) for value in values]
+    ако = [len(_fmt(value)) * _GLYPH_WIDTH_RATIO for value in дължини]
+    разгъв = math.fsum(дължини)
+    if разгъв <= 0 or len(дължини) < 2:
+        return 0.0
+    мащаб = _FIT_VIEW_WIDTH / разгъв
+    нужен = _FIT_BASE_FONT_PX
+    for index in range(len(дължини) - 1):
+        # Разстоянието между центровете на два съседни надписа.
+        между = (дължини[index] + дължини[index + 1]) / 2.0 * мащаб
+        искани = (ако[index] + ако[index + 1]) / 2.0 * _LABEL_BREATHING
+        if искани > 0:
+            нужен = min(нужен, между / искани)
+    най_малък = _FIT_BASE_FONT_PX * _MIN_LABEL_SCALE
+    ако_една_линия = нужен >= най_малък
+    if нужен >= _FIT_BASE_FONT_PX:
+        return 0.0, True
+    return max(най_малък, нужен), ако_една_линия
+
+
 def _dim_svg(dim, tx) -> str:
     kind, a0, b0, value, position, *layout = dim
     a, b = tx(a0), tx(b0)
@@ -869,15 +949,31 @@ def _dim_svg(dim, tx) -> str:
     offset = float(layout[0]) if layout else 7.0
     label_dx = float(layout[1]) if len(layout) >= 2 else 0.0
     label_dy = float(layout[2]) if len(layout) >= 3 else 0.0
+    # Пети, незадължителен параметър: колко да се смали шрифтът, за да се
+    # побере надписът между изнасящите линии. Празен низ значи „както
+    # обикновено" -- досегашните извиквания не се променят.
+    font_px = float(layout[3]) if len(layout) >= 4 else 0.0
+    # Абсолютна стойност: PNG рендерът чете ``font-size`` от стила и не
+    # разбира относителни единици (``em``).
+    style = "" if font_px <= 0 else f' style="font-size:{font_px:.2f}px"' 
+    # Шести параметър: ОБЩА базова линия, зададена в координатите на формата.
+    # Без нея всеки размер стъпва на собствения си сегмент. При форма, която
+    # се качва (редукция), това разнася размерите на различни нива вместо да
+    # ги подреди в един ред под фигурата.
+    base_anchor = layout[4] if len(layout) >= 5 else None
     if kind == "h":
-        base = min(y1, y2) - offset if position == "above" else max(y1, y2) + offset
+        if base_anchor is None:
+            base = min(y1, y2) - offset if position == "above" else max(y1, y2) + offset
+        else:
+            anchor_y = tx((a0[0], float(base_anchor)))[1]
+            base = anchor_y - offset if position == "above" else anchor_y + offset
         label_x = (x1 + x2) / 2 + label_dx
         label_y = base - 2 + label_dy
         return (
             f'<line class="extension" x1="{x1:g}" y1="{y1:g}" x2="{x1:g}" y2="{base:g}"/>'
             f'<line class="extension" x1="{x2:g}" y1="{y2:g}" x2="{x2:g}" y2="{base:g}"/>'
             f'<line class="dimension-line" x1="{x1:g}" y1="{base:g}" x2="{x2:g}" y2="{base:g}"/>'
-            f'<text class="dimension-text" x="{label_x:g}" y="{label_y:g}" text-anchor="middle" dominant-baseline="central">{_fmt(value)} cm</text>'
+            f'<text class="dimension-text"{style} x="{label_x:g}" y="{label_y:g}" text-anchor="middle" dominant-baseline="central">{_fmt(value)}</text>'
         )
     base = min(x1, x2) - offset if position == "left" else max(x1, x2) + offset
     lx = (base - 2 if position == "left" else base + 2) + label_dx
@@ -886,7 +982,7 @@ def _dim_svg(dim, tx) -> str:
         f'<line class="extension" x1="{x1:g}" y1="{y1:g}" x2="{base:g}" y2="{y1:g}"/>'
         f'<line class="extension" x1="{x2:g}" y1="{y2:g}" x2="{base:g}" y2="{y2:g}"/>'
         f'<line class="dimension-line" x1="{base:g}" y1="{y1:g}" x2="{base:g}" y2="{y2:g}"/>'
-        f'<text class="dimension-text" x="{lx:g}" y="{ly:g}" text-anchor="middle" dominant-baseline="central" transform="rotate(-90 {lx:g} {ly:g})">{_fmt(value)} cm</text>'
+        f'<text class="dimension-text" x="{lx:g}" y="{ly:g}" text-anchor="middle" dominant-baseline="central" transform="rotate(-90 {lx:g} {ly:g})">{_fmt(value)}</text>'
     )
 
 
@@ -955,7 +1051,7 @@ def _dimension_group_horizontal(left: float, right: float, rect_top: float, dim_
         f'<g class="dimension"><line class="extension" x1="{left:g}" y1="{rect_top:g}" x2="{left:g}" y2="{dim_top:g}"/>'
         f'<line class="extension" x1="{right:g}" y1="{rect_top:g}" x2="{right:g}" y2="{dim_top:g}"/>'
         f'<line class="dimension-line" x1="{left:g}" y1="{dim_top:g}" x2="{right:g}" y2="{dim_top:g}"/>'
-        f'<text class="dimension-text" x="{(left+right)/2:g}" y="{dim_top-2:g}" text-anchor="middle" dominant-baseline="central">{_fmt(value)} cm</text></g>'
+        f'<text class="dimension-text" x="{(left+right)/2:g}" y="{dim_top-2:g}" text-anchor="middle" dominant-baseline="central">{_fmt(value)}</text></g>'
     )
 
 
@@ -966,7 +1062,7 @@ def _dimension_group_vertical(x: float, top: float, bottom: float, rect_x: float
         f'<line class="extension" x1="{rect_x:g}" y1="{bottom:g}" x2="{x:g}" y2="{bottom:g}"/>'
         f'<line class="dimension-line" x1="{x:g}" y1="{top:g}" x2="{x:g}" y2="{bottom:g}"/>'
         f'<text class="dimension-text" x="{text_x:g}" y="{(top+bottom)/2:g}" text-anchor="middle" dominant-baseline="central" '
-        f'transform="rotate(-90 {text_x:g} {(top+bottom)/2:g})">{_fmt(value)} cm</text></g>'
+        f'transform="rotate(-90 {text_x:g} {(top+bottom)/2:g})">{_fmt(value)}</text></g>'
     )
 
 

@@ -178,9 +178,9 @@ def test_master_v031_preflight_and_f006_renderer_are_locked() -> None:
     )
     assert params.values == {"L1": 10.0, "L2": 45.0, "L3": 25.0}
     svg = render_master_svg("F006", params.values)
-    assert "45 cm" in svg
-    assert "25 cm" in svg
-    assert "10 cm" in svg
+    assert ">45<" in svg
+    assert ">25<" in svg
+    assert ">10<" in svg
     assert '<rect class="rebar-line"' in svg
     # The locked F006 has one rectangular contour and two separately drawn hooks.
     assert svg.count('<line class="rebar-line"') == 2
@@ -412,8 +412,8 @@ def test_f006_master_orientation_normalizes_swapped_rectangle_sides() -> None:
     assert params.values == {"L1": 10.0, "L2": 45.0, "L3": 25.0}
     assert params.expanded_segments_cm == (10.0, 45.0, 25.0, 45.0, 25.0, 10.0)
     svg = render_master_svg("F006", params.values)
-    assert "45 cm" in svg
-    assert "25 cm" in svg
+    assert ">45<" in svg
+    assert ">25<" in svg
 
 
 def test_master_export_svg_uses_readable_dimensions_and_finer_rebar_lines() -> None:
@@ -424,8 +424,8 @@ def test_master_export_svg_uses_readable_dimensions_and_finer_rebar_lines() -> N
     assert "font-size:4.6px" in svg
     assert "font-family:Arial,sans-serif" in svg
     assert 'viewBox="-12 -10 124 120"' in svg
-    assert "225 cm" in svg
-    assert "15 cm" in svg
+    assert ">225<" in svg
+    assert ">15<" in svg
 
 
 def test_beam_sheet_keeps_duplicate_identity_annotations_as_separate_rows_but_total_aggregates(

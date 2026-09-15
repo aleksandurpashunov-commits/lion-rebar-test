@@ -48,8 +48,8 @@ def test_v0316_schematic_hooks_standard_f006_and_production_total() -> None:
     # F001 always displays the reviewed total, not the close DXF measurement.
     straight = parameters_from_segments("F001", (269.9,), production_length_cm=270.0)
     assert straight.values == {"L1": 270.0}
-    assert "270 cm" in render_master_svg("F001", straight.values)
-    assert "269.9 cm" not in render_master_svg("F001", straight.values)
+    assert ">270<" in render_master_svg("F001", straight.values)
+    assert ">269.9<" not in render_master_svg("F001", straight.values)
 
     # Short hooks are schematically enlarged while the real labels are kept.
     f004 = render_master_svg("F004", {"L1": 225, "L2": 15})
@@ -59,7 +59,7 @@ def test_v0316_schematic_hooks_standard_f006_and_production_total() -> None:
     hook_visual = abs(points[2][1] - points[1][1])
     main_visual = abs(points[1][0] - points[0][0])
     assert hook_visual / main_visual >= 0.24
-    assert "225 cm" in f004 and "15 cm" in f004
+    assert ">225<" in f004 and ">15<" in f004
 
     f003 = render_master_svg("F003", {"L1": 20, "L2": 175, "L3": 20})
     match = re.search(r'<polyline class="rebar-line" points="([^"]+)"', f003)
@@ -70,7 +70,7 @@ def test_v0316_schematic_hooks_standard_f006_and_production_total() -> None:
     main_visual = abs(points[2][0] - points[1][0])
     assert left_hook / main_visual >= 0.24
     assert right_hook / main_visual >= 0.24
-    assert f003.count("20 cm") == 2 and "175 cm" in f003
+    assert f003.count(">20<") == 2 and ">175<" in f003
 
     # Different real F006 dimensions use exactly the same visual contour/hooks.
     standard = render_master_svg("F006", {"L1": 10, "L2": 45, "L3": 25})
@@ -79,8 +79,8 @@ def test_v0316_schematic_hooks_standard_f006_and_production_total() -> None:
     assert shape_pattern.findall(standard) == shape_pattern.findall(other)
     assert 'hook-inside-label' in standard
     assert standard.count('class="dimension-line"') == 2
-    assert "45 cm" in standard and "25 cm" in standard and "10 cm" in standard
-    assert "90 cm" in other and "20 cm" in other and "12 cm" in other
+    assert ">45<" in standard and ">25<" in standard and ">10<" in standard
+    assert ">90<" in other and ">20<" in other and ">12<" in other
 
 
 def test_v01441_adaptive_f003_orientation_uses_production_proportions() -> None:
@@ -123,7 +123,7 @@ def test_v01441_f010_is_supported_and_rendered_open_right() -> None:
     )
     assert params.total_length_cm == 370
     svg = render_master_svg("F010", params.values)
-    for value in ("200 cm", "28 cm", "19 cm", "10 cm", "113 cm"):
+    for value in (">200<", ">28<", ">19<", ">10<", ">113<"):
         assert value in svg
     match = re.search(r'<polyline class="rebar-line" points="([^"]+)"', svg)
     assert match

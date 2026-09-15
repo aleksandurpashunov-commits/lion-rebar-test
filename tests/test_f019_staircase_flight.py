@@ -160,7 +160,7 @@ class TestРисунка:
         svg = render_master_svg("F019", {"L1": 60.0, "L2": 203.0, "L3": 60.0})
 
         assert "<svg" in svg
-        for размер in ("60 cm", "203 cm"):
+        for размер in (">60<", ">203<"):
             assert размер in svg, f"липсва {размер}"
 
     def test_рисунката_има_два_завоя(self) -> None:

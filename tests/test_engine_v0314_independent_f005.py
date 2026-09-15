@@ -119,9 +119,9 @@ def test_legacy_f005_total_params_and_render_preserve_asymmetry() -> None:
     assert params.total_length_cm == pytest.approx(160.0)
     assert total_for("F005", params.values) == pytest.approx(160.0)
     svg = render_master_svg("F005", params.values)
-    assert "90 cm" in svg
-    assert "20 cm" in svg
-    assert "50 cm" in svg
+    assert ">90<" in svg
+    assert ">20<" in svg
+    assert ">50<" in svg
 
     legacy = parameters_from_segments(
         "F005",

@@ -67,8 +67,8 @@ def test_f007_extreme_proportions_stay_a_clear_c_with_real_dimensions(
     assert curve_end[0] > points[1][0]
 
     _geometry_svg, labels = _extract_svg_text_labels(svg)
-    expected_l1 = f"{int(values['L1'])} cm"
-    expected_l2 = f"{int(values['L2'])} cm"
+    expected_l1 = f"{int(values['L1'])}"
+    expected_l2 = f"{int(values['L2'])}"
     assert tuple(label.text for label in labels) == (
         expected_l1,
         expected_l2,
