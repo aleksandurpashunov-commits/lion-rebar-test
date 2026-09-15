@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 import re
-from typing import Iterable
+from typing import Iterable, Sequence
 
 from lion_rebar.dxf.models import DxfEntityRecord
 from lion_rebar.dxf.text_normalization import decode_dxf_text, normalize_for_match
@@ -116,6 +116,15 @@ class DrawingFrame:
     title_distance: float = 0.0
     marker_text_height: float = 0.0
     resolved_by: str = "AUTO"
+    #: Лентата на чертежа по x, изчислена от самото съдържание.
+    #: ``None`` значи, че лентите не са могли да се разделят честно —
+    #: тогава се пада обратно на най-близката котва.
+    x_min: float | None = None
+    x_max: float | None = None
+
+    @property
+    def contains_x(self) -> bool:
+        return self.x_min is not None and self.x_max is not None
 
     @property
     def is_unknown(self) -> bool:
@@ -273,7 +282,15 @@ def detect_drawing_frames(entities: Iterable[DxfEntityRecord]) -> list[DrawingFr
                 resolved_by=frame.resolved_by,
             )
         )
-    return result
+    bands = _frame_bands(records, result)
+    if bands is None:
+        return result
+    return [
+        replace(frame, x_min=bands[frame.index][0], x_max=bands[frame.index][1])
+        if frame.index in bands
+        else frame
+        for frame in result
+    ]
 
 
 def _detect_single_sheet_frame(
@@ -425,6 +442,8 @@ def apply_operator_frame_decisions(
                     title_distance=frame.title_distance,
                     marker_text_height=frame.marker_text_height,
                     resolved_by="OPERATOR",
+                    x_min=frame.x_min,
+                    x_max=frame.x_max,
                 )
             )
         else:
@@ -481,9 +500,79 @@ def classify_title(title: str, supporting_text: str = "") -> tuple[str, str]:
     return "UNKNOWN", "LOW"
 
 
+def _frame_bands(
+    records: Sequence[DxfEntityRecord],
+    frames: Sequence[DrawingFrame],
+) -> dict[int, tuple[float, float]] | None:
+    """Лентата на всеки чертеж по x, изчислена от съдържанието.
+
+    НЯМА ПРАГ. Реже се по най-широката празнина и само толкова пъти,
+    колкото е нужно всяка лента да съдържа точно един щемпел — броят на
+    щемпелите калибрира рязането сам. Праг, нагоден по един чертеж, би се
+    счупил на следващия: в ``s-9`` вярната стойност е между 3 736 и 5 689.
+
+    Връща ``None``, когато лентите не излизат честно — например чертежи,
+    подредени в два реда вместо в редица. Тогава остава старото правило:
+    по-добре познато поведение, отколкото ново гадане.
+    """
+
+    xs = sorted(
+        point[0] for point in (_xy(record) for record in records) if point
+    )
+    if not xs:
+        return None
+    anchors = sorted((float(frame.anchor_x), frame.index) for frame in frames)
+    if len(anchors) == 1:
+        return {anchors[0][1]: (xs[0], xs[-1])}
+
+    gaps = sorted(
+        ((b - a, (a + b) / 2.0) for a, b in zip(xs, xs[1:]) if b > a),
+        reverse=True,
+    )
+    cuts: list[float] = []
+    needed = len(anchors) - 1
+    for _width, place in gaps:
+        candidate = sorted(cuts + [place])
+        counts = [0] * (len(candidate) + 1)
+        for anchor_x, _index in anchors:
+            slot = 0
+            while slot < len(candidate) and anchor_x > candidate[slot]:
+                slot += 1
+            counts[slot] += 1
+        # Разрез, който оставя лента без щемпел, е безсмислен: той цепи
+        # един чертеж на две вместо да раздели два съседни.
+        if 0 in counts:
+            continue
+        cuts = candidate
+        if len(cuts) == needed:
+            break
+    if len(cuts) != needed:
+        return None
+
+    edges = [xs[0]] + cuts + [xs[-1]]
+    return {
+        index: (edges[position], edges[position + 1])
+        for position, (_anchor_x, index) in enumerate(anchors)
+    }
+
+
 def assign_point_to_frame(x: float, y: float, frames: list[DrawingFrame]) -> int | None:
+    """Коя рамка държи тази точка.
+
+    Лентата побеждава разстоянието. Най-близката котва остава само за
+    чертежи, при които лентите не са могли да се изчислят — щемпелът не е
+    в средата на своя чертеж и разстоянието до него не е граница.
+    """
+
     if not frames:
         return None
+    banded = sorted(
+        (frame for frame in frames if frame.contains_x),
+        key=lambda frame: float(frame.x_min),
+    )
+    for frame in banded:
+        if float(frame.x_min) <= x <= float(frame.x_max):
+            return frame.index
     nearest = min(
         frames,
         key=lambda frame: (x - frame.anchor_x) ** 2 + (y - frame.anchor_y) ** 2,

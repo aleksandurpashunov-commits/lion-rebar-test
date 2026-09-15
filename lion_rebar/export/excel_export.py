@@ -1203,34 +1203,20 @@ def generate_excel_export(
 
     shape_map = active_shapes
     positions_by_frame: dict[int, list[ExportPosition]] = defaultdict(list)
-    # Листът следва ГРЕДАТА, не чертожната рамка.
+    # Листът е на ЧЕРТОЖНАТА РАМКА, без изключения.
     #
-    # Собственик, 2026-09-14, като видя описа: „в лист Детайли има позиции от
-    # гредите". В ``s-9`` шест греди са начертани в рамката ДЕТАЙЛИ, затова
-    # армировката им излизаше в лист „детайли" — Гр. B.7 и Гр. B.24 нямаха
-    # нито една позиция в листа с гредите. Арматуристът реже по греди, не по
-    # чертожни рамки, затова позиция с доказана греда отива при нея.
+    # Собственик, 2026-09-15: „Чете първо главния лист от DXf-а, след това
+    # гледа рамките и експорта отива в този лист."
     #
-    # Пренасочва се само когато има КЪДЕ: изисква се лист с категория BEAMS.
-    # Няма ли такъв, всичко си остава по рамката, както преди.
-    гредова_рамка = next(
-        (
-            frame.index
-            for frame in ordered_frames
-            if config_map[frame.index].category_code == "BEAMS"
-        ),
-        None,
-    )
+    # До 15.09 тук имаше пренасочване: позиция с доказана греда отиваше в
+    # листа с гредите дори когато рамката ѝ е друга. То компенсираше
+    # ``assign_point_to_frame``, който режеше по средата между два съседни
+    # заглавни щемпела и открадваше левия край на гредовия чертеж в ``s-9``.
+    # Рамките вече имат истински граници (``frame_detection._frame_bands``),
+    # затова компенсацията е излишна: през реалната порта ``s-9`` дава НУЛА
+    # позиции с греда извън гредовата рамка, срещу 16 преди.
     for position in positions:
-        index = position.frame_index
-        if (
-            гредова_рамка is not None
-            and str(getattr(position, "beam_name", "") or "")
-            and config_map.get(index) is not None
-            and config_map[index].category_code != "BEAMS"
-        ):
-            index = гредова_рамка
-        positions_by_frame[index].append(position)
+        positions_by_frame[position.frame_index].append(position)
 
     # Build every sheet before assigning numbers. A position number belongs to
     # the production identity, not to a particular sheet. Repeated identities
