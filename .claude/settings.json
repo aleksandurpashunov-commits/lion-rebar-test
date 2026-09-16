@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "LION_REBAR_DATA_ROOT": "~/.lion_rebar_desktop_claude"
+  },
+  "permissions": {
+    "deny": [
+      "Edit(//i/Моят диск/Lion-Rebar/LION_REBAR_v0_1_44_20-rc*_WINDOWS/**)",
+      "Edit(~/OneDrive/Работен плот/Claude/LION_REBAR_CLAUDE_REVIEW_v0.1.41_ENG_v0.3.6/**)",
+      "Edit(//i/Моят диск/Тест-желязо/**)",
+      "Edit(~/AppData/Local/LionBuild/LionRebarDesktop/**)",
+      "Edit(~/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.*/LocalCache/Local/LionBuild/LionRebarDesktop/**)"
+    ]
+  }
+}
