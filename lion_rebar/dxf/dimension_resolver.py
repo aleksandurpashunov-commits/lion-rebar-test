@@ -17,6 +17,19 @@ _NUMERIC_DIMENSION_RE = re.compile(
     flags=re.IGNORECASE,
 )
 _DIMENSION_ENDPOINT_OWNERSHIP_TOLERANCE_RAW = 2.0
+# Линейна кота мери по своята ос. Кота, чиято ос е почти перпендикулярна на
+# участъка, мери отместване или ширина, не дължината му — а в ENGINE
+# участъците са преки дължини. s-11, ключ 4a: котата 4 на редукция 1:10 лежи с
+# опорните си точки върху пръта и ставаше L2 (146 / 4 / 320) редом с верния
+# 110 / 40 / 320, при което еднозначността правилно отказваше. Прагът е широк
+# нарочно: проекция на наклонен участък (до 45°) остава допустима.
+#
+# Прилага се САМО по изрична заявка (легендна геометрия). В локалното
+# съпоставяне отказът при двусмислие е част от защитата: премахнато грешно
+# тълкуване може да остави единствено друго грешно. Измерено в s-11: глобално
+# приложено, правилото правеше хоризонталния прът 7622 (742 cm) „кандидат" на
+# 36N8x295 и двете позиции губеха доказаните си размери.
+_MAX_DIMENSION_AXIS_OFFSET_DEG = 60.0
 
 
 @dataclass(frozen=True)
@@ -42,6 +55,9 @@ class _NumericDimension:
     value_cm: float
     point: Point2D
     rotation_deg: float | None
+    # Възможните оси, по които DIMENSION мери; None — не е кота или оста не
+    # може да се установи (тогава няма ограничение, както преди).
+    measurement_axes_deg: tuple[float, ...] | None = None
 
 
 def dimension_evidence_for_shape(
@@ -55,6 +71,7 @@ def dimension_evidence_for_shape(
     maximum_total_difference_cm: float = 0.51,
     maximum_text_distance_raw: float = 60.0,
     maximum_orientation_difference_deg: float = 25.0,
+    exclude_cross_axis_dimensions: bool = False,
 ) -> tuple[DimensionEvidence, ...]:
     """Resolve nearby numeric A-E values against one MASTER parameter formula.
 
@@ -139,6 +156,10 @@ def dimension_evidence_for_shape(
                     left, right = segments[geometry_index]
                     distance, projection = _point_segment_distance(item.point, left, right)
                     if distance > maximum_text_distance_raw:
+                        continue
+                    if exclude_cross_axis_dimensions and not _dimension_can_measure_segment(
+                        item, left, right
+                    ):
                         continue
                     angle_cost = 0.0
                     if item.rotation_deg is not None:
@@ -450,9 +471,82 @@ def _nearby_numeric_dimensions(
                 value_cm=value,
                 point=point,
                 rotation_deg=rotation,
+                measurement_axes_deg=(
+                    _dimension_measurement_axes(record)
+                    if record.entity_type.upper() == "DIMENSION"
+                    else None
+                ),
             )
         )
     return tuple(rows)
+
+
+def _dimension_can_measure_segment(
+    item: _NumericDimension,
+    left: Point2D,
+    right: Point2D,
+) -> bool:
+    if not item.measurement_axes_deg:
+        return True
+    segment_angle = math.degrees(
+        math.atan2(right[1] - left[1], right[0] - left[0])
+    ) % 180.0
+    return any(
+        _orientation_difference(axis, segment_angle) <= _MAX_DIMENSION_AXIS_OFFSET_DEG
+        for axis in item.measurement_axes_deg
+    )
+
+
+def _dimension_measurement_axes(record: DxfEntityRecord) -> tuple[float, ...] | None:
+    """Осите (в градуси, mod 180), по които една линейна кота може да мери.
+
+    Първо от самата кота: линията от ``defpoint3`` до ``defpoint`` е
+    удължителната линия, а оста на измерване е перпендикулярна на нея.
+    Приема се само ако проекцията на опорните точки върху тази ос дава
+    измерената стойност. Иначе — от мярката: ``m = |v|·|cos(φ − θ)|`` дава
+    двете възможни оси. Без достатъчно данни — ``None``, без ограничение.
+    """
+
+    geometry = record.geometry or {}
+    first = _point_from(geometry.get("defpoint2"))
+    second = _point_from(geometry.get("defpoint3"))
+    raw_measurement = geometry.get("measurement")
+    if first is None or second is None or isinstance(raw_measurement, bool):
+        return None
+    try:
+        measurement = float(raw_measurement)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(measurement) or measurement <= 0.0:
+        return None
+    vx, vy = second[0] - first[0], second[1] - first[1]
+    span = math.hypot(vx, vy)
+    if span <= 1e-9:
+        return None
+    line_point = _point_from(geometry.get("defpoint"))
+    if line_point is not None:
+        ex, ey = line_point[0] - second[0], line_point[1] - second[1]
+        if math.hypot(ex, ey) > 1e-6:
+            axis = (math.degrees(math.atan2(ey, ex)) + 90.0) % 180.0
+            radians = math.radians(axis)
+            projected = abs(vx * math.cos(radians) + vy * math.sin(radians))
+            if abs(projected - measurement) <= 0.5:
+                return (axis,)
+    if measurement > span + 0.5:
+        return None
+    phi = math.degrees(math.atan2(vy, vx))
+    delta = math.degrees(math.acos(min(1.0, measurement / span)))
+    return tuple(sorted({(phi + delta) % 180.0, (phi - delta) % 180.0}))
+
+
+def _point_from(value: object) -> Point2D | None:
+    if not isinstance(value, (list, tuple)) or len(value) < 2:
+        return None
+    try:
+        point = (float(value[0]), float(value[1]))
+    except (TypeError, ValueError):
+        return None
+    return point if all(math.isfinite(coordinate) for coordinate in point) else None
 
 
 def _entity_text_anchor(record: DxfEntityRecord) -> Point2D | None:

@@ -661,3 +661,106 @@ def test_f003_three_adjacent_rows_keep_middle_15_dimensions_on_middle_row() -> N
         assert {"MID-LEFT-15", "MID-RIGHT-15"}.isdisjoint(
             evidence.text_handles
         )
+
+
+def _vertical_reduction_bar() -> tuple[tuple[tuple[float, float], ...], list[DxfEntityRecord]]:
+    """Легендата на ключ 4a в s-11: прът с редукция 110 / 40 / 320, i = 1:10.
+
+    Котите 110, 40 и 320 мерят ПО пръта (вертикална ос). Котата 4 мери
+    отместването НАПРЕЧНО на него (хоризонтална ос), а опорните ѝ точки също
+    лежат върху пръта — затова досега минаваше за дължина.
+    """
+
+    points = ((0.0, 470.0), (0.0, 360.0), (4.0, 320.0), (4.0, 0.0))
+
+    def dimension(handle, value, first, second, line_point, text_point):
+        return DxfEntityRecord(
+            handle,
+            "DIMENSION",
+            "koti",
+            {
+                "measurement": value,
+                "defpoint": [*line_point, 0.0],
+                "defpoint2": [*first, 0.0],
+                "defpoint3": [*second, 0.0],
+                "text_midpoint": [*text_point, 0.0],
+            },
+            None,
+        )
+
+    entities = [
+        dimension("D110", 110.0, (0.0, 360.0), (0.0, 470.0), (42.0, 470.0), (31.0, 415.0)),
+        dimension("D40", 40.06, (0.0, 360.0), (4.0, 320.06), (42.0, 320.06), (31.0, 340.0)),
+        dimension("D320", 319.94, (4.0, 0.0), (4.0, 320.06), (40.0, 320.06), (29.0, 160.0)),
+        dimension("OFFSET4", 4.0, (0.0, 352.0), (4.0, 316.0), (4.0, 300.0), (-9.0, 310.0)),
+    ]
+    return points, entities
+
+
+def test_offset_dimension_across_a_reduction_never_governs_a_segment_length() -> None:
+    """s-11, 25 позиции „…N18x470“: котата на отместването 4 ставаше L2 или L3.
+
+    Така до верния (110, 40, 320) се появяваше (146, 4, 320) и еднозначността
+    правилно отказваше — прътът оставаше без размери, а резервният път
+    вземаше котите до таблицата. Кота, която мери напречно на участък, не може
+    да е неговата дължина: в ENGINE участъците са преки дължини.
+    """
+
+    shape = ShapeDefinition(
+        code="F002",
+        name="ПРАВ ПРЪТ С РЕДУКЦИЯ",
+        state="LOCKED",
+        segments=[
+            SegmentDefinition(index=1, length_code="L1"),
+            SegmentDefinition(index=2, length_code="L2"),
+            SegmentDefinition(index=3, length_code="L3"),
+        ],
+    )
+    points, entities = _vertical_reduction_bar()
+
+    evidence = dimension_evidence_for_shape(
+        points,
+        shape,
+        entities,
+        declared_length_cm=470.0,
+        exclude_cross_axis_dimensions=True,
+    )
+
+    assert evidence
+    assert all("OFFSET4" not in row.text_handles for row in evidence)
+    assert evidence[0].segment_lengths_cm == (110.0, 40.0, 320.0)
+    # Еднозначността (_unique_dimension_resolution) сравнява тълкуванията в
+    # рамките на 8 точки от най-доброто. Там трябва да остане само верният
+    # вектор — точно това счупваше (146, 4, 320).
+    close = [row for row in evidence if row.score - evidence[0].score <= 8.0]
+    assert {row.segment_lengths_cm for row in close} == {(110.0, 40.0, 320.0)}
+
+
+def test_cross_axis_exclusion_is_off_for_local_matching_by_default() -> None:
+    """Обхватът е нарочен: извън легендата котите се оценяват както преди.
+
+    Глобално приложено, правилото правеше хоризонтален прът от 742 cm
+    „кандидат" на 36N8x295 в s-11: махнато грешно тълкуване оставяше
+    единствено друго грешно. Включването навсякъде изисква ново измерване.
+    """
+
+    shape = ShapeDefinition(
+        code="F002",
+        name="ПРАВ ПРЪТ С РЕДУКЦИЯ",
+        state="LOCKED",
+        segments=[
+            SegmentDefinition(index=1, length_code="L1"),
+            SegmentDefinition(index=2, length_code="L2"),
+            SegmentDefinition(index=3, length_code="L3"),
+        ],
+    )
+    points, entities = _vertical_reduction_bar()
+
+    evidence = dimension_evidence_for_shape(
+        points,
+        shape,
+        entities,
+        declared_length_cm=470.0,
+    )
+
+    assert any("OFFSET4" in row.text_handles for row in evidence)

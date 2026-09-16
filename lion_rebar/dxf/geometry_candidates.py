@@ -527,6 +527,14 @@ def find_geometry_candidates(
     local_excluded_dimension_handles = tuple(
         sorted({str(value) for value in excluded_dimension_handles if str(value)})
     )
+    # Легендната геометрия вече е доказана като чертеж на спецификацията
+    # (ключ ↔ спецификация ↔ точна MASTER геометрия). Само там котите, които
+    # мерят напречно на участък, се изключват от A-E — виж
+    # dimension_resolver._MAX_DIMENSION_AXIS_OFFSET_DEG за границата и защо.
+    legend_probe = (
+        str((selected.raw or {}).get("source") or "").strip().upper()
+        == "POSITION_KEY_LEGEND_PROBE"
+    )
     shape_definitions = tuple(shape_definitions or ())
     control_tests = tuple(control_tests or ())
     parsed = parse_rebar_text(selected.text or "")
@@ -896,6 +904,7 @@ def find_geometry_candidates(
                 shape_index=shape_index,
                 allowed_dimension_handles=local_allowed_dimension_handles,
                 excluded_dimension_handles=local_excluded_dimension_handles,
+                exclude_cross_axis_dimensions=legend_probe,
             )
             if resolved is not None:
                 master_match, dimension_evidence = resolved
@@ -935,6 +944,7 @@ def find_geometry_candidates(
                 ),
                 allowed_dimension_handles=local_allowed_dimension_handles,
                 excluded_dimension_handles=local_excluded_dimension_handles,
+                exclude_cross_axis_dimensions=legend_probe,
             )
             if resolved is not None and (
                 not proportion_resolved
@@ -1614,6 +1624,7 @@ def _resolve_unique_master_dimensions(
     shape_index: EngineShapeIndex | None,
     allowed_dimension_handles: Iterable[str] | None = None,
     excluded_dimension_handles: Iterable[str] = (),
+    exclude_cross_axis_dimensions: bool = False,
 ) -> tuple[ShapeMatch, DimensionEvidence] | None:
     """Apply A-E to a unique family only when the same owner stays unique."""
 
@@ -1635,6 +1646,7 @@ def _resolve_unique_master_dimensions(
         declared_length_cm=declared_length_cm,
         excluded_handles=(annotation_handle, *tuple(excluded_dimension_handles)),
         allowed_handles=allowed_dimension_handles,
+        exclude_cross_axis_dimensions=exclude_cross_axis_dimensions,
     )
     resolved_rows: list[tuple[float, ShapeMatch, DimensionEvidence]] = []
     for evidence in evidence_rows[:8]:
@@ -1917,6 +1929,7 @@ def _resolve_dimension_master_ambiguity(
     shape_index: EngineShapeIndex | None,
     allowed_dimension_handles: Iterable[str] | None = None,
     excluded_dimension_handles: Iterable[str] = (),
+    exclude_cross_axis_dimensions: bool = False,
 ) -> tuple[ShapeMatch, DimensionEvidence] | None:
     """Use strict printed A-E values only when they produce one MASTER owner."""
 
@@ -1945,6 +1958,7 @@ def _resolve_dimension_master_ambiguity(
                 declared_length_cm=declared_length_cm,
                 excluded_handles=(annotation_handle, *tuple(excluded_dimension_handles)),
                 allowed_handles=allowed_dimension_handles,
+                exclude_cross_axis_dimensions=exclude_cross_axis_dimensions,
             )[:8]
         )
     if not evidence_rows:

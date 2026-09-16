@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from lion_rebar.dxf.geometry_candidates import (
@@ -16,6 +16,7 @@ from lion_rebar.dxf.geometry_candidates import (
 from lion_rebar.dxf.models import DxfEntityRecord
 from lion_rebar.dxf.recognition_policy import RecognitionPolicy
 from lion_rebar.dxf.shape_recognition import (
+    ShapeFingerprint,
     fingerprint_from_points,
     match_master_shapes,
 )
@@ -51,6 +52,14 @@ class _LengthMatch:
     distance_raw: float
     center: Point2D
     signature: str
+    fingerprint: ShapeFingerprint
+
+
+# Две копия са една форма, когато участъците им се разминават до допуска за
+# повторение (stirrup_group_repeat_length_tolerance_cm) и завоите — до толкова
+# градуса. Копията на едно стреме в различни разрези са чертани от един блок;
+# 0.1–0.3 cm разлика е чертожен шум, различното стреме се разминава с cm.
+_CONGRUENT_TURN_TOLERANCE_DEG = 2.0
 
 
 def resolve_stirrup_length_group_annotation(
@@ -71,90 +80,22 @@ def resolve_stirrup_length_group_annotation(
     DXF ownership and no result creates an automatic approval.
     """
 
-    if not policy.stirrup_length_group_rule_enabled:
-        return None
-    parsed = parse_rebar_text(annotation.text or "")
-    if (
-        parsed.count is None
-        or parsed.count < 1
-        or parsed.diameter_mm is None
-        or parsed.length_cm is None
-    ):
-        return None
-    probes = _annotation_probe_points(
-        annotation,
-        entities,
-        policy,
-        leader_entities=context.leaders,
-    )
-    if not probes:
-        return None
-
     definitions = tuple(shape_definitions)
     tests = tuple(control_tests)
-    layer_aliases = _normalized_aliases(policy.stirrup_length_group_layer_aliases)
-    master_codes = _normalized_aliases(policy.stirrup_length_group_master_codes)
-    declared = float(parsed.length_cm)
-    length_tolerance = float(policy.stirrup_arc_length_tolerance_cm)
+    prepared = _parsed_probes(annotation, entities, policy=policy, context=context)
+    if prepared is None:
+        return None
+    parsed, probes = prepared
     search_distance = float(policy.stirrup_length_search_distance_raw)
-    matches: list[_LengthMatch] = []
-
-    for primitive in context.primitives:
-        if primitive.entity_type.upper() not in {"LWPOLYLINE", "POLYLINE"}:
-            continue
-        if _normalize_token(primitive.layer) not in layer_aliases:
-            continue
-        if (
-            primitive.source_curve_count < 1
-            or primitive.unresolved_curve_count != 0
-            or not primitive.hooked_closure
-            or abs(float(primitive.length_raw) - declared) > length_tolerance
-        ):
-            continue
-        distance = min(
-            _distance_point_to_segments(probe, primitive.segments)
-            for probe in probes
-        )
-        if distance > search_distance:
-            continue
-        points = primitive.recognition_points or primitive.points
-        master = match_master_shapes(
-            points,
-            definitions,
-            policy=policy,
-            control_tests=tests,
-            shape_index=shape_index,
-            candidate_closed_override=True,
-            implicit_closure=True,
-        )
-        if (
-            master is None
-            or master.ambiguous_shape_codes
-            or _normalize_token(master.shape_code) not in master_codes
-        ):
-            continue
-        fingerprint = fingerprint_from_points(
-            points,
-            closed=True,
-            implicit_closure=True,
-            policy=policy,
-        )
-        if fingerprint is None:
-            continue
-        matches.append(
-            _LengthMatch(
-                primitive=primitive,
-                distance_raw=float(distance),
-                center=_points_center(points),
-                signature=fingerprint.canonical_signature,
-            )
-        )
-
-    matches.sort(
-        key=lambda value: (
-            value.distance_raw,
-            value.primitive.handle,
-        )
+    matches = _stirrup_length_matches(
+        context,
+        probes=probes,
+        declared=float(parsed.length_cm),
+        shape_definitions=definitions,
+        control_tests=tests,
+        policy=policy,
+        shape_index=shape_index,
+        admits=lambda _primitive, distance: distance <= search_distance,
     )
     if not matches:
         return None
@@ -182,6 +123,281 @@ def resolve_stirrup_length_group_annotation(
         selected = tuple(matches[index] for index in valid[0])
         code = "STIRRUP_EXACT_ARC_LENGTH_GROUP"
 
+    return _resolution_for_selection(
+        annotation,
+        entities,
+        parsed=parsed,
+        selected=selected,
+        code=code,
+        shape_definitions=definitions,
+        control_tests=tests,
+        policy=policy,
+        context=context,
+        shape_index=shape_index,
+    )
+
+
+def resolve_stirrup_operator_area_annotation(
+    annotation: DxfEntityRecord,
+    entities: Sequence[DxfEntityRecord],
+    *,
+    area_bounds: tuple[float, float, float, float],
+    shape_definitions: Iterable[ShapeDefinition],
+    control_tests: Iterable[Mapping[str, object]],
+    policy: RecognitionPolicy,
+    context: GeometryCandidateContext,
+    shape_index: EngineShapeIndex,
+) -> StirrupLengthGroupResolution | None:
+    """Стремето на надпис, изнесен встрани от разреза, в рамката на елемента.
+
+    Собственик, 2026-09-16, за s-11: надписите на стремената стоят на 1–2,5 m
+    от разрезите и най-близкият прът е чужд, затова излизаха „НЯМА КАНДИДАТ“.
+    Операторът е оградил елемента с рамка, а вътре стремето е начертано в
+    няколко копия — по едно във всеки разрез по височината. Правилото на
+    собственика: когато ВСИЧКИ стремена в рамката с дължината на надписа са
+    една и съща форма, формата е доказана. Различни форми (15x15 и 15x17 при
+    еднаква L) са отказ; нито едно — също.
+
+    Филтрите са същите като при групата по точна дъгова L: слой, извита ос с
+    кука, MASTER без двусмислие, дължина в допуска. Сменят се само обхватът
+    (рамката вместо радиус) и изискването за подредба (една форма вместо една
+    редица). Представителят е проследимост, не изключителна собственост.
+    """
+
+    definitions = tuple(shape_definitions)
+    tests = tuple(control_tests)
+    prepared = _parsed_probes(annotation, entities, policy=policy, context=context)
+    if prepared is None:
+        return None
+    parsed, probes = prepared
+    x0, x1 = sorted((float(area_bounds[0]), float(area_bounds[2])))
+    y0, y1 = sorted((float(area_bounds[1]), float(area_bounds[3])))
+
+    def inside_area(primitive: GeometryPrimitive, _distance: float) -> bool:
+        points = primitive.points
+        return bool(points) and all(
+            x0 <= float(point[0]) <= x1 and y0 <= float(point[1]) <= y1
+            for point in points
+        )
+
+    matches = _stirrup_length_matches(
+        context,
+        probes=probes,
+        declared=float(parsed.length_cm),
+        shape_definitions=definitions,
+        control_tests=tests,
+        policy=policy,
+        shape_index=shape_index,
+        admits=inside_area,
+    )
+    if not matches:
+        return None
+    if (
+        policy.stirrup_group_require_count_compatibility
+        and len(matches) > int(parsed.count)
+    ):
+        return None
+    if not _all_congruent(matches, policy):
+        return None
+    return _resolution_for_selection(
+        annotation,
+        entities,
+        parsed=parsed,
+        selected=tuple(matches),
+        code="STIRRUP_OPERATOR_AREA_CONGRUENT",
+        shape_definitions=definitions,
+        control_tests=tests,
+        policy=policy,
+        context=context,
+        shape_index=shape_index,
+        accept_congruent_member=True,
+    )
+
+
+def _parsed_probes(
+    annotation: DxfEntityRecord,
+    entities: Sequence[DxfEntityRecord],
+    *,
+    policy: RecognitionPolicy,
+    context: GeometryCandidateContext,
+):
+    if not policy.stirrup_length_group_rule_enabled:
+        return None
+    parsed = parse_rebar_text(annotation.text or "")
+    if (
+        parsed.count is None
+        or parsed.count < 1
+        or parsed.diameter_mm is None
+        or parsed.length_cm is None
+    ):
+        return None
+    probes = _annotation_probe_points(
+        annotation,
+        entities,
+        policy,
+        leader_entities=context.leaders,
+    )
+    if not probes:
+        return None
+    return parsed, probes
+
+
+def _stirrup_length_matches(
+    context: GeometryCandidateContext,
+    *,
+    probes: Sequence[Point2D],
+    declared: float,
+    shape_definitions: Sequence[ShapeDefinition],
+    control_tests: Sequence[Mapping[str, object]],
+    policy: RecognitionPolicy,
+    shape_index: EngineShapeIndex,
+    admits: Callable[[GeometryPrimitive, float], bool],
+) -> list[_LengthMatch]:
+    layer_aliases = _normalized_aliases(policy.stirrup_length_group_layer_aliases)
+    master_codes = _normalized_aliases(policy.stirrup_length_group_master_codes)
+    length_tolerance = float(policy.stirrup_arc_length_tolerance_cm)
+    matches: list[_LengthMatch] = []
+
+    for primitive in context.primitives:
+        if primitive.entity_type.upper() not in {"LWPOLYLINE", "POLYLINE"}:
+            continue
+        if _normalize_token(primitive.layer) not in layer_aliases:
+            continue
+        if (
+            primitive.source_curve_count < 1
+            or primitive.unresolved_curve_count != 0
+            or not primitive.hooked_closure
+            or abs(float(primitive.length_raw) - declared) > length_tolerance
+        ):
+            continue
+        distance = min(
+            _distance_point_to_segments(probe, primitive.segments)
+            for probe in probes
+        )
+        if not admits(primitive, distance):
+            continue
+        points = primitive.recognition_points or primitive.points
+        master = match_master_shapes(
+            points,
+            shape_definitions,
+            policy=policy,
+            control_tests=control_tests,
+            shape_index=shape_index,
+            candidate_closed_override=True,
+            implicit_closure=True,
+        )
+        if (
+            master is None
+            or master.ambiguous_shape_codes
+            or _normalize_token(master.shape_code) not in master_codes
+        ):
+            continue
+        fingerprint = fingerprint_from_points(
+            points,
+            closed=True,
+            implicit_closure=True,
+            policy=policy,
+        )
+        if fingerprint is None:
+            continue
+        matches.append(
+            _LengthMatch(
+                primitive=primitive,
+                distance_raw=float(distance),
+                center=_points_center(points),
+                signature=fingerprint.canonical_signature,
+                fingerprint=fingerprint,
+            )
+        )
+
+    matches.sort(
+        key=lambda value: (
+            value.distance_raw,
+            value.primitive.handle,
+        )
+    )
+    return matches
+
+
+def _all_congruent(matches: Sequence[_LengthMatch], policy: RecognitionPolicy) -> bool:
+    tolerance = float(policy.stirrup_group_repeat_length_tolerance_cm)
+    reference = matches[0]
+    reference_profile = _cyclic_profile(reference)
+    for match in matches[1:]:
+        if abs(float(match.primitive.length_raw) - float(reference.primitive.length_raw)) > tolerance:
+            return False
+        if match.fingerprint.segment_count != reference.fingerprint.segment_count:
+            return False
+        if not _profiles_congruent(reference_profile, _cyclic_profile(match), tolerance):
+            return False
+    return True
+
+
+def _cyclic_profile(match: _LengthMatch) -> list[tuple[float, float]]:
+    """Затвореният контур като цикъл от (участък, завой след него).
+
+    Ъглите са по абсолютна стойност: огледално копие завива на другата страна,
+    а е същото стреме. Отпечатъкът не подрежда копията от едно и също място —
+    в s-11 четирите копия на едно стреме излизаха в четири различни подредби.
+    """
+
+    lengths = _segment_lengths(match)
+    turns = tuple(abs(float(value)) for value in match.fingerprint.turn_angles_deg)
+    if len(turns) != len(lengths):
+        return []
+    return list(zip(lengths, turns))
+
+
+def _profiles_congruent(
+    left: Sequence[tuple[float, float]],
+    right: Sequence[tuple[float, float]],
+    tolerance: float,
+) -> bool:
+    count = len(left)
+    if count == 0 or count != len(right):
+        return False
+    # Обратна посока: завоят след участък j е завоят ПРЕДИ него в правата
+    # посока — затова ъгълът се взима с едно място по-напред.
+    reversed_right = [
+        (right[count - 1 - index][0], right[(count - 2 - index) % count][1])
+        for index in range(count)
+    ]
+    for sequence in (list(right), reversed_right):
+        for shift in range(count):
+            rotated = sequence[shift:] + sequence[:shift]
+            if all(
+                abs(a_length - b_length) <= tolerance
+                and abs(a_turn - b_turn) <= _CONGRUENT_TURN_TOLERANCE_DEG
+                for (a_length, a_turn), (b_length, b_turn) in zip(left, rotated)
+            ):
+                return True
+    return False
+
+
+def _segment_lengths(match: _LengthMatch) -> tuple[float, ...]:
+    total = float(match.primitive.length_raw)
+    return tuple(float(ratio) * total for ratio in match.fingerprint.length_ratios)
+
+
+def _resolution_for_selection(
+    annotation: DxfEntityRecord,
+    entities: Sequence[DxfEntityRecord],
+    *,
+    parsed,
+    selected: Sequence[_LengthMatch],
+    code: str,
+    shape_definitions: Sequence[ShapeDefinition],
+    control_tests: Sequence[Mapping[str, object]],
+    policy: RecognitionPolicy,
+    context: GeometryCandidateContext,
+    shape_index: EngineShapeIndex,
+    accept_congruent_member: bool = False,
+) -> StirrupLengthGroupResolution | None:
+    master_codes = _normalized_aliases(policy.stirrup_length_group_master_codes)
+    declared = float(parsed.length_cm)
+    length_tolerance = float(policy.stirrup_arc_length_tolerance_cm)
+    definitions = shape_definitions
+    tests = control_tests
     representative = min(
         selected,
         key=lambda value: (value.distance_raw, value.primitive.handle),
@@ -214,6 +430,17 @@ def resolve_stirrup_length_group_annotation(
     if not analysis.candidates:
         return None
     candidate = analysis.candidates[0]
+    if accept_congruent_member and len(candidate.handles) == 1:
+        # При еднакви копия сондата може да върне съседното, начертано почти
+        # върху представителя (s-11, Ш.7: на 3,7 единици). То е същото стреме
+        # — формата вече е доказана за всички копия — и става представител.
+        # Строгото правило за редица от стремена не ползва това облекчение.
+        confirmed = next(
+            (value for value in selected if value.primitive.handle == candidate.handles[0]),
+            None,
+        )
+        if confirmed is not None:
+            representative = confirmed
     if (
         tuple(candidate.handles) != (representative.primitive.handle,)
         or _normalize_token(candidate.master_shape_code) not in master_codes

@@ -14,6 +14,7 @@ from lion_rebar.dxf.geometry_candidates import (
 )
 from lion_rebar.dxf.models import DxfEntityRecord
 from lion_rebar.dxf.position_key_resolver import (
+    _parse_legend_spec,
     _shared_family_analyses,
     _strict_protection_candidate_handles,
     build_position_key_legend_index,
@@ -669,3 +670,97 @@ def test_position_key_does_not_override_manual_candidate_when_disabled(tmp_path)
     assert table.get("position_key_manual_override") is not True
     assert table["master_shape_code"] == "F001"
     assert table["batch_status"] == "ЗА РЪЧЕН ПРЕГЛЕД"
+
+
+def _with_spec_text(entities, text: str) -> list[DxfEntityRecord]:
+    return [
+        replace(entity, text=text) if entity.handle == "SPEC" else entity
+        for entity in entities
+    ]
+
+
+def test_position_key_legend_spec_accepts_bar_kind_word() -> None:
+    """s-11: проектантът пише вида на пръта в легендата — „N14 Фус - L=125“.
+
+    Думата е име, не размер: Ø и L са същите. Без нея цялата легенда на
+    фусовете оставаше неразчетена и 14 позиции с верен ключ излизаха
+    „НЯМА КАНДИДАТ“ (собственик, 2026-09-16, с отворен „Тип 2“ и кръгче 4j).
+    """
+
+    entities = _with_spec_text(_fixture_entities(), "N20 Фус - L=420")
+    index, policy = _index(entities)
+
+    assert set(index.entries_by_key) == {"4A"}
+    entry = index.entries_by_key["4A"]
+    assert entry.legend_spec_text == "N20 Фус - L=420"
+    assert (entry.diameter_mm, entry.declared_length_cm) == (20.0, 420.0)
+    resolution = resolve_position_key_annotation(entities[-1], index, policy=policy)
+    assert resolution is not None
+    assert resolution.key == "4A"
+    assert resolution.candidate.master_shape_code == "F002"
+
+
+def test_position_key_bar_kind_word_does_not_relax_the_values() -> None:
+    # Думата не бива да отваря вратата за чужди размери: надпис с друга L
+    # пак не се свързва с тази легенда.
+    entities = _with_spec_text(
+        _fixture_entities(annotation_text="134N20x425"), "N20 Фус - L=420"
+    )
+    index, policy = _index(entities)
+
+    assert resolve_position_key_annotation(entities[-1], index, policy=policy) is None
+
+
+def test_legend_spec_parser_reads_only_one_name_word() -> None:
+    assert _parse_legend_spec("N14 Фус - L=125") == (14.0, 125.0)
+    assert _parse_legend_spec("N8 фус. L=100") == (8.0, 100.0)
+    # Досегашните изписвания остават.
+    assert _parse_legend_spec("N18 L=470") == (18.0, 470.0)
+    assert _parse_legend_spec("N18 - L=373") == (18.0, 373.0)
+    # Без диаметър, с число в думата или с две думи — не е спецификация.
+    assert _parse_legend_spec("Фус - L=125") is None
+    assert _parse_legend_spec("N14 Фус2 - L=125") is None
+    assert _parse_legend_spec("N14 Фус Стб - L=125") is None
+
+
+def _dimension(handle, value, first, second, line_point, text_point) -> DxfEntityRecord:
+    return DxfEntityRecord(
+        handle=handle,
+        entity_type="DIMENSION",
+        layer="koti",
+        geometry={
+            "measurement": value,
+            "defpoint": [*line_point, 0.0],
+            "defpoint2": [*first, 0.0],
+            "defpoint3": [*second, 0.0],
+            "text_midpoint": [*text_point, 0.0],
+        },
+    )
+
+
+def test_legend_f002_reads_its_own_dimensions_despite_the_offset_dimension() -> None:
+    """s-11, ключ 4a: легендата котира 110 / 40 / 320 и отместването 4.
+
+    Котата 4 мери напречно на пръта, но досега участваше в A-E тълкуванията
+    като L2 или L3. Двусмислието оставяше легендата без размери, а 25-те
+    таблични реда получаваха [20, 450] от котите до таблицата.
+    """
+
+    entities = _fixture_entities()
+    entities.extend(
+        [
+            # По пръта: оста е хоризонтална, като самите участъци.
+            _dimension("D260", 260.0, (0.0, 0.0), (260.0, 0.0), (260.0, -30.0), (130.0, -18.0)),
+            _dimension("D40", 40.0, (260.0, 0.0), (300.0, 4.0), (300.0, -30.0), (280.0, -18.0)),
+            _dimension("D120", 120.0, (300.0, 4.0), (420.0, 4.0), (420.0, -30.0), (360.0, -18.0)),
+            # Напречно: отместването между двете рамена, ос вертикална.
+            _dimension("OFFSET4", 4.0, (250.0, 0.0), (310.0, 4.0), (330.0, 4.0), (340.0, 2.0)),
+        ]
+    )
+
+    index, _policy = _index(entities)
+
+    candidate = index.entries_by_key["4A"].candidate
+    assert candidate.master_shape_code == "F002"
+    assert tuple(candidate.canonical_segment_lengths_cm) == (260.0, 40.0, 120.0)
+    assert "OFFSET4" not in tuple(candidate.dimension_text_handles)

@@ -59,6 +59,7 @@ from lion_rebar.dxf.proxy_adapter import (
 from lion_rebar.dxf.recognition_policy import RecognitionPolicy
 from lion_rebar.dxf.stirrup_group_resolver import (
     resolve_stirrup_length_group_annotation,
+    resolve_stirrup_operator_area_annotation,
 )
 from lion_rebar.dxf.text_parser import (
     ParsedRebarText,
@@ -408,6 +409,19 @@ def build_batch_geometry_report(
         control_tests=control_tests,
         policy=resolved_policy,
         shape_index=shape_index,
+    )
+    # Рамката на елемента решава останалите стремена — само когато всички
+    # копия с тази L вътре са една форма. След по-строгото правило отгоре.
+    _apply_operator_area_stirrup_references(
+        rows,
+        annotations_by_handle=annotations_by_handle,
+        entities=entities,
+        context=context,
+        shape_definitions=shape_definitions,
+        control_tests=control_tests,
+        policy=resolved_policy,
+        shape_index=shape_index,
+        operator_areas=operator_areas,
     )
     _apply_f006_printed_production_dimensions(
         rows,
@@ -1165,97 +1179,189 @@ def _apply_stirrup_length_group_references(
         )
         if resolution is None:
             continue
-
-        candidate = resolution.candidate
-        member_text = ", ".join(
-            f"{handle}:L={length:.3f}@{distance:.3f}"
-            for handle, length, distance in zip(
-                resolution.member_handles,
-                resolution.exact_arc_lengths_cm,
-                resolution.member_distances_raw,
-            )
-        )
-        note = (
-            f"{resolution.code}: декларирана L={resolution.declared_length_cm:.3f}, "
-            f"брой={resolution.declared_count}; точната дъгова L избра "
-            f"еднозначна MASTER форма {candidate.master_shape_code}. "
-            f"Представител {resolution.representative_handle} на "
-            f"{resolution.representative_distance_raw:.3f} единици. "
-            f"Проверени членове [{member_text}]. Геометрията е групова "
-            "референция и не се заявява като изключителна локална собственост."
-        )
-        reference_analysis = GeometryCandidateAnalysis(
-            annotation_handle=annotation_handle,
-            label=str(annotation.text or row.get("annotation_text") or ""),
-            diameter_mm=float(row.get("diameter_mm")),
-            declared_length_cm=float(row.get("declared_length_cm")),
-            candidates=(candidate,),
-            status="РАЗРЕШЕНО ЧРЕЗ ТОЧНА ДЪГОВА L И ГРУПА СТРЕМЕНА",
-            warnings=(*resolution.analysis.warnings, note),
-            rejection_counts=dict(resolution.analysis.rejection_counts),
-            policy=dict(resolution.analysis.policy),
-        )
-        original_rejection_counts = dict(row.get("rejection_counts", {}))
-        original_laws = list(row.get("recognition_laws", []))
-        resolved = _analysis_row(reference_analysis, None)
-        row.update(resolved)
-
-        reasons = [str(value) for value in row.get("review_reason_codes", [])]
-        if resolution.code not in reasons:
-            reasons.append(resolution.code)
-        notes = list(row.get("candidate_notes", []))
-        if note not in notes:
-            notes.append(note)
-        warnings = list(row.get("analysis_warnings", []))
-        if note not in warnings:
-            warnings.append(note)
-        row.update(
-            {
-                "candidate_basis": (
-                    f"{candidate.basis}; {resolution.code}"
-                    if candidate.basis
-                    else resolution.code
-                ),
-                "candidate_notes": notes,
-                "analysis_warnings": warnings,
-                "recognition_laws": original_laws,
-                "review_reason_codes": reasons,
-                "global_conflict": False,
-                "geometry_owner_conflict": False,
-                "ownership_reference_only": True,
-                "stirrup_length_group_resolved": True,
-                "stirrup_length_group_resolution_code": resolution.code,
-                "stirrup_length_group_representative_handle": (
-                    resolution.representative_handle
-                ),
-                "stirrup_length_group_representative_distance_raw": (
-                    resolution.representative_distance_raw
-                ),
-                "stirrup_length_group_member_handles": list(
-                    resolution.member_handles
-                ),
-                "stirrup_length_group_member_distances_raw": list(
-                    resolution.member_distances_raw
-                ),
-                "stirrup_length_group_exact_arc_lengths_cm": list(
-                    resolution.exact_arc_lengths_cm
-                ),
-                "stirrup_length_group_declared_count": (
-                    resolution.declared_count
-                ),
-                "stirrup_length_group_original_batch_status": "НЯМА КАНДИДАТ",
-                "stirrup_length_group_original_rejection_counts": (
-                    original_rejection_counts
-                ),
-                "stirrup_length_group_reference": True,
-            }
-        )
-        row["svg_preview"] = _svg_preview(
-            resolution.probe_annotation,
-            resolution.analysis,
+        _install_stirrup_group_reference(
+            row,
+            annotation,
+            resolution,
             context=context,
-            selected_handles=tuple(candidate.handles),
+            status="РАЗРЕШЕНО ЧРЕЗ ТОЧНА ДЪГОВА L И ГРУПА СТРЕМЕНА",
         )
+
+
+def _apply_operator_area_stirrup_references(
+    rows: Sequence[dict],
+    *,
+    annotations_by_handle: Mapping[str, DxfEntityRecord],
+    entities: Sequence[DxfEntityRecord],
+    context: GeometryCandidateContext,
+    shape_definitions: Sequence[ShapeDefinition],
+    control_tests: Sequence[Mapping[str, Any]],
+    policy: RecognitionPolicy,
+    shape_index: EngineShapeIndex,
+    operator_areas: Sequence[Any] = (),
+) -> int:
+    """Стремето в рамката на елемента, когато надписът е изнесен встрани.
+
+    Собственик, 2026-09-16, за s-11: в групата B 38 позиции оставаха „НЯМА
+    КАНДИДАТ“, макар стремето да е начертано вътре в рамката — по едно копие
+    във всеки разрез. Избраното правило: една форма в рамката е доказателство,
+    различни форми — отказ (виж resolve_stirrup_operator_area_annotation).
+
+    Идва СЛЕД групата по точна дъгова L: доказаното по-строго правило остава
+    първо, рамката решава само останалото. Рамката трябва да е една
+    (area_for_point отказва при спор между заглавия).
+    """
+
+    if not operator_areas or not policy.stirrup_length_group_rule_enabled:
+        return 0
+    from lion_rebar.export.operator_areas import KIND_GROUP, area_for_point
+
+    applied = 0
+    for row in rows:
+        if (
+            row.get("annotation_class") != "ACTIONABLE"
+            or row.get("batch_status") != "НЯМА КАНДИДАТ"
+        ):
+            continue
+        annotation_handle = str(row.get("annotation_handle") or "")
+        annotation = annotations_by_handle.get(annotation_handle)
+        if annotation is None:
+            continue
+        anchor = _entity_insert(annotation)
+        if anchor is None:
+            continue
+        area = area_for_point(operator_areas, anchor[0], anchor[1], kind=KIND_GROUP)
+        if area is None:
+            continue
+        resolution = resolve_stirrup_operator_area_annotation(
+            annotation,
+            entities,
+            area_bounds=(area.x0, area.y0, area.x1, area.y1),
+            shape_definitions=shape_definitions,
+            control_tests=control_tests,
+            policy=policy,
+            context=context,
+            shape_index=shape_index,
+        )
+        if resolution is None:
+            continue
+        _install_stirrup_group_reference(
+            row,
+            annotation,
+            resolution,
+            context=context,
+            status="РАЗРЕШЕНО ЧРЕЗ РАМКА И ЕДНАКВИ СТРЕМЕНА",
+            note_prefix=(
+                f"Рамка „{area.title_text}“: всички {len(resolution.member_handles)} "
+                "стремена с тази L в рамката са една и съща форма. "
+            ),
+        )
+        row["stirrup_operator_area_id"] = area.area_id
+        row["stirrup_operator_area_title"] = area.title_text
+        applied += 1
+    return applied
+
+
+def _install_stirrup_group_reference(
+    row: dict,
+    annotation: DxfEntityRecord,
+    resolution: Any,
+    *,
+    context: GeometryCandidateContext,
+    status: str,
+    note_prefix: str = "",
+) -> None:
+    annotation_handle = str(row.get("annotation_handle") or "")
+    candidate = resolution.candidate
+    member_text = ", ".join(
+        f"{handle}:L={length:.3f}@{distance:.3f}"
+        for handle, length, distance in zip(
+            resolution.member_handles,
+            resolution.exact_arc_lengths_cm,
+            resolution.member_distances_raw,
+        )
+    )
+    note = note_prefix + (
+        f"{resolution.code}: декларирана L={resolution.declared_length_cm:.3f}, "
+        f"брой={resolution.declared_count}; точната дъгова L избра "
+        f"еднозначна MASTER форма {candidate.master_shape_code}. "
+        f"Представител {resolution.representative_handle} на "
+        f"{resolution.representative_distance_raw:.3f} единици. "
+        f"Проверени членове [{member_text}]. Геометрията е групова "
+        "референция и не се заявява като изключителна локална собственост."
+    )
+    reference_analysis = GeometryCandidateAnalysis(
+        annotation_handle=annotation_handle,
+        label=str(annotation.text or row.get("annotation_text") or ""),
+        diameter_mm=float(row.get("diameter_mm")),
+        declared_length_cm=float(row.get("declared_length_cm")),
+        candidates=(candidate,),
+        status=status,
+        warnings=(*resolution.analysis.warnings, note),
+        rejection_counts=dict(resolution.analysis.rejection_counts),
+        policy=dict(resolution.analysis.policy),
+    )
+    original_rejection_counts = dict(row.get("rejection_counts", {}))
+    original_laws = list(row.get("recognition_laws", []))
+    resolved = _analysis_row(reference_analysis, None)
+    row.update(resolved)
+
+    reasons = [str(value) for value in row.get("review_reason_codes", [])]
+    if resolution.code not in reasons:
+        reasons.append(resolution.code)
+    notes = list(row.get("candidate_notes", []))
+    if note not in notes:
+        notes.append(note)
+    warnings = list(row.get("analysis_warnings", []))
+    if note not in warnings:
+        warnings.append(note)
+    row.update(
+        {
+            "candidate_basis": (
+                f"{candidate.basis}; {resolution.code}"
+                if candidate.basis
+                else resolution.code
+            ),
+            "candidate_notes": notes,
+            "analysis_warnings": warnings,
+            "recognition_laws": original_laws,
+            "review_reason_codes": reasons,
+            "global_conflict": False,
+            "geometry_owner_conflict": False,
+            "ownership_reference_only": True,
+            "stirrup_length_group_resolved": True,
+            "stirrup_length_group_resolution_code": resolution.code,
+            "stirrup_length_group_representative_handle": (
+                resolution.representative_handle
+            ),
+            "stirrup_length_group_representative_distance_raw": (
+                resolution.representative_distance_raw
+            ),
+            "stirrup_length_group_member_handles": list(
+                resolution.member_handles
+            ),
+            "stirrup_length_group_member_distances_raw": list(
+                resolution.member_distances_raw
+            ),
+            "stirrup_length_group_exact_arc_lengths_cm": list(
+                resolution.exact_arc_lengths_cm
+            ),
+            "stirrup_length_group_declared_count": (
+                resolution.declared_count
+            ),
+            "stirrup_length_group_original_batch_status": "НЯМА КАНДИДАТ",
+            "stirrup_length_group_original_rejection_counts": (
+                original_rejection_counts
+            ),
+            "stirrup_length_group_reference": True,
+        }
+    )
+    row["svg_preview"] = _svg_preview(
+        resolution.probe_annotation,
+        resolution.analysis,
+        context=context,
+        selected_handles=tuple(candidate.handles),
+    )
 
 
 def _apply_unanimous_family_consensus(rows: Sequence[dict]) -> None:
