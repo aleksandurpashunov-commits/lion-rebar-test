@@ -115,6 +115,7 @@
 | `tests/` | pytest пакет (184 файла) |
 | `tools/` | еднократни скриптове за конкретни версии — не са общи команди |
 | `engine_updates/` | пакетирани `.lionengine`; при старт `app.py` инсталира v0.3.14 само ако активният engine е 0.0.0, 0.3.12 или 0.3.13 |
+| `.claude/` | настройки за Claude (папка с данни, забрани) и умения: `run-lion-rebar` (пускане, снимка), `lion-rebar-full-path` (целият път без интерфейс, базова линия) |
 
 ## Команди
 
@@ -124,7 +125,8 @@
 |---|---|
 | `QT_QPA_PLATFORM=offscreen .venv/Scripts/python.exe -m pytest tests` (Git Bash) | **ПРОВЕРЕНО** — 1531 passed, 12 skipped, ~3 мин |
 | `RUN_TESTS.bat` | НАМЕРЕНО — `python -m pytest` без `offscreen`, спира на `pause`; не е пускано |
-| `START_LION_REBAR.bat` / `.venv\Scripts\python.exe run_dev.py` | **ЧАСТИЧНО** — видим прозорец потвърден на 2026-09-15; на 2026-09-16 прозорец не се появи в три опита, причината не е изяснена |
+| `.venv\Scripts\python.exe run_dev.py` (`START_LION_REBAR.bat` прави същото след `activate.bat`) | **ПРОВЕРЕНО** за `run_dev.py` — прозорец за 14–19 s с отделна папка с данни; самият `.bat` не е пускан. За Claude: умението `run-lion-rebar` |
+| `.venv/Scripts/python.exe .claude/skills/lion-rebar-full-path/full_path.py <проект>` | **ПРОВЕРЕНО** — целият път без интерфейс върху копие; s-9 повтаря Финалния контрол от прозореца (458 + 2 от 460). Базова линия: `baseline.py` до него |
 | `INSTALL_LION_REBAR.bat` | НАМЕРЕНО — създава `.venv`, инсталира `requirements.txt`; не е пускано |
 | `BUILD_EXE.bat` | НАМЕРЕНО — PyInstaller към `dist\LION_REBAR_DESKTOP\`, после `tests\test_dist_smoke.py` с `LION_REBAR_DIST`; не е пускано |
 | `ruff` | в `requirements-dev.txt`, но **не е инсталиран** във `.venv` и няма конфигурация |
@@ -139,7 +141,8 @@ openpyxl, pytest.
 ## Капани в средата
 
 - `.venv\Scripts\python.exe` е обвивка: пуска Windows Store Python като
-  **дете**. Прозорецът и паметта са на детето — търси го по `ParentProcessId`.
+  **дете**. Децата са две — `conhost.exe` и `python3.12.exe`; прозорецът и
+  паметта са на второто. Търси го по `ParentProcessId` **и** по име.
 - Python от Store пренасочва записите в `%LOCALAPPDATA%` към
   `%LOCALAPPDATA%\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\Local`.
   Python вижда пренасоченото, PowerShell и Git Bash — не. Дневниците и registry-то
@@ -147,7 +150,9 @@ openpyxl, pytest.
 - Нова версия се прави като копие на папката. Копираните `__pycache__` носят
   стария път: в отчетите и traceback-ите на pytest се вижда папката на
   **предишната** версия, макар че се изпълнява новият код. Изтрий ги в копието
-  (без `.venv`). В rc44 са изчистени на 2026-09-16.
+  (без `.venv`). В rc44 са изчистени на 2026-09-16. В копието обнови и шаблона
+  на старите папки в `.claude/settings.json`, иначе предишната версия остава
+  отворена за редакция.
 - Python кешира модулите: след промяна в кода приложението се пуска наново.
 - Модалните диалози (`ImportReportDialog.exec()` и др.) блокират скриптове,
   които водят прозореца.
