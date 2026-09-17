@@ -43,6 +43,7 @@ from lion_rebar.dxf.models import DxfEntityRecord
 from lion_rebar.dxf.position_key_resolver import (
     build_position_key_legend_index,
     resolve_position_key_annotation,
+    table_row_position_key,
 )
 from lion_rebar.dxf.proxy_adapter import (
     PROXY_ASSOCIATION_CODE,
@@ -982,6 +983,14 @@ def _apply_matcher_decisions(
         row["matcher_decision_summary"] = decision.summary
 
 
+# Слаб локален кандидат, който доказаният ключ от легендата може да замени.
+# „РИСК“ е по-слаб от „ЗА РЪЧЕН ПРЕГЛЕД“: до 17.09.2026 оставаше извън пасa и
+# табличните 12N18x373 и 24N8x373 в s-11 (ключове 4e и 4g) се сблъскваха в
+# чужд U-прът от 301 cm. Собственик: „защо е риск — има си позиция с кръгче,
+# така че легендата се гледа“. Силните кандидати остават извън обхвата.
+_WEAK_LOCAL_CANDIDATE_STATUSES = frozenset({"ЗА РЪЧЕН ПРЕГЛЕД", "РИСК"})
+
+
 def _apply_position_key_legend_references(
     rows: Sequence[dict],
     *,
@@ -996,10 +1005,11 @@ def _apply_position_key_legend_references(
     """Recover eligible rows linked to a proven remote legend.
 
     NO_CANDIDATE is the historical scope.  Engine policy may additionally admit
-    MANUAL_REVIEW rows, because a complete key/Ø/L/legend/MASTER chain is
-    stronger evidence than a weak local proximity candidate.  Repeated table
-    rows may legitimately point to the same legend template, so those handles
-    are audit provenance, not local ownership claims.
+    rows with a weak local candidate — MANUAL_REVIEW and RISK — because a
+    complete key/Ø/L/legend/MASTER chain is stronger evidence than a weak
+    local proximity candidate.  Repeated table rows may legitimately point to
+    the same legend template, so those handles are audit provenance, not local
+    ownership claims.
     """
 
     eligible = [
@@ -1010,7 +1020,7 @@ def _apply_position_key_legend_references(
             row.get("batch_status") == "НЯМА КАНДИДАТ"
             or (
                 policy.position_key_manual_review_override_enabled
-                and row.get("batch_status") == "ЗА РЪЧЕН ПРЕГЛЕД"
+                and row.get("batch_status") in _WEAK_LOCAL_CANDIDATE_STATUSES
             )
         )
     ]
@@ -1036,6 +1046,11 @@ def _apply_position_key_legend_references(
             policy=policy,
         )
         if resolution is None:
+            # Ключ на реда без съгласна легенда: позицията остава нерешена,
+            # но е таблична — правилото за стремената в рамката не я взима.
+            row_key = table_row_position_key(annotation, legend_index, policy=policy)
+            if row_key:
+                row["position_key_row_key"] = row_key
             continue
 
         candidate = resolution.candidate
@@ -1102,7 +1117,7 @@ def _apply_position_key_legend_references(
                 "ownership_winner_annotations": [],
                 "position_key_resolved": True,
                 "position_key_manual_override": (
-                    original_status == "ЗА РЪЧЕН ПРЕГЛЕД"
+                    original_status in _WEAK_LOCAL_CANDIDATE_STATUSES
                 ),
                 "position_key_resolution_code": resolution.code,
                 "position_key_code": resolution.key,
@@ -1221,6 +1236,9 @@ def _apply_operator_area_stirrup_references(
         if (
             row.get("annotation_class") != "ACTIONABLE"
             or row.get("batch_status") != "НЯМА КАНДИДАТ"
+            # Позиция с кръгче на реда се описва от легендата. Противоречи ли
+            # ѝ, решава операторът — не стреме със случайно подходяща L.
+            or row.get("position_key_row_key")
         ):
             continue
         annotation_handle = str(row.get("annotation_handle") or "")
@@ -1626,18 +1644,6 @@ def _derive_f006_dimensions_from_candidate(
     return {"segments": tuple(lengths), "provenance": provenance}
 
 
-def _vector_angle_deg(left: Sequence[float], right: Sequence[float]) -> float:
-    left_length = math.hypot(float(left[0]), float(left[1]))
-    right_length = math.hypot(float(right[0]), float(right[1]))
-    if left_length <= 1e-9 or right_length <= 1e-9:
-        return math.inf
-    cosine = (
-        float(left[0]) * float(right[0])
-        + float(left[1]) * float(right[1])
-    ) / (left_length * right_length)
-    return math.degrees(math.acos(max(-1.0, min(1.0, cosine))))
-
-
 def _single_open_lwpolyline_topology(
     row: Mapping[str, Any],
     *,
@@ -1645,19 +1651,15 @@ def _single_open_lwpolyline_topology(
 ) -> dict[str, Any] | None:
     """Derive F003/F006 production sizes from one exact curved centreline.
 
-    This is deliberately narrower than generic curve normalization.  The
-    proof requires one owned open LWPOLYLINE, a fixed alternating LINE/ARC
-    topology, tangent joins, one bend radius, the shape-specific symmetries
-    and a MASTER total that closes against the declared production length.
+    The row gates stay here: VERTICALS frame, no conflict or ambiguity and one
+    owned candidate.  The geometric proof itself lives in
+    ``curved_centreline_proof`` so the operator-area stirrup rule can use the
+    same proof for the copies inside a frame.
     """
 
-    from lion_rebar.dxf.geometry_core_v2 import (
-        GeometryRepresentation,
-        PathElementKind,
-        polyline_path_from_geometry,
-        semantic_path_from_polyline,
+    from lion_rebar.dxf.curved_centreline_proof import (
+        curved_centreline_production_proof,
     )
-    from lion_rebar.dxf.vertical_shape_resolver import snap
 
     shape_code = str(row.get("master_shape_code") or "").strip().upper()
     if (
@@ -1677,113 +1679,6 @@ def _single_open_lwpolyline_topology(
     )
     if len(handles) != 1:
         return None
-    entity = entity_map.get(handles[0])
-    if entity is None or entity.entity_type.upper() != "LWPOLYLINE":
-        return None
-    path = polyline_path_from_geometry(entity.geometry or {})
-    if path is None or path.closed:
-        return None
-    semantic = semantic_path_from_polyline(path)
-    if (
-        semantic.representation is not GeometryRepresentation.CURVED_CENTERLINE
-        or not semantic.safe_for_linear_matching
-        or semantic.unresolved_arc_count != 0
-    ):
-        return None
-
-    expected_kinds = (
-        ("LINE", "ARC", "LINE", "ARC", "LINE")
-        if shape_code == "F003"
-        else (
-            "LINE", "ARC", "LINE", "ARC", "LINE", "ARC",
-            "LINE", "ARC", "LINE", "ARC", "LINE",
-        )
-    )
-    kinds = tuple(element.kind.value for element in path.elements)
-    if kinds != expected_kinds:
-        return None
-    lines = tuple(
-        float(element.length_raw)
-        for element in path.elements
-        if element.kind is PathElementKind.LINE
-    )
-    arcs = tuple(
-        element for element in path.elements if element.kind is PathElementKind.ARC
-    )
-    expected_arc_count = 2 if shape_code == "F003" else 5
-    if len(arcs) != expected_arc_count or semantic.collapsed_arc_count != len(arcs):
-        return None
-    radii = tuple(float(element.radius_raw or 0.0) for element in arcs)
-    sweeps = tuple(float(element.sweep_deg or 0.0) for element in arcs)
-    if (
-        any(not math.isfinite(value) or value <= 0.0 for value in (*lines, *radii))
-        or any(not math.isfinite(value) or abs(value) <= 1e-9 for value in sweeps)
-        or len({1 if value > 0.0 else -1 for value in sweeps}) != 1
-    ):
-        return None
-    radius = sum(radii) / len(radii)
-    radius_tolerance = max(0.05, radius * 0.02)
-    if any(abs(value - radius) > radius_tolerance for value in radii):
-        return None
-
-    tangent_deviations: list[float] = []
-    for index in range(1, len(path.elements), 2):
-        previous = path.elements[index - 1]
-        arc = path.elements[index]
-        following = path.elements[index + 1]
-        if (
-            previous.end_tangent is None
-            or arc.start_tangent is None
-            or arc.end_tangent is None
-            or following.start_tangent is None
-        ):
-            return None
-        tangent_deviations.extend(
-            (
-                _vector_angle_deg(previous.end_tangent, arc.start_tangent),
-                _vector_angle_deg(arc.end_tangent, following.start_tangent),
-            )
-        )
-    if any(value > 2.0 for value in tangent_deviations):
-        return None
-
-    if shape_code == "F003":
-        if (
-            len(lines) != 3
-            or any(abs(abs(value) - 90.0) > 0.1 for value in sweeps)
-        ):
-            return None
-        raw_segments = (lines[0] + radius, lines[1] + 2.0 * radius, lines[2] + radius)
-        canonical = tuple(snap(value) for value in raw_segments)
-        if abs(canonical[0] - canonical[2]) > 0.11:
-            return None
-    else:
-        if (
-            len(lines) != 6
-            or any(abs(abs(value) - 90.0) > 0.1 for value in sweeps[1:4])
-            or not all(90.0 < abs(value) < 180.0 for value in (sweeps[0], sweeps[-1]))
-            or abs(abs(sweeps[0]) + abs(sweeps[-1]) - 270.0) > 0.2
-            or not semantic.hooked_closure
-            or semantic.hooked_closure_gap_raw is None
-            or abs(float(semantic.hooked_closure_gap_raw) - 2.0 * radius) > 0.11
-        ):
-            return None
-        raw_segments = (
-            lines[0],
-            lines[1] + 2.0 * radius,
-            lines[2] + 2.0 * radius,
-            lines[3] + 2.0 * radius,
-            lines[4] + 2.0 * radius,
-            lines[5],
-        )
-        canonical = tuple(snap(value) for value in raw_segments)
-        if (
-            abs(canonical[0] - canonical[5]) > 0.11
-            or abs(canonical[1] - canonical[3]) > 0.11
-            or abs(canonical[2] - canonical[4]) > 0.11
-        ):
-            return None
-
     declared = _positive_float(
         row.get("production_length_cm")
         if row.get("production_length_cm") is not None
@@ -1791,33 +1686,11 @@ def _single_open_lwpolyline_topology(
     )
     if declared is None:
         return None
-    try:
-        parameters_from_segments(
-            shape_code,
-            canonical,
-            production_length_cm=declared,
-            turn_angles_deg=(90.0,) * (len(canonical) - 1),
-        )
-    except (MasterDimensionError, TypeError, ValueError):
-        return None
-    return {
-        "segments": canonical,
-        "evidence": {
-            "geometry_handle": handles[0],
-            "geometry_entity_type": "LWPOLYLINE",
-            "path_closed": False,
-            "element_kinds": list(kinds),
-            "line_lengths_raw": list(lines),
-            "arc_radii_raw": list(radii),
-            "arc_sweeps_deg": list(sweeps),
-            "tangent_deviations_deg": tangent_deviations,
-            "hooked_closure_gap_raw": (
-                float(semantic.hooked_closure_gap_raw)
-                if semantic.hooked_closure_gap_raw is not None
-                else None
-            ),
-        },
-    }
+    return curved_centreline_production_proof(
+        entity_map.get(handles[0]),
+        shape_code,
+        declared,
+    )
 
 
 def _apply_single_open_lwpolyline_production_segments(
@@ -2727,6 +2600,80 @@ def _apply_borderline_curved_f006_owned_dimension_recovery(
     return recovered_count
 
 
+def _blocked_only_for_missing_printed_dimensions(row: Mapping[str, Any]) -> bool:
+    """F006, блокирано единствено защото надписаните размери „липсват“.
+
+    Този блок се слага от пасa за отпечатаните размери, когато той не успее
+    да ги сглоби от измерената геометрия (s-11, Тип 1b/1c: едната опашка е
+    начертана 10,2 вместо 10). Той не твърди, че котите са грешни — твърди,
+    че ги няма. Собствена кота върху контура е точно липсващото
+    доказателство, затова само тя може да го отмени. Всеки друг блок остава
+    окончателен.
+    """
+
+    return (
+        bool(row.get("production_export_blocked"))
+        and str(row.get("master_shape_code") or "").strip().upper() == "F006"
+        and str(row.get("production_export_block_reason") or "").strip().upper()
+        == "F006_PRINTED_DIMENSIONS_MISSING"
+    )
+
+
+#: Две страни на правоъгълник се котират в перпендикулярни посоки. Допускът
+#: е за чертожен шум в опорните точки, не за наклонени страни.
+_EXPLICIT_SQUARE_MAX_COSINE = math.sin(math.radians(2.0))
+
+
+def _explicit_square_stirrup(
+    records: Sequence[Mapping[str, Any]],
+    entity_map: Mapping[str, DxfEntityRecord],
+) -> list[float] | None:
+    """Квадратно стреме от три собствени коти: две равни страни и кука.
+
+    s-11, Тип 1b/1c (2026-09-17): детайлът 25×25 с кука 10 носи три коти
+    върху самия контур — хоризонтална 25, вертикална 25 и 10 по куката.
+    ``read_owned_stirrup`` вижда само стойностите {25, 10} и при две
+    стойности иска обичайната кука на чертежа. В s-11 най-честата малка кота
+    е страна 20, затова 25×25 с кука 10 се отказваше. Собственик: „по-редно е
+    да взимаме надписите за верни, а не да мерим всеки един елемент“.
+
+    Три коти, от които двете равни мерят в перпендикулярни посоки, не
+    оставят съмнение: те са ширината и височината, а по-малката е куката.
+    Всяко друго разположение се връща като неизвестно. Сборът се проверява
+    срещу L от извикващия код, както при всички собствени коти.
+    """
+
+    if len(records) != 3:
+        return None
+    values = [_positive_float(item.get("measurement_cm")) for item in records]
+    if any(value is None for value in values):
+        return None
+    side, hook = max(values), min(values)
+    sides = [item for item, value in zip(records, values) if value == side]
+    hooks = [item for item, value in zip(records, values) if value == hook]
+    if len(sides) != 2 or len(hooks) != 1 or not hook < side:
+        return None
+    directions = []
+    for item in sides:
+        dimension = entity_map.get(str(item.get("handle") or ""))
+        geometry = dimension.geometry if dimension is not None else {}
+        first, second = geometry.get("defpoint2"), geometry.get("defpoint3")
+        if not first or not second:
+            return None
+        dx = float(second[0]) - float(first[0])
+        dy = float(second[1]) - float(first[1])
+        length = math.hypot(dx, dy)
+        if length <= 1e-9:
+            return None
+        directions.append((dx / length, dy / length))
+    cosine = abs(
+        directions[0][0] * directions[1][0] + directions[0][1] * directions[1][1]
+    )
+    if cosine > _EXPLICIT_SQUARE_MAX_COSINE:
+        return None
+    return [side, side, hook]
+
+
 def _apply_dimension_derived_production_sizes(
     rows: list[dict],
     entities: Sequence[DxfEntityRecord],
@@ -2866,7 +2813,8 @@ def _apply_dimension_derived_production_sizes(
             # а размерите стоят в чертежа.
             row["nearby_dimensions_cm"] = _nearby_dimension_values(
                 point_for_row, dimensions)
-        if bool(row.get("production_export_blocked")):
+        printed_dimensions_missing_only = _blocked_only_for_missing_printed_dimensions(row)
+        if bool(row.get("production_export_blocked")) and not printed_dimensions_missing_only:
             # Invalid/conflicting authoritative evidence is terminal for this
             # run. Nearby DIMENSION entities must never repair it silently.
             continue
@@ -2993,6 +2941,11 @@ def _apply_dimension_derived_production_sizes(
         owned_owner = owned_sets[0][0] if len(owned_sets) == 1 else ""
         owned_values = owned_sets[0][1] if len(owned_sets) == 1 else []
         owned = read_owned_stirrup(owned_values, preferred_hook)
+        if not owned and owned_owner:
+            owned = _explicit_square_stirrup(
+                owned_dimension_records.get(owned_owner, ()),
+                entity_map,
+            )
         if owned:
             width, height, hook = owned
             production_segments = [hook, height, width, height, width, hook]
@@ -3053,6 +3006,10 @@ def _apply_dimension_derived_production_sizes(
             resolved += 1
             continue
 
+        if printed_dimensions_missing_only:
+            # Блокът казва „липсват надписани размери“. Отменя го само
+            # собствена кота на контура; размери по близост не го поправят.
+            continue
         # 2) Резервен път: търсене по близост с уравнение като проверка.
         evidence = derive_shape(point, dimensions, declared, expected_shape="F006",
                                 preferred_hook=preferred_hook,

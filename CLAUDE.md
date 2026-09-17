@@ -112,7 +112,7 @@
 | `lion_rebar/session/` | сесии и learning pack |
 | `lion_rebar/ui/` | `main_window.py`, `drawing_view.py`, `review_center.py`, `engine_studio.py`, диалози |
 | `lion_rebar/utils/app_paths.py` | папка с данни; `LION_REBAR_DATA_ROOT` я пренасочва |
-| `tests/` | pytest пакет (184 файла) |
+| `tests/` | pytest пакет (185 файла) |
 | `tools/` | еднократни скриптове за конкретни версии — не са общи команди |
 | `engine_updates/` | пакетирани `.lionengine`; при старт `app.py` инсталира v0.3.14 само ако активният engine е 0.0.0, 0.3.12 или 0.3.13 |
 | `.claude/` | настройки за Claude (папка с данни, забрани) и умения: `run-lion-rebar` (пускане, снимка), `lion-rebar-full-path` (целият път без интерфейс, базова линия) |
@@ -123,7 +123,7 @@
 
 | Команда | Статус |
 |---|---|
-| `QT_QPA_PLATFORM=offscreen .venv/Scripts/python.exe -m pytest tests` (Git Bash) | **ПРОВЕРЕНО** — 1531 passed, 12 skipped, ~3 мин |
+| `QT_QPA_PLATFORM=offscreen .venv/Scripts/python.exe -m pytest tests` (Git Bash) | **ПРОВЕРЕНО** — 1558 passed, 12 skipped, ~3 мин (2026-09-17) |
 | `RUN_TESTS.bat` | НАМЕРЕНО — `python -m pytest` без `offscreen`, спира на `pause`; не е пускано |
 | `.venv\Scripts\python.exe run_dev.py` (`START_LION_REBAR.bat` прави същото след `activate.bat`) | **ПРОВЕРЕНО** за `run_dev.py` — прозорец за 14–19 s с отделна папка с данни; самият `.bat` не е пускан. За Claude: умението `run-lion-rebar` |
 | `.venv/Scripts/python.exe .claude/skills/lion-rebar-full-path/full_path.py <проект>` | **ПРОВЕРЕНО** — целият път без интерфейс върху копие; s-9 повтаря Финалния контрол от прозореца (458 + 2 от 460). Базова линия: `baseline.py` до него |

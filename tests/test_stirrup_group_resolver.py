@@ -322,3 +322,159 @@ def test_operator_area_accepts_the_overlapping_copy_the_matcher_confirms() -> No
     assert resolution is not None
     assert set(resolution.member_handles) == {"S1", "S2"}
     assert resolution.candidate.handles == (resolution.representative_handle,)
+
+
+def _stirrup_of(handle: str, width: float, height: float, *, dy: float) -> DxfEntityRecord:
+    """Стреме width × height с кука 10 и радиус 2,5, начертано като копията в s-11.
+
+    Същият шаблон като ``_stirrup`` (50 × 20): куката е в горния ляв ъгъл и
+    нейните върхове зависят само от този ъгъл.
+    """
+
+    quarter = math.tan(math.radians(90.0) / 4.0)
+    raw = [
+        [11.1590072210, height - 8.0921010339, 0.0],
+        [4.3251418444, height - 0.7915336578, 0.6801808649],
+        [0.0, height - 2.5, 0.0],
+        [0.0, 2.5, quarter],
+        [2.5, 0.0, 0.0],
+        [width - 2.5, 0.0, quarter],
+        [width, 2.5, 0.0],
+        [width, height - 2.5, quarter],
+        [width - 2.5, height, 0.0],
+        [2.5, height, 0.6563080394],
+        [0.6748581559, height - 4.2084663462, 0.0],
+        [7.5087235328, height - 11.5090337223, 0.0],
+    ]
+    return DxfEntityRecord(
+        handle=handle,
+        entity_type="LWPOLYLINE",
+        layer="Stremena",
+        geometry={"points": [[x, y + dy, bulge] for x, y, bulge in raw], "closed": False},
+    )
+
+
+def test_operator_area_matches_the_label_by_the_production_equation() -> None:
+    """s-11, Стб.Я.1–4: 10 надписа N8x100 оставаха „НЯМА КАНДИДАТ“.
+
+    Стремето е 20 × 20 с кука 10: 2·(20 + 20 + 10) = 100 точно, а оста му
+    минава през огъвките и е 103,56. Рамката сравняваше оста с L ±2 cm и не
+    намираше нито едно копие. Проектантът пише L = 2·(a + b + кука) + добавка
+    0–8 cm; копието отговаря на надписа, когато производственото уравнение го
+    приема. Собственик, 2026-09-17: „да, приемаме го така, дадено е от
+    проектанта“.
+    """
+
+    first = _stirrup_of("S1", 20.0, 20.0, dy=100.0)
+    second = _stirrup_of("S2", 20.0, 20.0, dy=400.0)
+    path = polyline_path_from_geometry(first.geometry)
+    assert path is not None and abs(path.exact_length_raw - 103.56) < 0.01
+    annotation = _far_annotation("144N8x100")
+
+    resolution = _area_resolve([annotation, first, second], annotation)
+
+    assert resolution is not None
+    assert resolution.code == "STIRRUP_OPERATOR_AREA_CONGRUENT"
+    assert set(resolution.member_handles) == {"S1", "S2"}
+    assert resolution.candidate.master_shape_code == "F006"
+
+
+def test_operator_area_leaves_out_copies_the_label_cannot_produce() -> None:
+    """s-11, Стб.Я.1: в разреза на фланеца същите стремена са начертани 22,1 × 20.
+
+    2·(22 + 20 + 10) = 104 надвишава L=100 — не е добавка за огъване, а
+    друго стреме, затова не участва. Остават копията 20 × 20 от детайлите.
+    """
+
+    detail = _stirrup_of("DETAIL", 20.0, 20.0, dy=100.0)
+    section = _stirrup_of("SECTION", 22.1, 20.0, dy=250.0)
+    web = _stirrup_of("WEB", 20.0, 20.0, dy=400.0)
+    annotation = _far_annotation("72N8x100")
+
+    resolution = _area_resolve([annotation, detail, section, web], annotation)
+
+    assert resolution is not None
+    assert set(resolution.member_handles) == {"DETAIL", "WEB"}
+
+
+def test_operator_area_refuses_two_shapes_that_both_close_the_equation() -> None:
+    # 20 × 22 дава 104 (добавка 6), 20 × 25 дава 110 (добавка 0): и двете
+    # отговарят на L=110, но са различни стремена — отказ, не избор.
+    narrow = _stirrup_of("S1", 22.0, 20.0, dy=100.0)
+    wide = _stirrup_of("S2", 25.0, 20.0, dy=400.0)
+    annotation = _far_annotation("72N8x110")
+
+    assert _area_resolve([annotation, narrow, wide], annotation) is None
+
+
+def _table_label(text: str) -> list[DxfEntityRecord]:
+    """Табличен ред „Надл.арм.“ с кръгче на реда, както в s-11 (ключ 4d)."""
+
+    return [
+        DxfEntityRecord(
+            handle="TABLE",
+            entity_type="INSERT",
+            layer="ARMTXT",
+            block_name="ARM_NX",
+            geometry={"insert": [25.0, _FAR_ANNOTATION_Y, 0.0], "rotation": 0.0},
+        ),
+        DxfEntityRecord(
+            handle="TABLE::BJ-FI-L",
+            entity_type="BLOCK_ATTR_TEXT",
+            layer="ARMTXT",
+            block_name="ARM_NX",
+            text=text,
+            geometry={"insert": [50.0, _FAR_ANNOTATION_Y - 3.0, 0.0], "rotation": 0.0},
+            raw={
+                "source": "INSERT_ATTRIBUTES",
+                "parent_insert_handle": "TABLE",
+                "block_name": "ARM_NX",
+            },
+        ),
+        DxfEntityRecord(
+            handle="ROW-KEY",
+            entity_type="TEXT",
+            layer="0.4",
+            text="4d",
+            geometry={
+                "insert": [-40.0, _FAR_ANNOTATION_Y - 7.2, 0.0],
+                "visual_anchor": [-32.56, _FAR_ANNOTATION_Y, 0.0],
+                "height": 12.0,
+            },
+        ),
+    ]
+
+
+def test_table_row_with_a_key_is_not_claimed_by_the_frame_stirrup_rule(tmp_path) -> None:
+    """s-11: 10N16x150 и 6N8x320 са таблични редове с ключ, който противоречи
+    на легендата (4d е L=140, 4c е L=420). Остават за оператора — но в рамката
+    има стремена и едно от тях би могло да затвори уравнението на надписа.
+    Позиция с кръгче на реда се описва от легендата, не от стреме наоколо.
+    """
+
+    import json
+
+    engine = _engine()
+    entities = [
+        *_table_label("10N8x100"),
+        _stirrup_of("S1", 20.0, 20.0, dy=100.0),
+        _stirrup_of("S2", 20.0, 20.0, dy=400.0),
+    ]
+    result = build_batch_geometry_report(
+        entities,
+        tmp_path,
+        project_name="TABLE_ROW_IN_FRAME",
+        generated_at=datetime(2026, 9, 17, 12, 0, tzinfo=UTC),
+        shape_definitions=engine.shapes,
+        control_tests=engine.tests,
+        policy=engine.settings,
+        operator_areas=(_group_area(),),
+    )
+    payload = json.loads(result.json_path.read_text(encoding="utf-8"))
+    row = next(
+        value for value in payload["rows"] if value["annotation_handle"] == "TABLE::BJ-FI-L"
+    )
+
+    assert row["position_key_row_key"] == "4D"
+    assert row["batch_status"] == "НЯМА КАНДИДАТ"
+    assert not row.get("stirrup_length_group_resolution_code")

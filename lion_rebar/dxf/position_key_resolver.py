@@ -665,28 +665,16 @@ def resolve_position_key_annotation(
     """Resolve one table annotation through a proven global position key.
 
     The table block must carry exact BJ/FI/L data, use one of the explicitly
-    configured ARM_N block families and have exactly one matching key circle
-    inside the narrow table radius.  The resolver returns a legend reference,
-    not local geometry ownership.
+    configured ARM_N block families and carry exactly one key circle on its
+    own table row (see ``_table_row_key``); that key must be the legend entry
+    selected by Ø and L.  The resolver returns a legend reference, not local
+    geometry ownership.
     """
 
-    if not policy.position_key_legend_rule_enabled:
+    table_parent = _table_annotation_parent(annotation, index, policy=policy)
+    if table_parent is None:
         return None
-    if str(annotation.entity_type or "").upper() != "BLOCK_ATTR_TEXT":
-        return None
-    if str(annotation.raw.get("source", "")).upper() != "INSERT_ATTRIBUTES":
-        return None
-
-    block_aliases = _normalized_aliases(policy.position_key_table_block_aliases)
-    layer_aliases = _normalized_aliases(policy.position_key_table_layer_aliases)
-    block_name = _normalize_token(
-        annotation.block_name or annotation.raw.get("block_name") or ""
-    )
-    if (
-        block_name not in block_aliases
-        or _normalize_token(annotation.layer) not in layer_aliases
-    ):
-        return None
+    parent, parent_anchor = table_parent
 
     parsed = parse_rebar_text(annotation.text or "")
     if (
@@ -706,6 +694,67 @@ def resolve_position_key_annotation(
         return None
     entry = matching_entries[0]
 
+    row_key = _table_row_key(annotation, parent, parent_anchor, index, policy=policy)
+    if row_key is None or row_key[0] != entry.key:
+        return None
+    _key, distance, circle = row_key
+    return PositionKeyResolution(
+        code="POSITION_KEY_LEGEND_REFERENCE",
+        annotation_handle=str(annotation.handle),
+        key=entry.key,
+        table_circle_handle=str(circle.handle),
+        table_circle_distance_raw=distance,
+        legend=entry,
+    )
+
+
+def table_row_position_key(
+    annotation: DxfEntityRecord,
+    index: PositionKeyLegendIndex,
+    *,
+    policy: RecognitionPolicy,
+) -> str | None:
+    """Ключът на реда на табличен надпис, дори когато легендата не го приема.
+
+    Позиция с кръгче на реда се описва от легендата, не от геометрия наоколо.
+    Когато таблицата и легендата си противоречат (s-11: 10N16x150 с ключ 4d,
+    а легендата 4d е N16 Фус L=140), позицията остава за оператора — но не
+    бива да мине през правилото за стремената в рамката и да вземе чуждо
+    стреме със случайно подходяща дължина.
+    """
+
+    table_parent = _table_annotation_parent(annotation, index, policy=policy)
+    if table_parent is None:
+        return None
+    parent, parent_anchor = table_parent
+    row_key = _table_row_key(annotation, parent, parent_anchor, index, policy=policy)
+    return row_key[0] if row_key is not None else None
+
+
+def _table_annotation_parent(
+    annotation: DxfEntityRecord,
+    index: PositionKeyLegendIndex,
+    *,
+    policy: RecognitionPolicy,
+) -> tuple[DxfEntityRecord, tuple[float, float]] | None:
+    if not policy.position_key_legend_rule_enabled:
+        return None
+    if str(annotation.entity_type or "").upper() != "BLOCK_ATTR_TEXT":
+        return None
+    if str(annotation.raw.get("source", "")).upper() != "INSERT_ATTRIBUTES":
+        return None
+
+    block_aliases = _normalized_aliases(policy.position_key_table_block_aliases)
+    layer_aliases = _normalized_aliases(policy.position_key_table_layer_aliases)
+    block_name = _normalize_token(
+        annotation.block_name or annotation.raw.get("block_name") or ""
+    )
+    if (
+        block_name not in block_aliases
+        or _normalize_token(annotation.layer) not in layer_aliases
+    ):
+        return None
+
     parent_handle = str(annotation.raw.get("parent_insert_handle", ""))
     parent = index.entities_by_handle.get(parent_handle)
     if parent is None or str(parent.entity_type or "").upper() != "INSERT":
@@ -718,28 +767,71 @@ def resolve_position_key_annotation(
     parent_anchor = _record_anchor(parent)
     if parent_anchor is None:
         return None
+    return parent, parent_anchor
 
-    table_matches: list[tuple[float, DxfEntityRecord]] = []
-    for circle in index.circles_by_key.get(entry.key, ()):
-        if str(circle.handle) == entry.legend_circle_handle:
-            continue
-        circle_anchor = _record_anchor(circle)
-        if circle_anchor is None:
-            continue
-        distance = _distance(parent_anchor, circle_anchor)
-        if distance <= float(policy.position_key_table_radius_raw):
-            table_matches.append((distance, circle))
-    if len(table_matches) != 1:
+
+def _table_row_key(
+    annotation: DxfEntityRecord,
+    parent: DxfEntityRecord,
+    parent_anchor: tuple[float, float],
+    index: PositionKeyLegendIndex,
+    *,
+    policy: RecognitionPolicy,
+) -> tuple[str, float, DxfEntityRecord] | None:
+    """Ключът на реда в таблицата: единственото кръгче, през което минава редът.
+
+    s-11, П.b9 (2026-09-17): до таблицата „Фусове“ стои балонче 4n от
+    разреза, на 67 единици от надписа. Старото изискване — точно едно кръгче
+    с този ключ в радиуса на таблицата — отказваше, макар редът да носи един
+    ключ. Собственик: „кръгчето се чете долу от легендата, както при другите
+    железа“. Броят еднакви кръгчета в радиуса не казва кой е ключът на реда.
+
+    Редът е линията през точката на вмъкване на блока, по посоката на текста.
+    Кръгчето е на реда, когато видимият център на ключа е до половин височина
+    на ключа от тази линия. Измерено: в s-11 (71 реда) и s-10 (21 реда) ключът
+    на реда е на 0–2,3 единици, а кръгчетата на съседните редове — на 21 и
+    повече. Нула или две кръгчета на реда е отказ; ключ без височина не може
+    да бъде поставен на ред.
+    """
+
+    radius = float(policy.position_key_table_radius_raw)
+    rotation_deg = _finite_float(annotation.geometry.get("rotation"))
+    if rotation_deg is None:
+        rotation_deg = _finite_float(parent.geometry.get("rotation"))
+    rotation = math.radians(rotation_deg or 0.0)
+    legend_circles = {
+        entry.legend_circle_handle for entry in index.entries_by_key.values()
+    }
+    row_members: list[tuple[float, str, DxfEntityRecord]] = []
+    for key, circles in index.circles_by_key.items():
+        for circle in circles:
+            if str(circle.handle) in legend_circles:
+                continue
+            circle_anchor = _record_anchor(circle)
+            visible_centre = _position_key_anchor(circle)
+            height = _finite_float(circle.geometry.get("height"))
+            if circle_anchor is None or visible_centre is None or not height or height <= 0.0:
+                continue
+            distance = _distance(parent_anchor, circle_anchor)
+            if distance > radius:
+                continue
+            dx = visible_centre[0] - parent_anchor[0]
+            dy = visible_centre[1] - parent_anchor[1]
+            offset = -math.sin(rotation) * dx + math.cos(rotation) * dy
+            if abs(offset) <= height / 2.0:
+                row_members.append((distance, key, circle))
+    if len(row_members) != 1:
         return None
-    distance, circle = table_matches[0]
-    return PositionKeyResolution(
-        code="POSITION_KEY_LEGEND_REFERENCE",
-        annotation_handle=str(annotation.handle),
-        key=entry.key,
-        table_circle_handle=str(circle.handle),
-        table_circle_distance_raw=distance,
-        legend=entry,
-    )
+    distance, key, circle = row_members[0]
+    return key, distance, circle
+
+
+def _finite_float(value: object) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _legend_analysis_is_exact(

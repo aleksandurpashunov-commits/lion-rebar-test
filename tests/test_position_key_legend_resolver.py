@@ -77,7 +77,9 @@ def _fixture_entities(*, annotation_text: str = "134N20x420") -> list[DxfEntityR
             entity_type="TEXT",
             layer="0.4",
             text="4a",
-            geometry={"insert": [1097.0, 0.0, 0.0]},
+            # Истинският TEXT винаги носи височина (импортерът я записва);
+            # по нея ключът се поставя на реда на надписа.
+            geometry={"insert": [1097.0, 0.0, 0.0], "height": 12.0},
         ),
         DxfEntityRecord(
             handle="PARENT",
@@ -125,6 +127,10 @@ def _h3_starred_shared_f004_entities() -> list[DxfEntityRecord]:
             "insert": [*insert, 0.0],
             "visual_anchor": [*visual_anchor, 0.0],
         }
+        if layer == "0.4":
+            # Височината на ключа в H-3 е 12: от нея импортерът е изчислил
+            # отместването на visual_anchor (+11.16, +7.2 при „3b*“).
+            geometry["height"] = 12.0
         if layer == "ARMTXT1":
             x, y = insert
             geometry.update(
@@ -557,6 +563,57 @@ def test_position_key_requires_exact_table_diameter_and_length() -> None:
     assert resolve_position_key_annotation(entities[-1], index, policy=policy) is None
 
 
+def _key_text(handle: str, key: str, x: float, y: float) -> DxfEntityRecord:
+    return DxfEntityRecord(
+        handle=handle,
+        entity_type="TEXT",
+        layer="0.4",
+        text=key,
+        geometry={"insert": [x, y, 0.0], "height": 12.0},
+    )
+
+
+def test_position_key_reads_the_row_key_despite_a_section_bubble_with_the_same_key() -> None:
+    """s-11, П.b9: до таблицата „Фусове“ стои балонче 4n от разреза.
+
+    Балончето е на 67 единици от надписа — в радиуса на таблицата, но не на
+    реда му. Старото правило броеше кръгчетата с този ключ в радиуса, виждаше
+    две и отказваше; 36N16x165 и 22N8x125 оставаха „НЯМА КАНДИДАТ“.
+    """
+
+    entities = _fixture_entities()
+    entities.insert(-2, _key_text("SECTION-BUBBLE", "4a", 1030.0, 60.0))
+    index, policy = _index(entities)
+
+    resolution = resolve_position_key_annotation(entities[-1], index, policy=policy)
+
+    assert resolution is not None
+    assert resolution.key == "4A"
+    assert resolution.table_circle_handle == "K-TABLE"
+    assert resolution.candidate.master_shape_code == "F002"
+
+
+def test_position_key_refuses_when_the_row_key_differs_from_the_legend() -> None:
+    # Редът носи 5a, а Ø и L съвпадат с легендата 4a. Кръгче 4a в радиуса,
+    # но извън реда, не е ключ на този надпис: противоречие, не връзка.
+    entities = [
+        replace(entity, text="5a") if entity.handle == "K-TABLE" else entity
+        for entity in _fixture_entities()
+    ]
+    entities.insert(-2, _key_text("SECTION-BUBBLE", "4a", 1030.0, 60.0))
+    index, policy = _index(entities)
+
+    assert resolve_position_key_annotation(entities[-1], index, policy=policy) is None
+
+
+def test_position_key_refuses_two_keys_on_one_row() -> None:
+    entities = _fixture_entities()
+    entities.insert(-2, _key_text("SECOND-ON-ROW", "5a", 940.0, 2.0))
+    index, policy = _index(entities)
+
+    assert resolve_position_key_annotation(entities[-1], index, policy=policy) is None
+
+
 def test_batch_report_recovers_reference_without_claiming_local_ownership(
     tmp_path,
 ) -> None:
@@ -670,6 +727,61 @@ def test_position_key_does_not_override_manual_candidate_when_disabled(tmp_path)
     assert table.get("position_key_manual_override") is not True
     assert table["master_shape_code"] == "F001"
     assert table["batch_status"] == "ЗА РЪЧЕН ПРЕГЛЕД"
+
+
+def _risk_candidate_report(tmp_path, *, override_enabled: bool) -> dict:
+    # Прав прът 360 cm на 72 единици: разликата 60 cm е над допуска за ръчен
+    # преглед при L=420, но под твърдата граница — кандидатът е „РИСК“.
+    entities = _fixture_entities()
+    entities.append(_line("LOCAL-WEAK", (1120.0, 40.0), (1480.0, 40.0)))
+    engine = _engine()
+    settings = deepcopy(engine.settings)
+    settings.setdefault("geometry_recognition", {})[
+        "position_key_manual_review_override_enabled"
+    ] = override_enabled
+    result = build_batch_geometry_report(
+        entities,
+        tmp_path,
+        project_name="POSITION_KEY_RISK",
+        generated_at=datetime(2026, 9, 17, 12, 0, tzinfo=UTC),
+        shape_definitions=engine.shapes,
+        control_tests=engine.tests,
+        policy=settings,
+    )
+    payload = json.loads(result.json_path.read_text(encoding="utf-8"))
+    return next(
+        row
+        for row in payload["rows"]
+        if row["annotation_handle"] == "PARENT::BJ-FI-L"
+    )
+
+
+def test_position_key_overrides_a_risk_candidate(tmp_path) -> None:
+    """s-11, Ш.2,63: 12N18x373 (ключ 4e) и 24N8x373 (ключ 4g).
+
+    Двата надписа тръгваха като „РИСК“ към далечен U-прът от 301 cm, а пасът
+    по ключ приемаше само „НЯМА КАНДИДАТ“ и „ЗА РЪЧЕН ПРЕГЛЕД“. После двата се
+    сблъскваха в същия прът и оставаха блокирани. Собственик, 2026-09-17:
+    „има си позиция с кръгче, така че легендата се гледа“.
+    """
+
+    table = _risk_candidate_report(tmp_path, override_enabled=True)
+
+    assert table["position_key_code"] == "4A"
+    assert table["position_key_original_batch_status"] == "РИСК"
+    assert table["position_key_original_candidate"]["handles"] == ["LOCAL-WEAK"]
+    assert table["position_key_manual_override"] is True
+    assert table["master_shape_code"] == "F002"
+    assert table["candidate_handles"] == ["G1", "G2", "G3"]
+    assert table["ownership_reference_only"] is True
+
+
+def test_position_key_leaves_a_risk_candidate_when_override_is_disabled(tmp_path) -> None:
+    table = _risk_candidate_report(tmp_path, override_enabled=False)
+
+    assert table.get("position_key_code") is None
+    assert table["batch_status"] == "РИСК"
+    assert table["candidate_handles"] == ["LOCAL-WEAK"]
 
 
 def _with_spec_text(entities, text: str) -> list[DxfEntityRecord]:

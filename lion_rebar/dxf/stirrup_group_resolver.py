@@ -4,6 +4,7 @@ import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
+from lion_rebar.dxf.curved_centreline_proof import curved_centreline_production_proof
 from lion_rebar.dxf.geometry_candidates import (
     GeometryCandidate,
     GeometryCandidateAnalysis,
@@ -158,10 +159,22 @@ def resolve_stirrup_operator_area_annotation(
     една и съща форма, формата е доказана. Различни форми (15x15 и 15x17 при
     еднаква L) са отказ; нито едно — също.
 
-    Филтрите са същите като при групата по точна дъгова L: слой, извита ос с
-    кука, MASTER без двусмислие, дължина в допуска. Сменят се само обхватът
-    (рамката вместо радиус) и изискването за подредба (една форма вместо една
-    редица). Представителят е проследимост, не изключителна собственост.
+    Филтрите са тези на групата по точна дъгова L: слой, извита ос с кука,
+    MASTER без двусмислие. Сменят се обхватът (рамката вместо радиус),
+    изискването за подредба (една форма вместо една редица) и това какво
+    значи „с дължината на надписа“. Представителят е проследимост, не
+    изключителна собственост.
+
+    Дължината (2026-09-17, s-11, 10 × N8x100 в Стб.Я.1–4): оста на стремето
+    минава през огъвките и при радиус 2,5 е с 3,56 cm по-дълга от
+    2·(a + b + кука). Проектантът пише L = 2·(a + b + кука) плюс добавка
+    0–8 cm (``engine/bend_allowance``). Сравнението на оста с L ±2 cm пускаше
+    само стремена с добавка между 1,6 и 5,6 cm, а N8x100 е 20×20 с кука 10 —
+    добавка 0. Затова копието отговаря на надписа, когато точната му топология
+    дава размери, които производственото уравнение приема за тази L — същата
+    проверка, с която експортът приема стремето. Копията 22,1×20 във фланеца
+    на разреза дават 104 > 100 и не участват. Собственик: „да, приемаме го
+    така, дадено е от проектанта“.
     """
 
     definitions = tuple(shape_definitions)
@@ -172,6 +185,18 @@ def resolve_stirrup_operator_area_annotation(
     parsed, probes = prepared
     x0, x1 = sorted((float(area_bounds[0]), float(area_bounds[2])))
     y0, y1 = sorted((float(area_bounds[1]), float(area_bounds[3])))
+    entity_by_handle = {str(entity.handle): entity for entity in entities}
+    declared = float(parsed.length_cm)
+
+    def production_equation_admits(handle: str) -> bool:
+        return (
+            curved_centreline_production_proof(
+                entity_by_handle.get(str(handle)),
+                "F006",
+                declared,
+            )
+            is not None
+        )
 
     def inside_area(primitive: GeometryPrimitive, _distance: float) -> bool:
         points = primitive.points
@@ -183,12 +208,13 @@ def resolve_stirrup_operator_area_annotation(
     matches = _stirrup_length_matches(
         context,
         probes=probes,
-        declared=float(parsed.length_cm),
+        declared=declared,
         shape_definitions=definitions,
         control_tests=tests,
         policy=policy,
         shape_index=shape_index,
         admits=inside_area,
+        length_admits=lambda primitive: production_equation_admits(primitive.handle),
     )
     if not matches:
         return None
@@ -211,6 +237,7 @@ def resolve_stirrup_operator_area_annotation(
         context=context,
         shape_index=shape_index,
         accept_congruent_member=True,
+        candidate_length_admits=production_equation_admits,
     )
 
 
@@ -252,6 +279,7 @@ def _stirrup_length_matches(
     policy: RecognitionPolicy,
     shape_index: EngineShapeIndex,
     admits: Callable[[GeometryPrimitive, float], bool],
+    length_admits: Callable[[GeometryPrimitive], bool] | None = None,
 ) -> list[_LengthMatch]:
     layer_aliases = _normalized_aliases(policy.stirrup_length_group_layer_aliases)
     master_codes = _normalized_aliases(policy.stirrup_length_group_master_codes)
@@ -267,7 +295,14 @@ def _stirrup_length_matches(
             primitive.source_curve_count < 1
             or primitive.unresolved_curve_count != 0
             or not primitive.hooked_closure
-            or abs(float(primitive.length_raw) - declared) > length_tolerance
+        ):
+            continue
+        # Правилото по радиус сравнява дъговата L; рамката подава своята
+        # проверка по производственото уравнение (виж operator area). Тя
+        # доказва топологията, затова се пуска едва за копията вътре в рамката.
+        if (
+            length_admits is None
+            and abs(float(primitive.length_raw) - declared) > length_tolerance
         ):
             continue
         distance = min(
@@ -275,6 +310,8 @@ def _stirrup_length_matches(
             for probe in probes
         )
         if not admits(primitive, distance):
+            continue
+        if length_admits is not None and not length_admits(primitive):
             continue
         points = primitive.recognition_points or primitive.points
         master = match_master_shapes(
@@ -392,6 +429,7 @@ def _resolution_for_selection(
     context: GeometryCandidateContext,
     shape_index: EngineShapeIndex,
     accept_congruent_member: bool = False,
+    candidate_length_admits: Callable[[str], bool] | None = None,
 ) -> StirrupLengthGroupResolution | None:
     master_codes = _normalized_aliases(policy.stirrup_length_group_master_codes)
     declared = float(parsed.length_cm)
@@ -445,8 +483,12 @@ def _resolution_for_selection(
         tuple(candidate.handles) != (representative.primitive.handle,)
         or _normalize_token(candidate.master_shape_code) not in master_codes
         or candidate.master_ambiguous_shape_codes
-        or abs(float(candidate.geometry_length_raw) - declared) > length_tolerance
     ):
+        return None
+    if candidate_length_admits is not None:
+        if not candidate_length_admits(representative.primitive.handle):
+            return None
+    elif abs(float(candidate.geometry_length_raw) - declared) > length_tolerance:
         return None
 
     ordered_members = tuple(
