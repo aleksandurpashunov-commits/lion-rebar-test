@@ -104,6 +104,40 @@ class TestВидимост:
         assert rect.bottom() == pytest.approx(-2000.0)
 
 
+class TestОгънатаРамка:
+    """Огънатата рамка трябва да СЕ ВИЖДА огъната (2026-09-18).
+
+    Иначе операторът чете на екрана оградения правоъгълник, а записано е
+    друго — точно недоразумението, което рамките трябваше да премахнат.
+    """
+
+    #: Съседната заема лявата половина на втората рамка.
+    _СЪСЕДНА = (2200.0, 2000.0, 2600.0, 2600.0)
+    _ОГЪНАТА = (*_РАМКИ[1][:4], "К11", "#2e7d32", (_СЪСЕДНА,))
+
+    def test_очертанието_изключва_чуждото(self) -> None:
+        from PySide6.QtCore import QPointF
+        from PySide6.QtWidgets import QGraphicsPathItem
+
+        view = _view()
+        view.show_operator_areas([self._ОГЪНАТА])
+
+        пътища = [
+            i for i in view._area_items if isinstance(i, QGraphicsPathItem)
+        ]
+        assert len(пътища) == 1
+        очертание = пътища[0].path()
+        # Сцената е с обърнат Y: y 2300 в чертежа -> -2300 на сцената.
+        assert очертание.contains(QPointF(2800.0, -2300.0)) is True
+        assert очертание.contains(QPointF(2400.0, -2300.0)) is False
+
+    def test_без_изрезки_си_остава_правоъгълник(self) -> None:
+        view = _view()
+        view.show_operator_areas(_РАМКИ)
+
+        assert len(_правоъгълници(view)) == 2
+
+
 class TestНеПречи:
     def test_рамката_не_поема_кликове(self) -> None:
         """Иначе операторът не може да избере обект под нея."""

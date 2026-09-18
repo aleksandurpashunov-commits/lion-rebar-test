@@ -16,11 +16,13 @@
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 from lion_rebar.export.operator_areas import (
+    AREAS_NAME,
     KIND_BEAM,
     KIND_GROUP,
     OperatorAreaError,
@@ -126,10 +128,48 @@ class TestЧетене:
 
         assert area_for_point(areas, 113382.0, 2762.0, kind=KIND_GROUP) is None
 
-    def test_две_припокриващи_се_области_са_отказ_не_догадка(
+    def test_записана_без_изрезка_припокриваща_се_област_е_отказ(
         self, tmp_path: Path
     ) -> None:
-        """Същото правило като „две заглавия в рамката": двусмислието спира."""
+        """Защитата от 2026-09-14 остава за записите, които нямат изрезка.
+
+        До 17.09.2026 две области с различни заглавия върху една точка се
+        отменяха взаимно — двусмислието спираше, вместо да се гадае. От
+        18.09 новата рамка се огъва още при чертането и такова застъпване
+        вече не се създава (``bend_around_existing``).
+
+        Но област, записана ПРЕДИ това, няма изрезка. За нея отговорът си
+        остава отказ: там наистина никой не е решавал чия е точката. Тук
+        изрезката се маха от записа, за да се провери точно този случай.
+        """
+
+        _record(tmp_path)
+        _record(
+            tmp_path,
+            box=(113300.0, 2600.0, 113900.0, 2999.0),
+            title_handle="BL8",
+            title_text="Гр. B.8 25/55",
+        )
+        path = tmp_path / "working" / AREAS_NAME
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        for entry in payload["areas"]:
+            entry["bent_around"] = []
+        path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        areas = load_operator_areas(tmp_path, _identity())
+        assert len(areas) == 2
+
+        assert area_for_point(areas, 113382.0, 2762.0, kind=KIND_BEAM) is None
+
+    def test_новата_област_се_огъва_и_точката_има_стопанин(
+        self, tmp_path: Path
+    ) -> None:
+        """Собственик, 2026-09-18: огъването важи и за рамките на греди.
+
+        Втората рамка не взима нищо от първата, затова спорът изчезва и
+        позицията остава при гредата, която я е обхванала първа.
+        """
 
         _record(tmp_path)
         _record(
@@ -139,9 +179,11 @@ class TestЧетене:
             title_text="Гр. B.8 25/55",
         )
         areas = load_operator_areas(tmp_path, _identity())
-        assert len(areas) == 2
 
-        assert area_for_point(areas, 113382.0, 2762.0, kind=KIND_BEAM) is None
+        стопанин = area_for_point(areas, 113382.0, 2762.0, kind=KIND_BEAM)
+
+        assert стопанин is not None
+        assert стопанин.title_text == "Гр. B.19 25/55"
 
     def test_чужда_рамка_не_се_чете(self, tmp_path: Path) -> None:
         _record(tmp_path)

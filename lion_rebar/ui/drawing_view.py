@@ -194,13 +194,16 @@ class DrawingView(QGraphicsView):
 
     def show_operator_areas(
         self,
-        areas: Sequence[tuple[float, float, float, float, str, str]],
+        areas: Sequence[tuple],
     ) -> None:
-        """Рисува запазените области: правоъгълник и заглавието, което носи.
+        """Рисува запазените области: очертанието и заглавието, което носи.
 
         ``areas`` са ``(x0, y0, x1, y1, надпис, цвят)`` в координатите на
-        ЧЕРТЕЖА. Обръщането на Y към сцената става тук, както навсякъде в
-        този изглед.
+        ЧЕРТЕЖА, по желание с седми член — изрезките, по които рамката се е
+        огънала по съседните (``export/operator_areas.bend_around_existing``).
+        Тогава се рисува огънатото очертание, а не оградения правоъгълник:
+        на екрана трябва да стои каквото е записано. Обръщането на Y към
+        сцената става тук, както навсякъде в този изглед.
 
         Рамките НЕ поемат кликове: операторът трябва да може да избере
         обект под рамката, без да я мести или маркира.
@@ -210,7 +213,9 @@ class DrawingView(QGraphicsView):
         if scene is None:
             return
         self.clear_operator_areas()
-        for x0, y0, x1, y1, label, colour in areas:
+        for area in areas:
+            x0, y0, x1, y1, label, colour = area[:6]
+            изрезки = area[6] if len(area) > 6 else ()
             тон = QColor(colour)
             rect = QRectF(
                 QPointF(float(x0), -float(y0)),
@@ -221,7 +226,21 @@ class DrawingView(QGraphicsView):
             pen.setWidth(2)
             fill = QColor(тон)
             fill.setAlpha(20)
-            item = QGraphicsRectItem(rect)
+            if изрезки:
+                очертание = QPainterPath()
+                очертание.addRect(rect)
+                for bx0, by0, bx1, by1 in изрезки:
+                    чуждо = QPainterPath()
+                    чуждо.addRect(
+                        QRectF(
+                            QPointF(float(bx0), -float(by0)),
+                            QPointF(float(bx1), -float(by1)),
+                        ).normalized()
+                    )
+                    очертание = очертание.subtracted(чуждо)
+                item = QGraphicsPathItem(очертание)
+            else:
+                item = QGraphicsRectItem(rect)
             item.setPen(pen)
             item.setBrush(QBrush(fill))
             item.setZValue(8_500.0)

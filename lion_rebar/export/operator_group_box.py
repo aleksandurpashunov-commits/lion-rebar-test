@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Iterable, Sequence
 
 
 class OperatorBoxError(ValueError):
@@ -278,12 +278,20 @@ def resolve_operator_area(
     end: tuple[float, float],
     *,
     titles: Sequence[AreaTitle],
+    claimed_title_handles: Iterable[str] = (),
 ) -> AreaResolution:
     """Разчита рамка, начертана преди анализа.
 
-    Иска ТОЧНО ЕДНО заглавие вътре — нула или две е отказ, не догадка.
-    Позиции не се търсят: в този момент още няма такива, а и целият смисъл
-    на областта е анализът да ги намери сам, всеки път наново.
+    Иска ТОЧНО ЕДНО СВОБОДНО заглавие вътре — нула или две е отказ, не
+    догадка. Позиции не се търсят: в този момент още няма такива, а и целият
+    смисъл на областта е анализът да ги намери сам, всеки път наново.
+
+    ``claimed_title_handles`` са заглавията, които вече имат своя рамка. Те
+    не се броят за конкуренция, защото новата рамка ще се огъне по тяхната
+    (``export/operator_areas.bend_around_existing``). Без това изключение
+    огъването няма как да се случи: щедро начертаната рамка захваща и
+    съседното заглавие и отказва още тук, преди огъването да е стигнало до
+    думата. Собственик, 2026-09-17: рамките „да се огъват“ по съседните.
     """
 
     box = normalise_box(start, end)
@@ -299,14 +307,23 @@ def resolve_operator_area(
             "(„Гр. B.19 25/55“), на шайбата („Ш 3-25/600“) или на групата "
             "колони, за да е ясно на кого принадлежат позициите вътре."
         )
-    if len(inside) > 1:
+    claimed = {str(handle) for handle in claimed_title_handles if str(handle)}
+    free = [title for title in inside if str(title.handle) not in claimed]
+    if not free:
         names = ", ".join(sorted(f"„{title.text}“" for title in inside))
         raise OperatorBoxError(
-            f"В рамката попадат {len(inside)} заглавия ({names}). "
+            f"Заглавието в рамката вече има своя рамка ({names}). "
+            "Оттегли я от „Анализ → Начертани рамки…“, ако трябва да се "
+            "промени, или обхвани друго заглавие."
+        )
+    if len(free) > 1:
+        names = ", ".join(sorted(f"„{title.text}“" for title in free))
+        raise OperatorBoxError(
+            f"В рамката попадат {len(free)} заглавия без рамка ({names}). "
             "Начертай я около едно."
         )
 
-    title = inside[0]
+    title = free[0]
     return AreaResolution(
         box=box,
         title_handle=title.handle,

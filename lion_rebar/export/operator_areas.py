@@ -37,6 +37,8 @@
     рамка, но правеше невъзможно поправянето на грешно свързана позиция;
   * груповата рамка НЕ отменя автоматичния групов етикет — попълва само
     празното;
+  * нова рамка СЕ ОГЪВА по вече начертаните съседни: тя не взима нищо,
+    което друго заглавие вече е взело (виж ``bend_around_existing``);
   * изисква автор и мотив; записва се с identity на проекта;
   * област от друг DXF/анализ НЕ се наследява (identity gate);
   * може да бъде оттеглена, като оттеглянето също се записва.
@@ -67,9 +69,74 @@ KINDS: tuple[str, ...] = (KIND_BEAM, KIND_GROUP)
 
 MIN_NOTE_LENGTH = 3
 
+#: Правоъгълник в координатите на DXF-а: ``(x0, y0, x1, y1)``.
+Box = tuple[float, float, float, float]
+
 
 class OperatorAreaError(ValueError):
     """Невалидна операторска област — отказва се, не се записва."""
+
+
+def region_contains(
+    box: Box,
+    bent_around: Sequence[Box],
+    x: float,
+    y: float,
+) -> bool:
+    """Точката е в рамката и НЕ е в нито една, по която тя се е огънала."""
+
+    if not (box[0] <= float(x) <= box[2] and box[1] <= float(y) <= box[3]):
+        return False
+    return not any(
+        other[0] <= float(x) <= other[2] and other[1] <= float(y) <= other[3]
+        for other in bent_around
+    )
+
+
+def bend_around_existing(
+    box: Box,
+    areas: Iterable["OperatorArea"],
+    *,
+    kind: str,
+    title_handle: str,
+) -> tuple[Box, ...]:
+    """Съседните области, по които новата рамка се огъва.
+
+    Собственик, 2026-09-17: „съгласен съм да прилепват към съседни
+    съществуващи, т.е. да се огъват по нея“.
+
+    Измерено на 2026-09-17 в „Вертикали до +8.90“: чертежът е минал през
+    състояние, в което две зони са на 1,3 единици една от друга (Стб.Ядро
+    B.3 и „Тип 2c -215x25“). При такова разстояние правоъгълник с два клика
+    не може да ги раздели — операторът или мине в съседната зона, или
+    остави свои елементи навън. Затова новата рамка се чертае щедро и се
+    огъва по вече начертаните: тя не взима нищо, което друго заглавие вече
+    е взело.
+
+    Огъването се смята ВЕДНЪЖ — при чертането — и се записва в самата
+    област. Не се преизчислява при четене, защото решението е операторско:
+    оттегли ли се после съседната, тази рамка запазва изрезката си и не се
+    разширява тихо върху освободеното.
+
+    Област със СЪЩОТО заглавие не е съседна, а пречертаване: тя се слива,
+    както досега (``area_for_point``, случаят „Гр. B.13 25/50“ от
+    2026-09-14). Различен вид (``BEAM`` срещу ``GROUP``) също не е съсед —
+    двата вида нарочно се застъпват.
+    """
+
+    result: list[Box] = []
+    for area in areas:
+        if area.kind != str(kind):
+            continue
+        if str(area.title_handle) == str(title_handle):
+            continue
+        other: Box = (area.x0, area.y0, area.x1, area.y1)
+        if other[2] <= box[0] or box[2] <= other[0]:
+            continue
+        if other[3] <= box[1] or box[3] <= other[1]:
+            continue
+        result.append(other)
+    return tuple(sorted(result))
 
 
 @dataclass(frozen=True)
@@ -97,9 +164,14 @@ class OperatorArea:
     source_sha256: str
     source_generation_id: str
     analysis_run_id: str
+    #: Съседните области, по които рамката се е огънала при чертането.
+    #: Празно при по-старите записи — тогава рамката е чист правоъгълник.
+    bent_around: tuple[Box, ...] = ()
 
     def contains(self, x: float, y: float) -> bool:
-        return self.x0 <= float(x) <= self.x1 and self.y0 <= float(y) <= self.y1
+        return region_contains(
+            (self.x0, self.y0, self.x1, self.y1), self.bent_around, x, y
+        )
 
     def to_dict(self) -> dict:
         return {
@@ -119,6 +191,7 @@ class OperatorArea:
             "source_sha256": self.source_sha256,
             "source_generation_id": self.source_generation_id,
             "analysis_run_id": self.analysis_run_id,
+            "bent_around": [list(other) for other in self.bent_around],
         }
 
 
@@ -238,6 +311,25 @@ def record_operator_area(
         decided_by=decided_by,
         note=note,
     )
+    # Огъването се решава ВЕДНЪЖ — тук, при чертането — и влиза в записа,
+    # за да не се преизчислява при всяко четене (виж bend_around_existing).
+    bent_around = bend_around_existing(
+        ordered,
+        load_operator_areas(project_root, identity),
+        kind=str(kind),
+        title_handle=str(title_handle),
+    )
+    if any(
+        other[0] <= ordered[0]
+        and other[1] <= ordered[1]
+        and ordered[2] <= other[2]
+        and ordered[3] <= other[3]
+        for other in bent_around
+    ):
+        raise OperatorAreaError(
+            "Рамката е изцяло в друга начертана рамка — след огъването по нея "
+            "не остава нищо. Начертай я извън чуждата рамка."
+        )
     at = _now()
     area = OperatorArea(
         area_id=_area_id(ordered, str(title_handle), at),
@@ -256,6 +348,7 @@ def record_operator_area(
         source_sha256=identity.source_sha256,
         source_generation_id=identity.source_generation_id,
         analysis_run_id=identity.analysis_run_id,
+        bent_around=bent_around,
     )
 
     path, _audit_path = _paths(project_root)
@@ -360,6 +453,7 @@ def load_operator_areas(
                 source_sha256=str(entry.get("source_sha256") or ""),
                 source_generation_id=str(entry.get("source_generation_id") or ""),
                 analysis_run_id=str(entry.get("analysis_run_id") or ""),
+                bent_around=_read_bent_around(entry.get("bent_around")),
             )
         except (KeyError, TypeError, ValueError):
             continue
@@ -370,6 +464,29 @@ def load_operator_areas(
         if identity is not None and mismatch_reason(entry, identity):
             continue
         result.append(area)
+    return tuple(result)
+
+
+def _read_bent_around(value: Any) -> tuple[Box, ...]:
+    """Изрезките от записа. Повреден ред се пропуска, а не се гадае.
+
+    Пропусната изрезка би разширила рамката върху чужда територия, затова
+    се чете строго: четири крайни числа в правилен ред, иначе редът пада.
+    """
+
+    if not isinstance(value, (list, tuple)):
+        return ()
+    result: list[Box] = []
+    for item in value:
+        if not isinstance(item, (list, tuple)) or len(item) != 4:
+            continue
+        try:
+            x0, y0, x1, y1 = (float(number) for number in item)
+        except (TypeError, ValueError):
+            continue
+        if x0 >= x1 or y0 >= y1:
+            continue
+        result.append((x0, y0, x1, y1))
     return tuple(result)
 
 

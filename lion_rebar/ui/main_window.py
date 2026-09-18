@@ -708,6 +708,8 @@ class MainWindow(QMainWindow):
         from lion_rebar.export.operator_areas import (
             KIND_BEAM,
             OperatorAreaError,
+            bend_around_existing,
+            load_operator_areas,
             record_operator_area,
         )
         from lion_rebar.export.operator_group_box import (
@@ -723,7 +725,17 @@ class MainWindow(QMainWindow):
             entities = list(self.import_result.entities)
             frames = detect_drawing_frames(entities)
             titles = collect_area_titles(entities, frames)
-            resolution = resolve_operator_area((x0, y0), (x1, y1), titles=titles)
+            съществуващи = load_operator_areas(
+                Path(self.project.root), current_identity(self.project)
+            )
+            resolution = resolve_operator_area(
+                (x0, y0),
+                (x1, y1),
+                titles=titles,
+                claimed_title_handles=[
+                    area.title_handle for area in съществуващи
+                ],
+            )
         except OperatorBoxError as error:
             QMessageBox.warning(self, "Рамката не беше приета", str(error))
             return
@@ -736,13 +748,33 @@ class MainWindow(QMainWindow):
             if resolution.kind == KIND_BEAM
             else "групата в описа"
         )
-        обхванати, премествани = self._operator_area_preview(resolution)
+        # Огъването се смята тук, за да е ВЯРЕН броят в потвърждението:
+        # операторът вижда какво остава негово, а не какво е оградил.
+        огънато = bend_around_existing(
+            resolution.box,
+            съществуващи,
+            kind=resolution.kind,
+            title_handle=resolution.title_handle,
+        )
+        обхванати, премествани = self._operator_area_preview(resolution, огънато)
         редове = [
             f"Всичко в рамката ще се отнесе към {purpose}",
             f"„{resolution.title_text}“.",
             "",
             f"Позиции в рамката: {обхванати}.",
         ]
+        if огънато:
+            съседни = sorted(
+                {
+                    f"„{area.title_text}“"
+                    for area in съществуващи
+                    if (area.x0, area.y0, area.x1, area.y1) in огънато
+                }
+            )
+            редове.append(
+                f"Огъва се по вече начертаните: {', '.join(съседни)} — "
+                "техните позиции остават техни."
+            )
         if премествани:
             # Рамката бие автоматиката, затова какво точно се мести трябва
             # да се види ПРЕДИ записа. Собственик, 2026-09-14: рамката да
@@ -866,6 +898,10 @@ class MainWindow(QMainWindow):
                     area.y1,
                     area.title_text,
                     self._ЦВЯТ_НА_РАМКА.get(area.kind, "#2e7d32"),
+                    # Изрезките се рисуват: рамка, която се е огънала по
+                    # съседна, трябва да се вижда огъната, иначе операторът
+                    # чете на екрана друго, а не каквото е записано.
+                    area.bent_around,
                 )
                 for area in areas
             ]
@@ -949,12 +985,15 @@ class MainWindow(QMainWindow):
             0,
         )
 
-    def _operator_area_preview(self, resolution):
+    def _operator_area_preview(self, resolution, bent_around=()):
         """Колко позиции обхваща рамката и кои от тях премества.
 
         Връща ``(брой_обхванати, [(надпис, сегашна_греда), …])``. Второто са
         позициите, които автоматиката вече е свързала с ДРУГА греда — те се
         показват поименно, за да не се мести нищо тихо.
+
+        ``bent_around`` са съседните рамки, по които тази се огъва: техните
+        позиции не се броят тук, защото няма да станат нейни.
         """
 
         from lion_rebar.export.excel_export import (
@@ -966,7 +1005,7 @@ class MainWindow(QMainWindow):
             assign_point_to_frame,
             detect_drawing_frames,
         )
-        from lion_rebar.export.operator_areas import KIND_BEAM
+        from lion_rebar.export.operator_areas import KIND_BEAM, region_contains
 
         try:
             entities = list(self.import_result.entities)
@@ -986,7 +1025,9 @@ class MainWindow(QMainWindow):
             point = _entity_insert(record)
             if point is None:
                 continue
-            if not (x0 <= point[0] <= x1 and y0 <= point[1] <= y1):
+            if not region_contains(
+                (x0, y0, x1, y1), bent_around, point[0], point[1]
+            ):
                 continue
             обхванати += 1
             if resolution.kind != KIND_BEAM:
