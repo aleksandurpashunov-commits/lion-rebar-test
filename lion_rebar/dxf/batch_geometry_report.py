@@ -1054,6 +1054,13 @@ def _apply_position_key_legend_references(
             continue
 
         candidate = resolution.candidate
+        произход = (
+            " Двойката ключ/спецификация е последната свободна в затворено "
+            "множество с равен брой ключове и спецификации, а не намерена в "
+            "радиуса на легендата."
+            if resolution.legend.closed_set_residual
+            else ""
+        )
         note = (
             f"ПОЗИЦИОНЕН КЛЮЧ {resolution.key}: таблично кръгче "
             f"{resolution.table_circle_handle} на "
@@ -1065,6 +1072,7 @@ def _apply_position_key_legend_references(
             f"{candidate.master_shape_code}. Геометрията "
             f"{', '.join(candidate.handles)} е легендна референция, а не "
             "локална собственост на табличния надпис."
+            f"{произход}"
         )
         reference_analysis = GeometryCandidateAnalysis(
             annotation_handle=annotation_handle,

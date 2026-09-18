@@ -876,3 +876,116 @@ def test_legend_f002_reads_its_own_dimensions_despite_the_offset_dimension() -> 
     assert candidate.master_shape_code == "F002"
     assert tuple(candidate.canonical_segment_lengths_cm) == (260.0, 40.0, 120.0)
     assert "OFFSET4" not in tuple(candidate.dimension_text_handles)
+
+
+# ---------------------------------------------------------------------------
+# Затворено множество: последната свободна двойка
+# ---------------------------------------------------------------------------
+
+
+def _closed_set_entities(
+    *,
+    second_length: float = 300.0,
+    extra: list[DxfEntityRecord] | None = None,
+) -> list[DxfEntityRecord]:
+    """Легенда с две двойки: първата в радиуса, втората извън него.
+
+    Втората повтаря измереното в „Вертикали до +8.90“: спецификацията стои на
+    85 единици от кръгчето си при радиус 60, затова по радиуса не се свързва.
+    """
+
+    entities = _fixture_entities()
+    entities.extend(
+        [
+            _line("G4", (3000.0, 0.0), (3000.0 + second_length, 0.0)),
+            DxfEntityRecord(
+                handle="SPEC-2",
+                entity_type="TEXT",
+                layer="ARMTXT1",
+                text="N16 L=300",
+                geometry={"insert": [3000.0, -7.0, 0.0]},
+            ),
+            DxfEntityRecord(
+                handle="K-LEG-2",
+                entity_type="TEXT",
+                layer="0.4",
+                text="5a",
+                geometry={"insert": [2915.0, -7.0, 0.0], "height": 12.0},
+            ),
+        ]
+    )
+    entities.extend(extra or [])
+    return entities
+
+
+def _key_text(handle: str, key: str, x: float, y: float) -> DxfEntityRecord:
+    return DxfEntityRecord(
+        handle=handle,
+        entity_type="TEXT",
+        layer="0.4",
+        text=key,
+        geometry={"insert": [x, y, 0.0], "height": 12.0},
+    )
+
+
+class TestЗатворенаЛегенда:
+    def test_последната_свободна_двойка_се_приема_без_радиуса(self) -> None:
+        """Собственик, 2026-09-17: „единствената останала позиция е“.
+
+        Два ключа, две спецификации. Първата двойка се решава в радиуса;
+        втората е на 85 единици при радиус 60 и досега оставаше нерешена,
+        макар прътът ѝ да е начертан и свободен.
+        """
+
+        index, _policy = _index(_closed_set_entities())
+
+        assert sorted(index.entries_by_key) == ["4A", "5A"]
+        остатък = index.entries_by_key["5A"]
+        assert остатък.closed_set_residual is True
+        assert остатък.legend_spec_handle == "SPEC-2"
+        assert остатък.legend_circle_handle == "K-LEG-2"
+        assert остатък.candidate.handles == ("G4",)
+        # Първата двойка не се маркира като остатък.
+        assert index.entries_by_key["4A"].closed_set_residual is False
+
+    def test_остатъкът_пак_минава_през_проверките(self) -> None:
+        """Прътът е 250 вместо обявените 300 — двойката не се приема.
+
+        Остатъкът избира, доказателството пак проверява. Отказът тук е ценен:
+        значи или надписът, или по-ранната връзка е сгрешена.
+        """
+
+        index, _policy = _index(_closed_set_entities(second_length=250.0))
+
+        assert sorted(index.entries_by_key) == ["4A"]
+
+    def test_неравен_брой_ключове_и_спецификации_не_е_затворено_множество(
+        self,
+    ) -> None:
+        """Три ключа, две спецификации — свободният ключ не доказва нищо."""
+
+        index, _policy = _index(
+            _closed_set_entities(extra=[_key_text("K-LEG-3", "6a", 6000.0, 0.0)])
+        )
+
+        assert sorted(index.entries_by_key) == ["4A"]
+
+    def test_два_свободни_ключа_не_дават_остатък(self) -> None:
+        """Остатък се допуска най-много един — иначе се верижи."""
+
+        index, _policy = _index(
+            _closed_set_entities(
+                extra=[
+                    _key_text("K-LEG-3", "6a", 6000.0, 0.0),
+                    DxfEntityRecord(
+                        handle="SPEC-3",
+                        entity_type="TEXT",
+                        layer="ARMTXT1",
+                        text="N12 L=250",
+                        geometry={"insert": [6085.0, 0.0, 0.0]},
+                    ),
+                ]
+            )
+        )
+
+        assert sorted(index.entries_by_key) == ["4A"]

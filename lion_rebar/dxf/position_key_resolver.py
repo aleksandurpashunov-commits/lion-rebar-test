@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence, Set as AbstractSet
 from dataclasses import dataclass, field, replace
 
 from lion_rebar.dxf.geometry_candidates import (
@@ -47,6 +47,9 @@ class PositionKeyLegendEntry:
     occurrence_count: int
     probe_annotation: DxfEntityRecord
     analysis: GeometryCandidateAnalysis
+    #: Двойката е останала последна в затворено множество, а не е намерена в
+    #: радиуса на легендата (виж ``_closed_set_residual_association``).
+    closed_set_residual: bool = False
 
     @property
     def candidate(self) -> GeometryCandidate:
@@ -211,6 +214,19 @@ def build_position_key_legend_index(
                 (circle, spec, diameter, length)
             )
 
+    residual = _closed_set_residual_association(
+        circles_by_key=circles_by_key,
+        specs=specs,
+        associations_by_key=associations_by_key,
+        unresolved_legend_spec_handles=unresolved_legend_spec_handles,
+    )
+    residual_key = ""
+    if residual is not None:
+        residual_key, residual_circle, residual_spec, residual_d, residual_l = residual
+        associations_by_key.setdefault(residual_key, []).append(
+            (residual_circle, residual_spec, residual_d, residual_l)
+        )
+
     # One legend spec must not silently define two different global keys.
     spec_use_count: dict[str, int] = {}
     for values in associations_by_key.values():
@@ -333,6 +349,7 @@ def build_position_key_legend_index(
             occurrence_count=len(circles_by_key.get(key, ())),
             probe_annotation=probes[key],
             analysis=analysis,
+            closed_set_residual=(key == residual_key),
         )
 
     return PositionKeyLegendIndex(
@@ -341,6 +358,111 @@ def build_position_key_legend_index(
         entities_by_handle,
         protection_only_geometry_handles=frozenset(protection_only_handles),
     )
+
+
+def _closed_set_residual_association(
+    *,
+    circles_by_key: Mapping[str, tuple[DxfEntityRecord, ...]],
+    specs: Sequence[tuple[DxfEntityRecord, float, float]],
+    associations_by_key: Mapping[str, Sequence[tuple]],
+    unresolved_legend_spec_handles: AbstractSet[str],
+) -> tuple[str, DxfEntityRecord, DxfEntityRecord, float, float] | None:
+    """Последната свободна двойка ключ/спецификация в затворено множество.
+
+    Собственик, 2026-09-17: „след като определим рамките, когато всички
+    елементи са намерени, няма ли как кръгчето с легендата автоматично да го
+    свържем — единствената останала позиция е“.
+
+    Това не е „най-близкото“, а извод: в множество с толкова ключове, колкото
+    са спецификациите, щом всички без една двойка са решени по пряко
+    доказателство, последната е определена. Затова се иска РАВЕН БРОЙ — той
+    прави множеството затворено. Пет ключа и три спецификации не доказват
+    нищо за свободния ключ. По същата причина се иска и поне една вече решена
+    двойка: един ключ с една спецификация не елиминира нищо.
+
+    Измерено в „Вертикали до +8.90“ („Сграда бета“, 2026-09-18): три ключа
+    (6A, 6B, 6C) в 105 кръгчета и точно три спецификации. 6B и 6C се решават
+    в радиуса (20,0 и 25,8), а текстът на 6A — „N14 L=385“ — стои на 85,4 при
+    радиус 60 и позицията `20N14x385` оставаше „НЯМА КАНДИДАТ“, макар прътът
+    ѝ (385,0 на ARM-GORNA) да е начертан и свободен. Собственикът я решаваше
+    на ръка.
+
+    Отпада САМО радиусът, не и еднозначността: двойката трябва да е взаимно
+    най-близка със същия отстъп пред втория (``_unambiguous_nearest``), а
+    после минава през същите проверки за геометрия, Ø, L и еднозначна MASTER
+    форма. Не мине ли ги — отказ, и той е ценен: значи по-ранна връзка е
+    сгрешена. Остатък се допуска най-много един, за да не се верижи.
+
+    Оспорвана спецификация (``unresolved_legend_spec_handles``) не участва:
+    двусмислие не се решава по остатък.
+    """
+
+    if len(circles_by_key) != len(specs) or not specs:
+        return None
+    # Елиминацията иска поне една двойка, решена по ПРЯКО доказателство.
+    # Без нея „затворено множество“ от един ключ и една спецификация е просто
+    # близост без радиус — точно каквото пази
+    # ``test_position_key_does_not_accept_lone_candidate_outside_radius``
+    # (спецификация на 61 при радиус 60).
+    if not associations_by_key:
+        return None
+    free_keys = [key for key in circles_by_key if key not in associations_by_key]
+    if len(free_keys) != 1:
+        return None
+    key = free_keys[0]
+
+    used_spec_handles = {
+        str(spec.handle)
+        for values in associations_by_key.values()
+        for _circle, spec, _diameter, _length in values
+    }
+    free_specs = [
+        value
+        for value in specs
+        if str(value[0].handle) not in used_spec_handles
+        and str(value[0].handle) not in unresolved_legend_spec_handles
+    ]
+    if len(free_specs) != 1:
+        return None
+    spec, diameter, length = free_specs[0]
+    spec_anchor = _record_anchor(spec)
+    if spec_anchor is None:
+        return None
+
+    nearest_circle = _unambiguous_nearest(
+        sorted(
+            (
+                _distance(spec_anchor, circle_anchor),
+                str(circle.handle),
+                other_key,
+                circle,
+            )
+            for other_key, circles in circles_by_key.items()
+            for circle in circles
+            if (circle_anchor := _position_key_anchor(circle)) is not None
+        )
+    )
+    if nearest_circle is None or str(nearest_circle[2]) != str(key):
+        return None
+    circle = nearest_circle[3]
+    circle_anchor = _position_key_anchor(circle)
+    if circle_anchor is None:
+        return None
+
+    nearest_spec = _unambiguous_nearest(
+        sorted(
+            (
+                _distance(circle_anchor, anchor),
+                str(other.handle),
+                other,
+            )
+            for other, _diameter, _length in specs
+            if (anchor := _record_anchor(other)) is not None
+        )
+    )
+    if nearest_spec is None or str(nearest_spec[2].handle) != str(spec.handle):
+        return None
+    return key, circle, spec, diameter, length
 
 
 def _unambiguous_nearest(
