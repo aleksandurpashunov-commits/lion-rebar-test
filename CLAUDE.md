@@ -188,4 +188,7 @@ openpyxl, pytest.
 | `README_BG.md` | release бележки, експорт и изходни файлове |
 | `docs/ENGINE_UPGRADE_AND_APPROVAL_BG.md` | как се променя MASTER engine |
 | `docs/MANUAL_APPLICATION_UPDATE_BG.md` | ръчно обновяване на приложението |
+| `docs/ROADMAP_PRODUCT_BG.md` | пътна карта към продаваем продукт — за обсъждане |
+| `docs/NOVI_FORMI_OT_SLUCHAI_BG.md` | нова MASTER форма от отказан случай — предложение |
+| `docs/SLOEVE_I_ZRENIE_BG.md` | слоевете по съдържание и къде помага зрението — предложение |
 | `docs/RELEASE_*_BG.md`, `WINDOWS_ACCEPTANCE_rc*.md` | бележки и приемане по версии |
