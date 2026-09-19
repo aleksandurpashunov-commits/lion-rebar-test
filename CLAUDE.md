@@ -191,4 +191,5 @@ openpyxl, pytest.
 | `docs/ROADMAP_PRODUCT_BG.md` | пътна карта към продаваем продукт — за обсъждане |
 | `docs/NOVI_FORMI_OT_SLUCHAI_BG.md` | нова MASTER форма от отказан случай — предложение |
 | `docs/SLOEVE_I_ZRENIE_BG.md` | слоевете по съдържание и къде помага зрението — предложение |
+| `docs/ASD_DIALEKT_D2_BG.md` | вторият чертожен диалект (AutoCAD Structural Detailing) — измереното по `d-2` |
 | `docs/RELEASE_*_BG.md`, `WINDOWS_ACCEPTANCE_rc*.md` | бележки и приемане по версии |
