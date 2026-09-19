@@ -4,10 +4,10 @@
 (19.09.2026) и са сверени с решенията на собственика за същите позиции:
 
 * ``11N8x390`` → F006 ``[10, 165, 20, 165, 20, 10]``
-* ``60N8x182`` → ОТКАЗ: петсегментният прочит е спрян, защото активната F010
-  е с чужда самоличност („долна скара"), а F009 — чийто еталон е точно този
-  прът — е изключена (собственик, 19.09.2026)
-* ``1180N8x190`` (бордът) → ОТКАЗ: надписаните коти дават 189 при L=190
+* ``60N8x182`` → F009 ``[7, 79, 10, 79, 7]``
+* ``1180N8x190`` (бордът) → F009 ``[8, 79, 15, 79, 8]`` = 189 при L=190:
+  единият сантиметър е добавка за огъване при четирите огъвки (собственик,
+  19.09.2026: „а не за 1 сантиметър да не")
 * щурците ``32N8x166``/``28N8x166`` → F006 ``[10, 40, 33, 40, 33, 10]`` през
   спецификацията ``стр.: N8x166``
 
@@ -194,49 +194,92 @@ def test_specification_dimensions_compute_the_hook() -> None:
     assert shape.computed_value_cm == 10.0
 
 
-def test_five_symmetric_dimensions_are_refused_until_the_engine_names_the_form() -> None:
-    """Прочитът е верен, но активната MASTER форма е с чужда самоличност.
-
-    F009 „ОТВОРЕНА ФОРМА С ДВЕ РАМЕНА" носи еталон 8+79+15+79+8 = 189 — точно
-    този прът — но е изключена (``alias_of: F010``). Активната F010 е
-    „НЕСТАНДАРТНА – ДОЛНА СКАРА" с ключ 200|28|19|10|113. Докато ENGINE не
-    получи активна форма с вярното име, категория и чертеж, позицията остава
-    за оператора.
-    """
-
-    assert (
-        shape_from_printed_dimensions(
-            [7.0, 7.0, 79.0, 79.0, 10.0],
-            182.0,
-            hook_min_cm=HOOK_MIN_CM,
-            hook_max_cm=HOOK_MAX_CM,
-        )
-        is None
+def test_five_symmetric_dimensions_give_the_open_stirrup() -> None:
+    shape = shape_from_printed_dimensions(
+        [7.0, 7.0, 79.0, 79.0, 10.0],
+        182.0,
+        hook_min_cm=HOOK_MIN_CM,
+        hook_max_cm=HOOK_MAX_CM,
     )
+    assert shape is not None
+    assert shape.shape_code == "F009"
+    assert shape.segments == (7.0, 79.0, 10.0, 79.0, 7.0)
+    assert shape.computed_value_cm is None
 
 
-def test_border_that_does_not_close_is_refused() -> None:
-    """Пет коти, които дават 189 при L=190 — отказ, не нагласяне.
+def test_one_centimetre_of_bend_allowance_is_accepted() -> None:
+    """Бордът: надписаното е 8+79+15+79+8 = 189 при L=190.
 
-    Подмножеството {8, 79} затваря F006 (2×(8+79+8) = 190). Точно затова
-    броят на котите е част от прочита: пет коти никога не се свеждат до две.
+    Собственик, 19.09.2026: „трябва да има как да се зададе този механизъм да
+    е 8/79/15/79/8, а не за 1 сантиметър да не … защото по чертеж си е така,
+    но нашата програма не дава." Участъците остават както са надписани;
+    сантиметърът е добавка за огъване при четирите огъвки и НЕ се
+    преразпределя по крачетата.
     """
+
+    shape = shape_from_printed_dimensions(
+        [8.0, 8.0, 79.0, 79.0, 15.0],
+        190.0,
+        hook_min_cm=HOOK_MIN_CM,
+        hook_max_cm=HOOK_MAX_CM,
+    )
+    assert shape is not None
+    assert shape.shape_code == "F009"
+    assert shape.segments == (8.0, 79.0, 15.0, 79.0, 8.0)
+    assert shape.total_cm == 189.0
+    assert "добавка за огъване" in shape.reading
+
+
+def test_shortfall_beyond_the_allowance_is_refused() -> None:
+    """Добавката има таван: 3 cm не е огъване, а сгрешен размер."""
 
     assert (
         shape_from_printed_dimensions(
             [8.0, 8.0, 79.0, 79.0, 15.0],
-            190.0,
+            192.0,
             hook_min_cm=HOOK_MIN_CM,
             hook_max_cm=HOOK_MAX_CM,
         )
         is None
     )
-    note = near_miss_note([8.0, 8.0, 79.0, 79.0, 15.0], 190.0)
+
+
+def test_segments_exceeding_the_declared_length_are_refused() -> None:
+    """Надвишаване не е добавка при никаква форма."""
+
+    assert (
+        shape_from_printed_dimensions(
+            [8.0, 8.0, 79.0, 79.0, 15.0],
+            187.0,
+            hook_min_cm=HOOK_MIN_CM,
+            hook_max_cm=HOOK_MAX_CM,
+        )
+        is None
+    )
+
+
+def test_five_dimensions_are_never_reduced_to_two() -> None:
+    """Подмножеството {8, 79} затваря F006 (2×(8+79+8) = 190) и би обявило
+    ГРЕШНА затворена форма на отворено стреме. Затова броят на котите е част
+    от прочита: прочетената форма е отворената, не затворената."""
+
+    shape = shape_from_printed_dimensions(
+        [8.0, 8.0, 79.0, 79.0, 15.0],
+        190.0,
+        hook_min_cm=HOOK_MIN_CM,
+        hook_max_cm=HOOK_MAX_CM,
+    )
+    assert shape is not None
+    assert shape.shape_code == "F009"
+
+
+def test_near_miss_note_explains_a_real_mismatch() -> None:
+    note = near_miss_note([8.0, 8.0, 79.0, 79.0, 15.0], 191.5)
     assert note is not None
-    assert "189" in note and "190" in note
+    assert "189" in note and "191.5" in note
 
 
-def test_only_two_printed_dimensions_are_read() -> None:
+def test_only_two_or_five_printed_dimensions_are_read() -> None:
     for values in ([165.0], [45.0, 10.0, 20.0], [7.0, 7.0, 79.0, 79.0]):
         assert (
             shape_from_printed_dimensions(
@@ -268,9 +311,9 @@ def test_step_and_variable_texts_are_not_dimensions() -> None:
 
 def test_border_stirrup_gets_shape_and_segments_from_its_own_detail() -> None:
     entities, annotations, rows = _fixture()
-    # Решени: бордът и двата щурца през спецификацията. Отвореното стреме
-    # (пет коти) остава за оператора, докато ENGINE не даде вярната форма.
-    assert _apply(rows, entities, annotations) == 3
+    # Решени: бордът 11N8x390, отвореното стреме, бордът 1180N8x190 и двата
+    # щурца през спецификацията.
+    assert _apply(rows, entities, annotations) == 5
 
     row = _by_handle(rows)["BORD-ANN"]
     assert row["master_shape_code"] == "F006"
@@ -306,21 +349,36 @@ def test_neighbouring_esove_detail_is_not_touched() -> None:
     assert not row.get("production_segments_cm")
 
 
-def test_open_stirrup_row_stays_for_the_operator() -> None:
+def test_open_stirrup_row_gets_f009() -> None:
     entities, annotations, rows = _fixture()
     _apply(rows, entities, annotations)
     row = _by_handle(rows)["OPEN-ANN"]
-    assert not row.get("master_shape_code")
-    assert not row.get("production_segments_cm")
+    assert row["master_shape_code"] == "F009"
+    assert row["production_segments_cm"] == [7.0, 79.0, 10.0, 79.0, 7.0]
+    assert validate_production_segment_evidence(row) is True
 
 
-def test_border_row_that_does_not_close_stays_for_the_operator() -> None:
+def test_border_row_gets_f009_with_the_printed_numbers() -> None:
     entities, annotations, rows = _fixture()
+    _apply(rows, entities, annotations)
+    row = _by_handle(rows)["MISS-ANN"]
+    assert row["master_shape_code"] == "F009"
+    assert row["production_segments_cm"] == [8.0, 79.0, 15.0, 79.0, 8.0]
+    assert validate_production_segment_evidence(row) is True
+
+
+def test_row_beyond_the_allowance_stays_for_the_operator() -> None:
+    """Същият детайл, но надпис L=195: 6 cm не е огъване."""
+
+    entities, annotations, rows = _fixture()
+    for row in rows:
+        if row["annotation_handle"] == "MISS-ANN":
+            row["declared_length_cm"] = 195.0
+            row["annotation_text"] = "1180N8x195"
     _apply(rows, entities, annotations)
     row = _by_handle(rows)["MISS-ANN"]
     assert not row.get("master_shape_code")
     assert not row.get("production_segments_cm")
-    assert any("НЕ ЗАТВАРЯТ" in str(note) for note in row["candidate_notes"])
 
 
 def test_specification_resolves_the_lintel_stirrups() -> None:

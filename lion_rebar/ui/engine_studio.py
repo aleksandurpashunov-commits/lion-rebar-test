@@ -1265,7 +1265,14 @@ class EngineStudio(QDialog):
         if self.draft is None:
             self._info("Няма отворена чернова.")
             return
-        if not self.save_current_form():
+        # Заключената MASTER форма е само за четене и няма какво да се
+        # записва. Собственик, 19.09.2026: при отворена чернова v0.3.15 и
+        # заключена форма в списъка бутонът връщаше „Заключената форма не може
+        # да се запише без контролирана ревизия." и тестовете НЕ се пускаха —
+        # таблицата оставаше празна без обяснение. Същата защита вече стои
+        # пред публикуването (``_commit_all_tabs``).
+        shape = self._selected_shape()
+        if shape is not None and not shape.locked and not self.save_current_form():
             return
         results = run_engine_tests(self.draft)
         audit = audit_engine_recognition(self.draft)

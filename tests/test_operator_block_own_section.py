@@ -292,3 +292,22 @@ def test_позиция_без_греда_и_без_блок_пак_блокир
         assert "без еднозначна греда" in str(exc)
     else:  # pragma: no cover - защитата трябва да се обади
         raise AssertionError("експортът трябваше да блокира")
+
+
+def test_бутонът_за_тестове_не_спира_заради_заключена_форма() -> None:
+    """Заключената форма е само за четене и не бива да блокира тестовете.
+
+    Собственик, 19.09.2026: при отворена чернова и заключена форма в списъка
+    бутонът „Изпълни engine + matcher тестовете" връщаше „Заключената форма
+    не може да се запише без контролирана ревизия." и таблицата оставаше
+    празна. Проверява се, че ``run_tests`` пропуска записа при заключена
+    форма — както ``_commit_all_tabs`` вече прави.
+    """
+
+    import inspect
+
+    from lion_rebar.ui import engine_studio
+
+    source = inspect.getsource(engine_studio.EngineStudio.run_tests)
+    assert "not shape.locked" in source
+    assert "run_engine_tests(self.draft)" in source

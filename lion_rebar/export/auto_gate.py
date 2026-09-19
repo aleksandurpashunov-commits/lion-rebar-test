@@ -5,6 +5,7 @@ import re
 from typing import Any, Mapping
 
 from lion_rebar.dxf.local_detail_resolver import local_detail_shape_code
+from lion_rebar.engine.bend_allowance import segments_match_total
 from lion_rebar.dxf.proxy_adapter import three_leg_shape_from_directions
 from lion_rebar.export.master_engine_v031 import (
     MasterDimensionError,
@@ -78,6 +79,8 @@ _PRODUCTION_SEGMENT_EVIDENCE_SOURCES = frozenset(
 #: Куката/крачето на стреме е най-късият му размер. Диапазонът е този на
 #: ``vertical_shape_resolver.infer_preferred_hook`` и се проверява тук
 #: наново, за да не може промяна в политиката да разшири АВТОМАТИКАТА.
+#: Отвореното петсегментно стреме, както го обявява писателят.
+_PRINTED_OPEN_STIRRUP_SHAPE_CODE = "F009"
 _PRINTED_DETAIL_HOOK_MIN_CM = 4.0
 _PRINTED_DETAIL_HOOK_MAX_CM = 20.0
 #: Измерено: верните локални надписи стоят на 0-28 чертожни единици от своя
@@ -635,7 +638,8 @@ def _printed_detail_dimension_evidence_is_owned(
       за такива; появил се кандидат прави доказателството остаряло);
     * че всяка надписана кота има свой handle и измерена стойност, и че
       надписаните числа са ТОЧНО тези, от които са сглобени участъците;
-    * че прочитът е точно двете коти с ЕДИН изчислен размер (F006);
+    * че прочитът е един от двата допустими — две коти с ЕДИН изчислен
+      размер (F006) или пет коти в симетричен набор без изчислени (F009);
     * че куката е най-късият размер и е в измерения диапазон;
     * че уравнението затваря декларираната дължина точно.
 
@@ -644,12 +648,8 @@ def _printed_detail_dimension_evidence_is_owned(
     написал, и без нея прочитът е чужд.
     """
 
-    # Само затвореното стреме. Петсегментният прочит е спрян, докато ENGINE
-    # не получи активна форма с вярната самоличност (виж
-    # ``printed_detail_dimensions``), а гейтът не бива да приема код, който
-    # писателят вече не произвежда.
     shape_code = str(row.get("master_shape_code") or "").strip().upper()
-    if shape_code != "F006":
+    if shape_code not in {"F006", _PRINTED_OPEN_STIRRUP_SHAPE_CODE}:
         return False
     if local_detail_shape_code(str(evidence.get("label_text") or "")) != "F006":
         return False
@@ -677,23 +677,41 @@ def _printed_detail_dimension_evidence_is_owned(
     if printed is None or sorted(printed) != sorted(measurements.values()):
         return False
 
-    if len(segments) != 6 or len(printed) != 2:
-        return False
-    hook, side_a, side_b = segments[0], segments[1], segments[2]
-    if segments != (hook, side_a, side_b, side_a, side_b, hook):
-        return False
-    computed = _finite_positive_scalar(evidence.get("computed_value_cm"))
-    if computed is None:
-        return False
-    sizes = sorted((hook, side_a, side_b))
-    if sorted([*printed, computed]) != sizes:
-        return False
-    if hook != sizes[0]:
-        return False
-    if not _PRINTED_DETAIL_HOOK_MIN_CM <= hook <= _PRINTED_DETAIL_HOOK_MAX_CM:
-        return False
-    if abs(math.fsum(segments) - total) > _PRINTED_DETAIL_CLOSURE_TOLERANCE_CM:
-        return False
+    if shape_code == "F006":
+        # Две надписани коти и ЕДИН изчислен размер; куката е най-късият.
+        if len(segments) != 6 or len(printed) != 2:
+            return False
+        hook, side_a, side_b = segments[0], segments[1], segments[2]
+        if segments != (hook, side_a, side_b, side_a, side_b, hook):
+            return False
+        computed = _finite_positive_scalar(evidence.get("computed_value_cm"))
+        if computed is None:
+            return False
+        sizes = sorted((hook, side_a, side_b))
+        if sorted([*printed, computed]) != sizes:
+            return False
+        if hook != sizes[0]:
+            return False
+        if not _PRINTED_DETAIL_HOOK_MIN_CM <= hook <= _PRINTED_DETAIL_HOOK_MAX_CM:
+            return False
+        if abs(math.fsum(segments) - total) > _PRINTED_DETAIL_CLOSURE_TOLERANCE_CM:
+            return False
+    else:
+        # Пет надписани коти, нищо изчислено: участъците са точно тези, които
+        # проектантът е надписал. Затварянето минава през единния източник —
+        # при F009 се приема добавка за огъване, но НИКОГА надвишаване
+        # (``engine.bend_allowance``).
+        if len(segments) != 5 or len(printed) != 5:
+            return False
+        if evidence.get("computed_value_cm") is not None:
+            return False
+        end, leg, middle = segments[0], segments[1], segments[2]
+        if segments != (end, leg, middle, leg, end) or end > leg:
+            return False
+        if sorted(printed) != sorted(segments):
+            return False
+        if not segments_match_total(shape_code, math.fsum(segments), total):
+            return False
 
     if source not in _PRINTED_DECLARATION_SOURCES:
         return True
