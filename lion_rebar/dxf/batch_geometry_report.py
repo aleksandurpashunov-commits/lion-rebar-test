@@ -8,7 +8,7 @@ import re
 import zipfile
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from copy import deepcopy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from itertools import pairwise
 from pathlib import Path
@@ -278,6 +278,9 @@ def build_batch_geometry_report(
                             else None
                         ),
                         excluded_dimension_handles=(),
+                    )
+                    analysis = _prefer_annotation_axis_candidate(
+                        annotation, analysis, context
                     )
                     row = _analysis_row(analysis, approved)
                     if local_detail is not None:
@@ -5029,6 +5032,108 @@ def _write_category_csvs(report_dir: Path, base_name: str, rows: Sequence[dict])
     for suffix, statuses in categories.items():
         selected = [row for row in rows if row.get("batch_status") in statuses]
         _write_csv(report_dir / f"{base_name}_{suffix}.csv", selected)
+
+
+#: Колко градуса се прощават, за да се смята текст или прът за по оста.
+_AXIS_TOLERANCE_DEG = 2.0
+#: Двата кандидата трябва да са взаимозаменяеми по дължина, за да ги разменим.
+_AXIS_SWAP_LENGTH_TOLERANCE_CM = 1.0
+
+
+def _axis_direction(points) -> tuple[float, float] | None:
+    """Посоката на права от две точки, или ``None`` за чупена/затворена."""
+
+    if len(points) != 2:
+        return None
+    (x0, y0), (x1, y1) = points[0], points[1]
+    dx, dy = float(x1) - float(x0), float(y1) - float(y0)
+    length = math.hypot(dx, dy)
+    if length <= 1e-9:
+        return None
+    return (dx / length, dy / length)
+
+
+def _is_parallel(left, right, *, tolerance_deg: float = _AXIS_TOLERANCE_DEG) -> bool:
+    cosine = abs(left[0] * right[0] + left[1] * right[1])
+    return math.degrees(math.acos(max(-1.0, min(1.0, cosine)))) <= tolerance_deg
+
+
+def _prefer_annotation_axis_candidate(
+    annotation: DxfEntityRecord,
+    analysis: GeometryCandidateAnalysis,
+    context: GeometryCandidateContext,
+) -> GeometryCandidateAnalysis:
+    """Надпис по оста описва прът в СВОЯТА посока, не напряко.
+
+    Собственик, 2026-09-19, върху „Плоча кота 14.90“: „тази позиция искам да
+    я провериш, мисля че я дублира“.
+
+    Не беше дубликат: `13N12x240` стои два пъти — веднъж хоризонтално и
+    веднъж вертикално — защото описва мрежа 240 × 240 с по 13 пръта във
+    всяка посока. Двата пръта се пресичат и са еднакво дълги.
+
+    Но в 4 от 12-те такива надписа matcher-ът беше вързал КРЪСТОСАНО:
+    хоризонталният надпис сочеше вертикалния прът и обратно. Побеждаваше
+    разстоянието — при пресичащи се пръти то не е граница. Количествата не се
+    менят (двата пръта са еднакви), но маркерът в DXF и проследимостта сочат
+    желязото в другата посока — тиха грешка.
+
+    Правилото разменя САМО взаимозаменяеми кандидати: надпис по оста, водещ
+    кандидат една права НАПРЯКО, и точно един друг кандидат — също една права,
+    успореден на надписа, с еднаква дължина и същата MASTER форма. Няма ли
+    точно един такъв, редът остава както е бил.
+    """
+
+    candidates = tuple(analysis.candidates)
+    if len(candidates) < 2:
+        return analysis
+    rotation = annotation.geometry.get("rotation")
+    try:
+        rotation = float(rotation)
+    except (TypeError, ValueError):
+        return analysis
+    if abs((rotation % 90.0)) > _AXIS_TOLERANCE_DEG and abs(
+        (rotation % 90.0) - 90.0
+    ) > _AXIS_TOLERANCE_DEG:
+        return analysis
+    радиани = math.radians(rotation)
+    посока_на_надписа = (math.cos(радиани), math.sin(радиани))
+
+    def права(candidate):
+        if len(candidate.handles) != 1:
+            return None
+        primitive = context.primitive_by_handle.get(str(candidate.handles[0]))
+        if primitive is None or primitive.closed:
+            return None
+        return _axis_direction(primitive.points)
+
+    водеща = права(candidates[0])
+    if водеща is None or _is_parallel(водеща, посока_на_надписа):
+        return analysis
+
+    успоредни = [
+        index
+        for index, candidate in enumerate(candidates[1:], start=1)
+        if (посока := права(candidate)) is not None
+        and _is_parallel(посока, посока_на_надписа)
+        and str(candidate.master_shape_code or "")
+        == str(candidates[0].master_shape_code or "")
+        and abs(
+            float(candidate.geometry_length_raw)
+            - float(candidates[0].geometry_length_raw)
+        )
+        <= _AXIS_SWAP_LENGTH_TOLERANCE_CM
+    ]
+    if len(успоредни) != 1:
+        return analysis
+
+    избран = успоредни[0]
+    пренаредени = (
+        candidates[избран],
+        *candidates[:избран],
+        *candidates[избран + 1 :],
+    )
+    return replace(analysis, candidates=пренаредени)
 
 
 def _analysis_row(analysis: GeometryCandidateAnalysis, approved: dict | None) -> dict:
