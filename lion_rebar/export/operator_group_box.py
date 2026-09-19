@@ -141,6 +141,15 @@ _SHAIBI_TITLE_RE = re.compile(r"Ш\s*\d+\s*-?\s*\d+\s*/\s*\d+")
 #: Същият образец като ``_COLUMN_GROUP_HEADER_RE`` в ``dxf/proxy_adapter.py``.
 _COLUMN_GROUP_TITLE_RE = re.compile(r"(\d+)\s*бр\.?\s*$", re.IGNORECASE)
 
+#: Колко доказани заглавия са нужни, за да се смята профилът им за стил на
+#: чертежа. Под този брой съвпадението може да е случайно.
+_PROVEN_TITLE_PROFILE_MIN = 3
+
+#: Втори ред на същото заглавие: „Борд -A.1 върху плоча“ / „H=84cm, L=231m“.
+#: Търси се точно под предходния, в рамките на толкова височини на текста.
+_TITLE_CONTINUATION_LINES = 2.2
+_TITLE_CONTINUATION_COLUMNS = 6.0
+
 
 @dataclass(frozen=True)
 class AreaTitle:
@@ -241,6 +250,15 @@ def collect_area_titles(
         )
         seen.add(handle)
 
+    titles.extend(
+        _titles_by_proven_profile(
+            entities,
+            frame_list,
+            proven_handles=set(seen),
+            taken=seen,
+        )
+    )
+
     for record in entities:
         handle = str(getattr(record, "handle", "") or "")
         if not handle or handle in seen:
@@ -271,6 +289,107 @@ def collect_area_titles(
         seen.add(handle)
 
     return titles
+
+
+def _title_profile(record: object) -> tuple[str, float, object] | None:
+    """Слой, височина и цвят — по тях се познава стилът на заглавията."""
+
+    geometry = getattr(record, "geometry", None) or {}
+    try:
+        height = round(float(geometry.get("height") or 0.0), 1)
+    except (TypeError, ValueError):
+        return None
+    if height <= 0.0:
+        return None
+    layer = str(getattr(record, "layer", "") or "")
+    if not layer:
+        return None
+    return (layer, height, getattr(record, "color_index", None))
+
+
+def _titles_by_proven_profile(
+    entities: Sequence[object],
+    frames: Sequence[object],
+    *,
+    proven_handles: set[str],
+    taken: set[str],
+) -> list[AreaTitle]:
+    """Заглавия, познати по профила на вече доказаните в СЪЩИЯ чертеж.
+
+    Собственик, 2026-09-19, върху „Плоча кота 14.90“: рамката отказва
+    „Б-B.2 капандури“, „Щурцове 1 до 9“ и „Борд -A.1 върху плоча“, защото
+    речникът познава само греда, вертикална секция, шайба и колонна група.
+    А това са реални елементи с армировка, които операторът трябва да огради.
+
+    Чертежът сам казва кое е заглавие. И 17-те заглавия на елементи стоят на
+    слой ``Section``, с височина 25,0 и цвят 1 — а 14 от тях вече са
+    разпознати като греди. Затова профилът (слой + височина + цвят) се взима
+    от ДОКАЗАНИТЕ в този чертеж и всеки друг текст със същия профил става
+    кандидат за заглавие.
+
+    Нищо не се гадае по думи („капандури“, „щурцове“) и нищо не се наследява
+    между проекти: профилът важи само за чертежа, в който е измерен.
+
+    Отказва се, когато доказателството е слабо: под три доказани заглавия,
+    или повече от един профил сред тях. Втори ред точно под заглавие със
+    същия профил е негово продължение („H=84cm, L=231m“), не конкурент.
+    """
+
+    from lion_rebar.export.excel_export import _entity_insert
+    from lion_rebar.export.frame_detection import assign_point_to_frame
+
+    by_handle = {str(getattr(r, "handle", "") or ""): r for r in entities}
+    профили: dict[tuple, int] = {}
+    for handle in proven_handles:
+        record = by_handle.get(handle)
+        profile = _title_profile(record) if record is not None else None
+        if profile is not None:
+            профили[profile] = профили.get(profile, 0) + 1
+    if len(профили) != 1:
+        return []
+    profile, count = next(iter(профили.items()))
+    if count < _PROVEN_TITLE_PROFILE_MIN:
+        return []
+
+    еднакви: list[tuple[str, str, tuple[float, float]]] = []
+    for record in entities:
+        handle = str(getattr(record, "handle", "") or "")
+        if not handle or _title_profile(record) != profile:
+            continue
+        text = re.sub(r"\s+", " ", str(getattr(record, "text", "") or "")).strip()
+        point = _entity_insert(record) if text else None
+        if point is None:
+            continue
+        еднакви.append((handle, text, (float(point[0]), float(point[1]))))
+
+    height = float(profile[1])
+    резултат: list[AreaTitle] = []
+    for handle, text, point in еднакви:
+        if handle in taken:
+            continue
+        продължение = any(
+            other_handle != handle
+            and 0.0 < other[1] - point[1] <= height * _TITLE_CONTINUATION_LINES
+            and abs(other[0] - point[0]) <= height * _TITLE_CONTINUATION_COLUMNS
+            for other_handle, _other_text, other in еднакви
+        )
+        if продължение:
+            continue
+        frame_index = assign_point_to_frame(point[0], point[1], list(frames))
+        if frame_index is None:
+            continue
+        резултат.append(
+            AreaTitle(
+                handle=handle,
+                text=text,
+                x=point[0],
+                y=point[1],
+                frame_index=int(frame_index),
+                kind="GROUP",
+            )
+        )
+        taken.add(handle)
+    return резултат
 
 
 def resolve_operator_area(

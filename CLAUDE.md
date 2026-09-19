@@ -123,7 +123,7 @@
 
 | Команда | Статус |
 |---|---|
-| `QT_QPA_PLATFORM=offscreen .venv/Scripts/python.exe -m pytest tests` (Git Bash) | **ПРОВЕРЕНО** — 1586 passed, 12 skipped, ~3 мин (2026-09-19) |
+| `QT_QPA_PLATFORM=offscreen .venv/Scripts/python.exe -m pytest tests` (Git Bash) | **ПРОВЕРЕНО** — 1591 passed, 12 skipped, ~3 мин (2026-09-19) |
 | `RUN_TESTS.bat` | НАМЕРЕНО — `python -m pytest` без `offscreen`, спира на `pause`; не е пускано |
 | `.venv\Scripts\python.exe run_dev.py` (`START_LION_REBAR.bat` прави същото след `activate.bat`) | **ПРОВЕРЕНО** за `run_dev.py` — прозорец за 14–19 s с отделна папка с данни; самият `.bat` не е пускан. За Claude: умението `run-lion-rebar` |
 | `.venv/Scripts/python.exe .claude/skills/lion-rebar-full-path/full_path.py <проект>` | **ПРОВЕРЕНО** — целият път без интерфейс върху копие; s-9 повтаря Финалния контрол от прозореца (458 + 2 от 460). Базова линия: `baseline.py` до него |
