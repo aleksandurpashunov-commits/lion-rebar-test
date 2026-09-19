@@ -40,6 +40,12 @@ from lion_rebar.dxf.matcher_evidence import (
 )
 from lion_rebar.dxf.local_detail_resolver import build_local_detail_index
 from lion_rebar.dxf.models import DxfEntityRecord
+from lion_rebar.dxf.printed_detail_dimensions import (
+    PrintedShape,
+    near_miss_note,
+    printed_dimensions_for_detail,
+    shape_from_printed_dimensions,
+)
 from lion_rebar.dxf.position_key_resolver import (
     build_position_key_legend_index,
     resolve_position_key_annotation,
@@ -503,6 +509,16 @@ def build_batch_geometry_report(
     _apply_proxy_declared_shape_auto_promotion(
         rows,
         annotations_by_handle=annotations_by_handle,
+        shape_definitions=shape_definitions,
+    )
+    # „Форма от котите до надписа" (собственик, 19.09.2026: „действай").
+    # Идва СЛЕД всички геометрични и proxy доказателства: пише само по
+    # позиции без кандидат и без вече доказана форма, за да не отменя нищо.
+    _apply_printed_detail_dimension_segments(
+        rows,
+        entities=entities,
+        annotations_by_handle=annotations_by_handle,
+        policy=resolved_policy,
         shape_definitions=shape_definitions,
     )
     _apply_proxy_column_group_labels(
@@ -3527,6 +3543,429 @@ def _apply_proxy_declared_shape_auto_promotion(
         ]
         _clear_superseded_segment_block(row)
         applied += 1
+    return applied
+
+
+#: „Форма от котите до надписа" (виж ``printed_detail_dimensions``): двата
+#: източника на доказателство. ``auto_gate.validate_production_segment_evidence``
+#: преизвежда всеки от тях от записания ред, независимо от този писател.
+PRINTED_DETAIL_SEGMENT_SOURCE = "LOCAL_DETAIL_PRINTED_DIMENSIONS"
+PRINTED_SPECIFICATION_SEGMENT_SOURCE = "STIRRUP_SPECIFICATION_PRINTED_DIMENSIONS"
+PRINTED_REPEATED_LABEL_SEGMENT_SOURCE = "REPEATED_LABEL_PRINTED_DIMENSIONS"
+
+#: Стремето се огъва под прав ъгъл — и затвореното, и отвореното. Проверено
+#: върху начертаните фигури в „Сграда бета\Плоча_кота 14.90": всички участъци
+#: са хоризонтални или вертикални.
+_PRINTED_DETAIL_TURN_ANGLES_DEG = (90.0, 90.0, 90.0, 90.0)
+
+#: Само детайл, обявен за стреме (``стр.:``/``стремена``), носи този прочит.
+_PRINTED_DETAIL_LABEL_SHAPE_CODE = "F006"
+
+
+def _printed_detail_row_is_open(row: Mapping[str, Any]) -> bool:
+    """Позиция, на която правилото има право да пише.
+
+    Умишлено тясно: само пълен надпис БЕЗ геометричен кандидат и без вече
+    доказана форма или участъци. Правилото допълва празното, никога не
+    отменя друг източник.
+    """
+
+    if str(row.get("annotation_class") or "") != "ACTIONABLE":
+        return False
+    if [str(value) for value in (row.get("candidate_handles") or []) if str(value)]:
+        return False
+    if str(row.get("master_shape_code") or "").strip():
+        return False
+    if row.get("production_segments_cm") or row.get("production_segment_evidence"):
+        return False
+    if row.get("master_ambiguous_shape_codes") or row.get("master_conflict"):
+        return False
+    return (
+        _positive_int(row.get("annotation_count")) is not None
+        and _positive_float(row.get("diameter_mm")) is not None
+        and _positive_float(row.get("declared_length_cm")) is not None
+    )
+
+
+def _printed_detail_dimension_records(
+    dimensions: Sequence[Any],
+) -> list[dict[str, Any]]:
+    return [
+        {"handle": item.handle, "measurement_cm": item.value_cm}
+        for item in dimensions
+    ]
+
+
+def _install_printed_detail_shape(
+    row: dict,
+    shape: PrintedShape,
+    *,
+    source: str,
+    names_by_code: Mapping[str, str],
+    evidence_details: Mapping[str, Any],
+    note: str,
+) -> bool:
+    """Записва прочетената форма и участъци заедно с доказателството."""
+
+    row["master_shape_code"] = shape.shape_code
+    if shape.shape_code in names_by_code:
+        row["master_shape_name"] = names_by_code[shape.shape_code]
+    row["canonical_segment_lengths_cm"] = list(shape.segments)
+    row["canonical_turn_angles_deg"] = list(_PRINTED_DETAIL_TURN_ANGLES_DEG)
+    if not _install_authoritative_production_segments(
+        row,
+        tuple(shape.segments),
+        source=source,
+        evidence_details=evidence_details,
+    ):
+        # Провалът вече е записан като блокировка; формата не остава сама,
+        # защото участъците са частта, която доказва точно нея.
+        row.pop("master_shape_code", None)
+        row.pop("master_shape_name", None)
+        row.pop("canonical_segment_lengths_cm", None)
+        row.pop("canonical_turn_angles_deg", None)
+        return False
+    if shape.shape_code == "F006":
+        row["f006_production_status"] = "F006_PRODUCTION_DERIVED"
+        row["f006_production_reason"] = "PRINTED_DETAIL_DIMENSIONS"
+        row["f006_printed_dimensions_resolved"] = True
+        row["production_export_blocked"] = False
+        row["production_export_block_reason"] = ""
+    row["dimension_derived_evidence"] = {
+        "shape_code": shape.shape_code,
+        "segments": list(shape.printed_values_cm),
+        "source": "НАДПИСАНИ КОТИ НА ДЕТАЙЛА",
+        "confidence": "HIGH",
+        "measured_dimensions": len(shape.printed_values_cm),
+        "computed_dimensions": 0 if shape.computed_value_cm is None else 1,
+    }
+    # По-ранното ПРЕДЛОЖЕНИЕ по близки DIMENSION обекти вече противоречи на
+    # доказан прочит. Оставено на реда, то показва на оператора друга форма и
+    # други размери от тези в панела. Маха се само когато формата се различава.
+    suggested = str(row.get("suggested_shape_code") or "").strip().upper()
+    if suggested and suggested != shape.shape_code:
+        row.pop("suggested_shape_code", None)
+        row.pop("suggested_segments_cm", None)
+        row.pop("suggested_evidence", None)
+    row["candidate_notes"] = [
+        *list(row.get("candidate_notes", [])),
+        note,
+    ]
+    row["analysis_warnings"] = [
+        *list(row.get("analysis_warnings", [])),
+        note,
+    ]
+    return True
+
+
+def _apply_printed_detail_dimension_segments(
+    rows: Sequence[dict],
+    *,
+    entities: Sequence[DxfEntityRecord],
+    annotations_by_handle: Mapping[str, DxfEntityRecord],
+    policy: RecognitionPolicy,
+    shape_definitions: Sequence[ShapeDefinition],
+) -> int:
+    """Форма и участъци от надписаните коти на локалния детайл ``стр.``.
+
+    Собственик, 19.09.2026: „действай". Позиция с пълен надпис, без
+    геометричен кандидат, чийто локален детайл е обявен за стреме и носи
+    надписани размери, получава формата и участъците от тях — вместо да
+    стои с празен панел. Правилото и границите му са описани в
+    ``lion_rebar/dxf/printed_detail_dimensions.py``.
+
+    Три пътя, едно четене:
+
+    * собственият детайл на позицията (``11N8x390``, ``60N8x182``);
+    * СПЕЦИФИКАЦИЯ ``стр.: N8x166`` — надпис с Ø и дължина без брой, чиито
+      коти затварят нейната дължина. Тя важи за позициите със същия Ø и
+      същата дължина (щурците: ``32N8x166``/``29N8x166``/``28N8x166``),
+      защото това е връзката, която проектантът е НАПИСАЛ, а не близост;
+    * СЪЩИЯТ НАДПИС, вече прочетен от своите коти — при пълно единодушие и
+      само когато позицията също носи детайл ``стр.``, а собствените ѝ коти
+      не противоречат на пренесените участъци.
+
+    Отказът е част от правилото: бордът ``1180N8x190`` надписва 189 при
+    L=190 и остава при оператора с обяснение. Позиция, чиито коти почти
+    затварят, НЕ се спасява по другите два пътя — числата ѝ казват друго.
+    """
+
+    if not policy.printed_detail_dimension_rule_enabled:
+        return 0
+    annotations = tuple(annotations_by_handle.values())
+    if not annotations:
+        return 0
+    index = build_local_detail_index(
+        annotations,
+        entities,
+        policy=policy,
+        include_specification_annotations=True,
+        dimension_max_distance_raw=policy.printed_detail_dimension_max_distance_raw,
+    )
+    if not index.assignments:
+        return 0
+    entity_map = {str(entity.handle): entity for entity in entities}
+    names_by_code = {
+        str(shape.code).strip().upper(): shape.name for shape in shape_definitions
+    }
+    layer_aliases = policy.printed_detail_dimension_layer_aliases
+
+    def read_shape(handle: str, total_cm: float):
+        """Прочита формата на един детайл: (форма, коти) или (None, коти)."""
+
+        assignment = index.assignment_for(handle)
+        if assignment is None or assignment.shape_code != _PRINTED_DETAIL_LABEL_SHAPE_CODE:
+            return None, (), None
+        dimensions = printed_dimensions_for_detail(
+            assignment.exclusive_dimension_handles,
+            entity_map,
+            layer_aliases=layer_aliases,
+        )
+        shape = shape_from_printed_dimensions(
+            [item.value_cm for item in dimensions],
+            total_cm,
+            hook_min_cm=policy.printed_detail_hook_min_cm,
+            hook_max_cm=policy.printed_detail_hook_max_cm,
+        )
+        return shape, dimensions, assignment
+
+    # ---- СПЕЦИФИКАЦИИ: надпис с Ø и дължина без брой -------------------
+    specifications: dict[tuple[int, float], dict[str, Any]] = {}
+    rejected: set[tuple[int, float]] = set()
+    for row in rows:
+        if str(row.get("annotation_class") or "") != "MISSING_COUNT":
+            continue
+        diameter = _positive_float(row.get("diameter_mm"))
+        length = _positive_float(row.get("declared_length_cm"))
+        handle = str(row.get("annotation_handle") or "")
+        if diameter is None or length is None or not handle:
+            continue
+        shape, dimensions, assignment = read_shape(handle, length)
+        if shape is None or assignment is None:
+            continue
+        key = (int(round(diameter)), round(length, 3))
+        if key in rejected:
+            continue
+        entry = {
+            "handle": handle,
+            "text": str(row.get("annotation_text") or ""),
+            "diameter_mm": diameter,
+            "length_cm": length,
+            "shape": shape,
+            "dimensions": dimensions,
+            "assignment": assignment,
+        }
+        existing = specifications.get(key)
+        if existing is None:
+            specifications[key] = entry
+        elif not _segments_equivalent(
+            tuple(existing["shape"].segments), tuple(shape.segments)
+        ):
+            # Две спецификации за един и същ Ø и дължина, но с различни
+            # размери: двусмислието е отказ, не избор по ред на файла.
+            rejected.add(key)
+            specifications.pop(key, None)
+    # Вече доказана форма на същия Ø и дължина опровергава спецификацията.
+    for row in rows:
+        master = str(row.get("master_shape_code") or "").strip().upper()
+        diameter = _positive_float(row.get("diameter_mm"))
+        length = _positive_float(row.get("declared_length_cm"))
+        if not master or diameter is None or length is None:
+            continue
+        key = (int(round(diameter)), round(length, 3))
+        entry = specifications.get(key)
+        if entry is not None and entry["shape"].shape_code != master:
+            rejected.add(key)
+            specifications.pop(key, None)
+
+    applied = 0
+    # ПЪРВО МИНАВАНЕ: всяка позиция със СВОИ надписани коти.
+    proven_by_label: dict[str, list[dict[str, Any]]] = {}
+    remaining: list[dict] = []
+    for row in rows:
+        if not _printed_detail_row_is_open(row):
+            continue
+        handle = str(row.get("annotation_handle") or "")
+        declared = _positive_float(row.get("declared_length_cm"))
+        if not handle or declared is None:
+            continue
+        shape, dimensions, assignment = read_shape(handle, declared)
+        if shape is None:
+            if assignment is not None and dimensions:
+                miss = near_miss_note(
+                    [item.value_cm for item in dimensions], declared
+                )
+                if miss:
+                    row["candidate_notes"] = [
+                        *list(row.get("candidate_notes", [])),
+                        miss,
+                    ]
+                    row["analysis_warnings"] = [
+                        *list(row.get("analysis_warnings", [])),
+                        miss,
+                    ]
+                    continue
+            remaining.append(row)
+            continue
+        if assignment is not None:
+            note = (
+                f"{PRINTED_DETAIL_SEGMENT_SOURCE}: {shape.shape_code} от "
+                f"надписаните коти на детайла "
+                f"({' + '.join(f'{value:g}' for value in shape.segments)} = "
+                f"{shape.total_cm:g} cm при L={declared:g} cm) — "
+                f"{shape.reading}; надпис {assignment.label_handle} "
+                f"({assignment.label_text!r}) на "
+                f"{assignment.label_distance_raw:.0f} чертожни единици"
+            )
+            if _install_printed_detail_shape(
+                row,
+                shape,
+                source=PRINTED_DETAIL_SEGMENT_SOURCE,
+                names_by_code=names_by_code,
+                evidence_details={
+                    "label_handle": assignment.label_handle,
+                    "label_text": assignment.label_text,
+                    "label_distance_raw": float(assignment.label_distance_raw),
+                    "dimension_handles": [item.handle for item in dimensions],
+                    "dimension_measurements_cm": _printed_detail_dimension_records(
+                        dimensions
+                    ),
+                    "printed_values_cm": list(shape.printed_values_cm),
+                    "computed_value_cm": shape.computed_value_cm,
+                },
+                note=note,
+            ):
+                applied += 1
+                label = " ".join(str(row.get("annotation_text") or "").split()).upper()
+                proven_by_label.setdefault(label, []).append(
+                    {
+                        "handle": handle,
+                        "shape": shape,
+                        "dimensions": dimensions,
+                        "assignment": assignment,
+                    }
+                )
+            continue
+
+    # ВТОРО МИНАВАНЕ: позиции, чиито СОБСТВЕНИ коти не стигат.
+    for row in remaining:
+        handle = str(row.get("annotation_handle") or "")
+        declared = _positive_float(row.get("declared_length_cm"))
+        diameter = _positive_float(row.get("diameter_mm"))
+        if not handle or declared is None or diameter is None:
+            continue
+        own_shape, own_dimensions, own_assignment = read_shape(handle, declared)
+        if own_shape is not None:  # pragma: no cover - вече е решен по-горе
+            continue
+        label = " ".join(str(row.get("annotation_text") or "").split()).upper()
+        siblings = proven_by_label.get(label, [])
+        if own_assignment is not None and siblings:
+            # Същият надпис, вече прочетен от СВОИТЕ коти на друг детайл.
+            # Реален случай: три борда ``11N8x390``; при третия котата на
+            # куката е на еднакво разстояние от чужд детайл и затова не му
+            # принадлежи изключително. Прочитът се пренася само при пълно
+            # единодушие и само ако собствените коти на позицията не му
+            # противоречат.
+            readings = {
+                tuple(item["shape"].segments) for item in siblings
+            }
+            codes = {item["shape"].shape_code for item in siblings}
+            if len(readings) != 1 or len(codes) != 1:
+                continue
+            sibling = siblings[0]
+            shape = sibling["shape"]
+            own_values = [item.value_cm for item in own_dimensions]
+            if any(
+                not any(
+                    abs(value - segment) <= 0.001 for segment in shape.segments
+                )
+                for value in own_values
+            ):
+                continue
+            note = (
+                f"{PRINTED_REPEATED_LABEL_SEGMENT_SOURCE}: {shape.shape_code} по "
+                f"вече прочетения същ надпис {sibling['handle']} — "
+                f"{' + '.join(f'{value:g}' for value in shape.segments)} = "
+                f"{shape.total_cm:g} cm; собственият детайл на позицията също е "
+                f"стреме ({own_assignment.label_handle}, "
+                f"{own_assignment.label_text!r})"
+                + (
+                    f", а собствените ѝ коти "
+                    f"{', '.join(f'{value:g}' for value in own_values)} не му "
+                    "противоречат"
+                    if own_values
+                    else ""
+                )
+            )
+            if _install_printed_detail_shape(
+                row,
+                shape,
+                source=PRINTED_REPEATED_LABEL_SEGMENT_SOURCE,
+                names_by_code=names_by_code,
+                evidence_details={
+                    "specification_handle": sibling["handle"],
+                    "specification_text": str(row.get("annotation_text") or ""),
+                    "specification_diameter_mm": diameter,
+                    "specification_length_cm": declared,
+                    "label_handle": own_assignment.label_handle,
+                    "label_text": own_assignment.label_text,
+                    "label_distance_raw": float(own_assignment.label_distance_raw),
+                    "sibling_label_handle": sibling["assignment"].label_handle,
+                    "dimension_handles": [
+                        item.handle for item in sibling["dimensions"]
+                    ],
+                    "dimension_measurements_cm": _printed_detail_dimension_records(
+                        sibling["dimensions"]
+                    ),
+                    "printed_values_cm": list(shape.printed_values_cm),
+                    "computed_value_cm": shape.computed_value_cm,
+                    "own_printed_values_cm": own_values,
+                    "own_dimension_handles": [
+                        item.handle for item in own_dimensions
+                    ],
+                },
+                note=note,
+            ):
+                applied += 1
+            continue
+        # ---- път през спецификацията ---------------------------------
+        entry = specifications.get((int(round(diameter)), round(declared, 3)))
+        if not entry:
+            continue
+        shape = entry["shape"]
+        spec_dimensions = entry["dimensions"]
+        spec_assignment = entry["assignment"]
+        note = (
+            f"{PRINTED_SPECIFICATION_SEGMENT_SOURCE}: {shape.shape_code} по "
+            f"спецификацията {entry['handle']} ({entry['text']!r}) — "
+            f"{' + '.join(f'{value:g}' for value in shape.segments)} = "
+            f"{shape.total_cm:g} cm; същият Ø и същата дължина като позицията; "
+            f"{shape.reading}; надпис {spec_assignment.label_handle} "
+            f"({spec_assignment.label_text!r})"
+        )
+        if _install_printed_detail_shape(
+            row,
+            shape,
+            source=PRINTED_SPECIFICATION_SEGMENT_SOURCE,
+            names_by_code=names_by_code,
+            evidence_details={
+                "specification_handle": entry["handle"],
+                "specification_text": entry["text"],
+                "specification_diameter_mm": entry["diameter_mm"],
+                "specification_length_cm": entry["length_cm"],
+                "label_handle": spec_assignment.label_handle,
+                "label_text": spec_assignment.label_text,
+                "label_distance_raw": float(spec_assignment.label_distance_raw),
+                "dimension_handles": [item.handle for item in spec_dimensions],
+                "dimension_measurements_cm": _printed_detail_dimension_records(
+                    spec_dimensions
+                ),
+                "printed_values_cm": list(shape.printed_values_cm),
+                "computed_value_cm": shape.computed_value_cm,
+            },
+            note=note,
+        ):
+            applied += 1
     return applied
 
 

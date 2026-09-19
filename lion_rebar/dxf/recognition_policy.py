@@ -214,6 +214,26 @@ class RecognitionPolicy:
     local_detail_dimension_max_distance_raw: float = 165.0
     local_detail_dimension_min_margin_raw: float = 8.0
 
+    # „Форма от котите до надписа": позиция БЕЗ кандидат, чийто локален детайл
+    # ``стр.:`` носи надписани размери, получава участъците си от тях.
+    # Радиусът е по-голям от този на пояса по-горе, защото котите на стремето
+    # стоят до САМАТА ФИГУРА, а надписът е в единия ѝ край: измерено в
+    # „Сграда бета\Плоча_кота 14.90" котата на куката ``10`` на 11N8x390 е на
+    # 311 чертожни единици от надписа, а рамото ``165`` — на 177. Пази ги
+    # изключителната принадлежност (най-близък собственик с отстъп), не
+    # радиусът: съседното ``20`` на есовете остава при есовете.
+    printed_detail_dimension_rule_enabled: bool = True
+    printed_detail_dimension_max_distance_raw: float = 330.0
+    printed_detail_dimension_layer_aliases: tuple[str, ...] = (
+        "ARMTXT1",
+        "ARM_TXT1",
+    )
+    # Куката/крачето на стреме е най-късият от размерите му. Диапазонът е
+    # същият, който ``vertical_shape_resolver.infer_preferred_hook`` ползва
+    # за конвенцията на проектанта.
+    printed_detail_hook_min_cm: float = 4.0
+    printed_detail_hook_max_cm: float = 20.0
+
     # Rounded F006 symbols in revised beam drawings consist of four straight
     # cage sides, four tangent quarter-arcs and two separate parallel keys.
     # This strict topology is distinct from the older six-LINE symbol and is

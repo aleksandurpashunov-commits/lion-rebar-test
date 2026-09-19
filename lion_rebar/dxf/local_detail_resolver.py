@@ -106,7 +106,24 @@ def build_local_detail_index(
     entities: Sequence[DxfEntityRecord],
     *,
     policy: RecognitionPolicy,
+    include_specification_annotations: bool = False,
+    dimension_max_distance_raw: float | None = None,
 ) -> LocalDetailIndex:
+    """Build the local ownership index for semantic detail labels.
+
+    ``include_specification_annotations`` also admits a rebar text that
+    declares Ø and length WITHOUT a count (``стр.: N8x166``).  Such a text is
+    never a position of its own -- it is the designer's specification for the
+    positions listed elsewhere -- so the established matching path keeps the
+    default and only the printed-dimension rule opts in.
+
+    ``dimension_max_distance_raw`` overrides the numeric-text search radius.
+    The default belongs to the matching path; a caller that reads the printed
+    sizes of the DRAWN figure needs a radius that covers the figure itself
+    (see ``RecognitionPolicy.printed_detail_dimension_max_distance_raw``).
+    Ownership still decides: nearest owner with an explicit margin.
+    """
+
     if not policy.local_detail_context_rule_enabled:
         return LocalDetailIndex(assignments={}, exclusive_dimension_owner={})
 
@@ -114,6 +131,7 @@ def build_local_detail_index(
         _ActionableAnnotation(record=record, rect=_entity_rect(record))
         for record in annotations
         if _is_actionable(record)
+        or (include_specification_annotations and _is_specification(record))
     )
     labels = tuple(
         _SemanticLabel(record=record, shape_code=shape_code, rect=_entity_rect(record))
@@ -181,7 +199,12 @@ def build_local_detail_index(
     nearest_owner: dict[str, str] = {}
     exclusive_owner: dict[str, str] = {}
     maximum_dimension_distance = max(
-        0.0, float(policy.local_detail_dimension_max_distance_raw)
+        0.0,
+        float(
+            policy.local_detail_dimension_max_distance_raw
+            if dimension_max_distance_raw is None
+            else dimension_max_distance_raw
+        ),
     )
     minimum_margin = max(
         0.0, float(policy.local_detail_dimension_min_margin_raw)
@@ -266,6 +289,21 @@ def _is_actionable(record: DxfEntityRecord) -> bool:
     parsed = parse_rebar_text(record.text or "")
     return (
         parsed.count is not None
+        and parsed.diameter_mm is not None
+        and parsed.length_cm is not None
+    )
+
+
+def _is_specification(record: DxfEntityRecord) -> bool:
+    """Ø и дължина БЕЗ брой: спецификация на детайла, не позиция.
+
+    Реален случай: ``стр.: N8x166`` над таблицата „Щурцове 1 до 9" описва
+    стремето, а бройките стоят в редовете на таблицата (``32N8x166`` …).
+    """
+
+    parsed = parse_rebar_text(record.text or "")
+    return (
+        parsed.count is None
         and parsed.diameter_mm is not None
         and parsed.length_cm is not None
     )

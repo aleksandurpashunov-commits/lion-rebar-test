@@ -138,6 +138,18 @@ _AUTOMATIC_DXF_PRODUCTION_SOURCES = frozenset(
         "SINGLE_OPEN_LWPOLYLINE_TOPOLOGY",
     }
 )
+#: „Форма от котите до надписа": размерите идват от надписаните коти на
+#: детайла ``стр.`` или от спецификация със същия Ø и дължина. Операторът
+#: трябва да види КОЯ от двете, защото втората е връзка през чертежа.
+_PRINTED_DETAIL_PRODUCTION_SOURCES = frozenset(
+    {"LOCAL_DETAIL_PRINTED_DIMENSIONS"}
+)
+_PRINTED_SPECIFICATION_PRODUCTION_SOURCES = frozenset(
+    {"STIRRUP_SPECIFICATION_PRINTED_DIMENSIONS"}
+)
+_PRINTED_REPEATED_LABEL_PRODUCTION_SOURCES = frozenset(
+    {"REPEATED_LABEL_PRINTED_DIMENSIONS"}
+)
 
 
 def _production_segment_source_label(row: dict) -> str:
@@ -160,6 +172,12 @@ def _production_segment_source_label(row: dict) -> str:
             return "АВТОМАТИЧНО ИЗВЕДЕНО ОТ СОБСТВЕНИ КОТИ"
         if source in _AUTOMATIC_DXF_PRODUCTION_SOURCES:
             return "АВТОМАТИЧНО ИЗВЕДЕНО ОТ DXF/MASTER ДОКАЗАТЕЛСТВА"
+        if source in _PRINTED_DETAIL_PRODUCTION_SOURCES:
+            return "АВТОМАТИЧНО ИЗВЕДЕНО ОТ НАДПИСАНИТЕ КОТИ НА ДЕТАЙЛА"
+        if source in _PRINTED_SPECIFICATION_PRODUCTION_SOURCES:
+            return "АВТОМАТИЧНО ИЗВЕДЕНО ОТ СПЕЦИФИКАЦИЯТА В ЧЕРТЕЖА"
+        if source in _PRINTED_REPEATED_LABEL_PRODUCTION_SOURCES:
+            return "АВТОМАТИЧНО ИЗВЕДЕНО ОТ СЪЩИЯ НАДПИС В ЧЕРТЕЖА"
         return "операторско/производствено решение"
     if row.get("canonical_segment_lengths_cm"):
         return "DXF/надпис"

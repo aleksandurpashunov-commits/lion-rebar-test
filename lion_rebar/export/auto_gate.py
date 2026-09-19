@@ -4,6 +4,7 @@ import math
 import re
 from typing import Any, Mapping
 
+from lion_rebar.dxf.local_detail_resolver import local_detail_shape_code
 from lion_rebar.dxf.proxy_adapter import three_leg_shape_from_directions
 from lion_rebar.export.master_engine_v031 import (
     MasterDimensionError,
@@ -38,6 +39,26 @@ AUTO_EXPORT_MATCHER_DISPOSITIONS = {"AUTO", "CONTROL"}
 #: the evidence, by ``_proxy_arc_verified_evidence_is_owned``.
 _PROXY_ARC_VERIFIED_SOURCE = "PROXY_ARC_VERIFIED_DECLARED_SEGMENTS"
 
+#: „Форма от котите до надписа" (собственик, 19.09.2026). Позиция без
+#: геометричен кандидат, чийто локален детайл е обявен за стреме, получава
+#: участъците си от НАДПИСАНИТЕ коти на този детайл — или от спецификация
+#: ``стр.: N8x166`` със същия Ø и същата дължина. Писателят е
+#: ``batch_geometry_report._apply_printed_detail_dimension_segments``;
+#: проверителят по-долу преизвежда прочита от записания ред, включително
+#: изчисления размер, и не вярва на кода на източника.
+_PRINTED_DETAIL_DIMENSION_SOURCE = "LOCAL_DETAIL_PRINTED_DIMENSIONS"
+_PRINTED_SPECIFICATION_DIMENSION_SOURCE = "STIRRUP_SPECIFICATION_PRINTED_DIMENSIONS"
+_PRINTED_REPEATED_LABEL_DIMENSION_SOURCE = "REPEATED_LABEL_PRINTED_DIMENSIONS"
+#: Пренесеният прочит иска СЪЩИЯ надпис, затова тук се сверяват и двата
+#: текста; ``STIRRUP_SPECIFICATION`` иска само Ø и дължина, защото
+#: спецификацията няма брой и надписът ѝ по определение е различен.
+_PRINTED_DECLARATION_SOURCES = frozenset(
+    {
+        _PRINTED_SPECIFICATION_DIMENSION_SOURCE,
+        _PRINTED_REPEATED_LABEL_DIMENSION_SOURCE,
+    }
+)
+
 _PRODUCTION_SEGMENT_EVIDENCE_SOURCES = frozenset(
     {
         "F007_CONTEXTUAL_MASTER_CANONICAL",
@@ -47,9 +68,24 @@ _PRODUCTION_SEGMENT_EVIDENCE_SOURCES = frozenset(
         "F006_PRINTED_MASTER_EXACT",
         "F006_OWNED_CONTOUR_DIMENSIONS",
         "SINGLE_OPEN_LWPOLYLINE_TOPOLOGY",
+        _PRINTED_DETAIL_DIMENSION_SOURCE,
+        _PRINTED_SPECIFICATION_DIMENSION_SOURCE,
+        _PRINTED_REPEATED_LABEL_DIMENSION_SOURCE,
         _PROXY_ARC_VERIFIED_SOURCE,
     }
 )
+
+#: Куката/крачето на стреме е най-късият му размер. Диапазонът е този на
+#: ``vertical_shape_resolver.infer_preferred_hook`` и се проверява тук
+#: наново, за да не може промяна в политиката да разшири АВТОМАТИКАТА.
+_PRINTED_DETAIL_HOOK_MIN_CM = 4.0
+_PRINTED_DETAIL_HOOK_MAX_CM = 20.0
+#: Измерено: верните локални надписи стоят на 0-28 чертожни единици от своя
+#: надпис, чуждите — на стотици (``local_detail_resolver``).
+_PRINTED_DETAIL_LABEL_MAX_DISTANCE_RAW = 95.0
+#: Надписаните размери са кръгли производствени числа: уравнението затваря
+#: точно или позицията остава при оператора.
+_PRINTED_DETAIL_CLOSURE_TOLERANCE_CM = 0.05
 
 #: Bent families the bend-arc signal can prove. A positive structural arc
 #: count proves the bar IS bent; it cannot, on its own, separate a bent
@@ -146,6 +182,13 @@ def validate_production_segment_evidence(row: Mapping[str, Any]) -> bool:
         return _f006_owned_contour_evidence_is_owned(row, evidence, segments)
     if source == "SINGLE_OPEN_LWPOLYLINE_TOPOLOGY":
         return _single_open_lwpolyline_topology_is_owned(row, evidence, segments)
+    if source in {
+        _PRINTED_DETAIL_DIMENSION_SOURCE,
+        *_PRINTED_DECLARATION_SOURCES,
+    }:
+        return _printed_detail_dimension_evidence_is_owned(
+            row, evidence, segments, total, source
+        )
     if source == _PROXY_ARC_VERIFIED_SOURCE:
         return _proxy_arc_verified_evidence_is_owned(row, evidence, segments, total)
     return False
@@ -572,6 +615,135 @@ def _f006_owned_contour_evidence_is_owned(
     required = {round(value, 3) for value in (hook, side_a, side_b)}
     measured = {round(value, 3) for value in measurements.values()}
     return required == measured
+
+
+def _printed_detail_dimension_evidence_is_owned(
+    row: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    segments: tuple[float, ...],
+    total: float,
+    source: str,
+) -> bool:
+    """Преизвежда „форма от котите до надписа" от записания ред.
+
+    Умишлено по-строго от писателя и независимо от него: тук не се вярва
+    нито на кода на източника, нито на политиката. Проверява се
+
+    * че надписът до детайла наистина обявява СТРЕМЕ — текстът се пуска
+      наново през ``local_detail_shape_code``;
+    * че позицията все още е без геометричен кандидат (правилото важи само
+      за такива; появил се кандидат прави доказателството остаряло);
+    * че всяка надписана кота има свой handle и измерена стойност, и че
+      надписаните числа са ТОЧНО тези, от които са сглобени участъците;
+    * че прочитът е един от двата допустими — две коти с ЕДИН изчислен
+      размер (F006) или пет коти в симетричен набор без изчислени (F010);
+    * че куката е най-късият размер и е в измерения диапазон;
+    * че уравнението затваря декларираната дължина точно.
+
+    При спецификация се иска и Ø и дължината на самата спецификация да
+    съвпадат с тези на позицията: това е връзката, която проектантът е
+    написал, и без нея прочитът е чужд.
+    """
+
+    shape_code = str(row.get("master_shape_code") or "").strip().upper()
+    if shape_code not in {"F006", "F010"}:
+        return False
+    if local_detail_shape_code(str(evidence.get("label_text") or "")) != "F006":
+        return False
+    label_distance = _finite_nonnegative_scalar(evidence.get("label_distance_raw"))
+    if label_distance is None or label_distance > _PRINTED_DETAIL_LABEL_MAX_DISTANCE_RAW:
+        return False
+    if [str(value) for value in (row.get("candidate_handles") or []) if str(value)]:
+        return False
+    if [str(value) for value in (evidence.get("candidate_handles") or []) if str(value)]:
+        return False
+    if not _canonical_vector_matches(row, segments):
+        return False
+
+    dimensions = tuple(
+        str(value) for value in (evidence.get("dimension_handles") or []) if str(value)
+    )
+    measurements = _dimension_measurements(evidence, dimensions)
+    if (
+        not dimensions
+        or len(set(dimensions)) != len(dimensions)
+        or measurements is None
+    ):
+        return False
+    printed = _finite_positive_vector(evidence.get("printed_values_cm"))
+    if printed is None or sorted(printed) != sorted(measurements.values()):
+        return False
+
+    computed_raw = evidence.get("computed_value_cm")
+    if shape_code == "F006":
+        if len(segments) != 6 or len(printed) != 2:
+            return False
+        hook, side_a, side_b = segments[0], segments[1], segments[2]
+        if segments != (hook, side_a, side_b, side_a, side_b, hook):
+            return False
+        computed = _finite_positive_scalar(computed_raw)
+        if computed is None:
+            return False
+        sizes = sorted((hook, side_a, side_b))
+        if sorted([*printed, computed]) != sizes:
+            return False
+        if hook != sizes[0]:
+            return False
+        if not _PRINTED_DETAIL_HOOK_MIN_CM <= hook <= _PRINTED_DETAIL_HOOK_MAX_CM:
+            return False
+    else:
+        if len(segments) != 5 or len(printed) != 5 or computed_raw is not None:
+            return False
+        end, leg, middle = segments[0], segments[1], segments[2]
+        if segments != (end, leg, middle, leg, end) or end > leg:
+            return False
+        if sorted(printed) != sorted(segments):
+            return False
+    if abs(math.fsum(segments) - total) > _PRINTED_DETAIL_CLOSURE_TOLERANCE_CM:
+        return False
+
+    if source not in _PRINTED_DECLARATION_SOURCES:
+        return True
+    specification = str(evidence.get("specification_handle") or "")
+    if not specification or specification == str(row.get("annotation_handle") or ""):
+        return False
+    if source == _PRINTED_REPEATED_LABEL_DIMENSION_SOURCE:
+        # Пренесен прочит: същият надпис, а собствените коти на позицията не
+        # бива да противоречат на пренесените участъци.
+        declared_text = " ".join(
+            str(evidence.get("specification_text") or "").split()
+        ).upper()
+        row_text = " ".join(str(row.get("annotation_text") or "").split()).upper()
+        if not declared_text or declared_text != row_text:
+            return False
+        own_printed = evidence.get("own_printed_values_cm")
+        if not isinstance(own_printed, (list, tuple)):
+            return False
+        for value in own_printed:
+            own_value = _finite_positive_scalar(value)
+            if own_value is None or not any(
+                abs(own_value - segment) <= 0.001 for segment in segments
+            ):
+                return False
+    specification_diameter = _finite_positive_scalar(
+        evidence.get("specification_diameter_mm")
+    )
+    specification_length = _finite_positive_scalar(
+        evidence.get("specification_length_cm")
+    )
+    row_diameter = _finite_positive_scalar(row.get("diameter_mm"))
+    row_length = _finite_positive_scalar(row.get("declared_length_cm"))
+    if (
+        specification_diameter is None
+        or specification_length is None
+        or row_diameter is None
+        or row_length is None
+    ):
+        return False
+    return (
+        abs(specification_diameter - row_diameter) <= 0.001
+        and abs(specification_length - row_length) <= 0.001
+    )
 
 
 def _dimension_measurements(
