@@ -4,7 +4,9 @@
 (19.09.2026) и са сверени с решенията на собственика за същите позиции:
 
 * ``11N8x390`` → F006 ``[10, 165, 20, 165, 20, 10]``
-* ``60N8x182`` → F010 ``[7, 79, 10, 79, 7]``
+* ``60N8x182`` → ОТКАЗ: петсегментният прочит е спрян, защото активната F010
+  е с чужда самоличност („долна скара"), а F009 — чийто еталон е точно този
+  прът — е изключена (собственик, 19.09.2026)
 * ``1180N8x190`` (бордът) → ОТКАЗ: надписаните коти дават 189 при L=190
 * щурците ``32N8x166``/``28N8x166`` → F006 ``[10, 40, 33, 40, 33, 10]`` през
   спецификацията ``стр.: N8x166``
@@ -66,16 +68,6 @@ def _shapes() -> tuple[ShapeDefinition, ...]:
                 SegmentDefinition(index=4, length_code="L2", bend_after_deg=90),
                 SegmentDefinition(index=5, length_code="L3", bend_after_deg=135),
                 SegmentDefinition(index=6, length_code="L1"),
-            ],
-        ),
-        ShapeDefinition(
-            code="F010",
-            name="ОТВОРЕНА ПЕТСЕГМЕНТНА ФОРМА — НАДЯСНО",
-            state="LOCKED",
-            active=True,
-            segments=[
-                SegmentDefinition(index=index, length_code=f"L{index}")
-                for index in range(1, 6)
             ],
         ),
     )
@@ -202,17 +194,25 @@ def test_specification_dimensions_compute_the_hook() -> None:
     assert shape.computed_value_cm == 10.0
 
 
-def test_five_symmetric_dimensions_give_the_open_stirrup() -> None:
-    shape = shape_from_printed_dimensions(
-        [7.0, 7.0, 79.0, 79.0, 10.0],
-        182.0,
-        hook_min_cm=HOOK_MIN_CM,
-        hook_max_cm=HOOK_MAX_CM,
+def test_five_symmetric_dimensions_are_refused_until_the_engine_names_the_form() -> None:
+    """Прочитът е верен, но активната MASTER форма е с чужда самоличност.
+
+    F009 „ОТВОРЕНА ФОРМА С ДВЕ РАМЕНА" носи еталон 8+79+15+79+8 = 189 — точно
+    този прът — но е изключена (``alias_of: F010``). Активната F010 е
+    „НЕСТАНДАРТНА – ДОЛНА СКАРА" с ключ 200|28|19|10|113. Докато ENGINE не
+    получи активна форма с вярното име, категория и чертеж, позицията остава
+    за оператора.
+    """
+
+    assert (
+        shape_from_printed_dimensions(
+            [7.0, 7.0, 79.0, 79.0, 10.0],
+            182.0,
+            hook_min_cm=HOOK_MIN_CM,
+            hook_max_cm=HOOK_MAX_CM,
+        )
+        is None
     )
-    assert shape is not None
-    assert shape.shape_code == "F010"
-    assert shape.segments == (7.0, 79.0, 10.0, 79.0, 7.0)
-    assert shape.computed_value_cm is None
 
 
 def test_border_that_does_not_close_is_refused() -> None:
@@ -236,7 +236,7 @@ def test_border_that_does_not_close_is_refused() -> None:
     assert "189" in note and "190" in note
 
 
-def test_only_two_or_five_printed_dimensions_are_read() -> None:
+def test_only_two_printed_dimensions_are_read() -> None:
     for values in ([165.0], [45.0, 10.0, 20.0], [7.0, 7.0, 79.0, 79.0]):
         assert (
             shape_from_printed_dimensions(
@@ -268,8 +268,9 @@ def test_step_and_variable_texts_are_not_dimensions() -> None:
 
 def test_border_stirrup_gets_shape_and_segments_from_its_own_detail() -> None:
     entities, annotations, rows = _fixture()
-    # Решени: бордът, отвореното стреме и двата щурца през спецификацията.
-    assert _apply(rows, entities, annotations) == 4
+    # Решени: бордът и двата щурца през спецификацията. Отвореното стреме
+    # (пет коти) остава за оператора, докато ENGINE не даде вярната форма.
+    assert _apply(rows, entities, annotations) == 3
 
     row = _by_handle(rows)["BORD-ANN"]
     assert row["master_shape_code"] == "F006"
@@ -305,13 +306,12 @@ def test_neighbouring_esove_detail_is_not_touched() -> None:
     assert not row.get("production_segments_cm")
 
 
-def test_open_stirrup_row_gets_f010() -> None:
+def test_open_stirrup_row_stays_for_the_operator() -> None:
     entities, annotations, rows = _fixture()
     _apply(rows, entities, annotations)
     row = _by_handle(rows)["OPEN-ANN"]
-    assert row["master_shape_code"] == "F010"
-    assert row["production_segments_cm"] == [7.0, 79.0, 10.0, 79.0, 7.0]
-    assert validate_production_segment_evidence(row) is True
+    assert not row.get("master_shape_code")
+    assert not row.get("production_segments_cm")
 
 
 def test_border_row_that_does_not_close_stays_for_the_operator() -> None:
@@ -409,7 +409,7 @@ def test_gate_refuses_a_foreign_label() -> None:
 def test_gate_refuses_when_a_candidate_appears_later() -> None:
     entities, annotations, rows = _fixture()
     _apply(rows, entities, annotations)
-    row = copy.deepcopy(_by_handle(rows)["OPEN-ANN"])
+    row = copy.deepcopy(_by_handle(rows)["LINTEL-1"])
     row["candidate_handles"] = ["LATE-GEOMETRY"]
     assert validate_production_segment_evidence(row) is False
 

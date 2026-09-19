@@ -218,14 +218,26 @@ class ProjectManager:
         *,
         allowed_from_versions: set[str],
         reason: str,
+        return_to_review_shape_codes: set[str] | None = None,
     ) -> int:
         """Move a project across one explicitly allowed semantic Engine fix.
 
         The old snapshot remains in ``master`` and the prior project.json plus
-        approval file are copied to a migration backup folder.  F003/F005
-        approvals are returned to review because their old subtype identity is
-        exactly what the migration corrects; unrelated approvals are preserved.
+        approval file are copied to a migration backup folder.  Approvals whose
+        MASTER code is exactly what the migration corrects are returned to
+        review; unrelated approvals are preserved.
+
+        ``return_to_review_shape_codes`` по подразбиране е F003/F005 — старата
+        поправка, за която е писана функцията. Всяка следваща корекция подава
+        своите кодове: те са частта, чиято САМОЛИЧНОСТ се променя, а не просто
+        версията под нея. Виж ``docs/ENGINE_UPGRADE_AND_APPROVAL_BG.md``.
         """
+
+        affected_codes = {
+            str(code).strip().upper()
+            for code in (return_to_review_shape_codes or {"F003", "F005"})
+            if str(code).strip()
+        }
 
         if project.engine_version == engine.version:
             return 0
@@ -254,7 +266,7 @@ class ProjectManager:
                 link
                 for link in links
                 if str(link.get("master_shape_code") or "").strip().upper()
-                in {"F003", "F005"}
+                in affected_codes
             ]
             if affected:
                 shutil.copy2(approval_path, backup_dir / approval_path.name)

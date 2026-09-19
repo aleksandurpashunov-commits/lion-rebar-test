@@ -912,7 +912,12 @@ def load_export_context(
                 field="beam_assignment_margin",
                 annotation_text=annotation_text,
             )
-            if frame.category_code == "BEAMS":
+            # Позиция в операторски БЛОК не принадлежи на греда: блокът е
+            # изричното твърдение на оператора и Финалният контрол нарочно
+            # замразява реда без греда (``OPERATOR_AREA_GROUP``). Затова
+            # изискването за пълно beam решение важи само за останалите.
+            operator_block = str(row.get("column_group_label") or "").strip()
+            if frame.category_code == "BEAMS" and not operator_block:
                 if not beam_name or not beam_label_handle or not beam_assignment_method:
                     raise ExcelExportError(
                         f"Замразеният Ledger няма пълно beam решение за {annotation_text}."
@@ -2384,10 +2389,30 @@ def _beam_sections(positions: Sequence[ExportPosition]) -> list[BeamSection]:
     annotation remains a separate row under its beam, even when another row in
     the same beam has the same production identity.  Global aggregation is
     performed only in "Общо" through ``total_sources``.
+
+    Операторски блок = СВОЙ раздел със свое заглавие. Собственик,
+    19.09.2026: „всеки отделен блок направен от оператора трябва да има свое
+    заглавие и ред в изходния ексел (не да се прибавя някъде на слуки)."
+
+    Причината е измерена в „Сграда бета\\Плоча_кота 14.90": щурците,
+    капандурите и бордът — 22 позиции, 3254 kg, 7.1% от описа — излизаха
+    под Гр. B.8, B.12 и B.14, защото този лист групираше САМО по
+    ``beam_name``, а клонът за операторската група стоеше след
+    ``category_code == "BEAMS"`` и не се стигаше до него. Заглавието на
+    блока беше вярно записано в ledger-а и просто не се четеше.
     """
 
     by_beam: dict[tuple[str, str], list[ExportPosition]] = defaultdict(list)
+    block_titles: set[str] = set()
     for position in positions:
+        block = str(position.column_group_label or "").strip()
+        if block:
+            # Ключът е самото заглавие: блокът няма beam handle и не бива да
+            # се слива с греда, чието име случайно съвпада.
+            title = decode_dxf_text(block).strip()
+            block_titles.add(title)
+            by_beam[(title, "")].append(position)
+            continue
         title = str(position.beam_name or "НЕРАЗПОЗНАТА ГРЕДА").strip()
         by_beam[(title, position.beam_label_handle)].append(position)
     sections = [
@@ -2401,7 +2426,14 @@ def _beam_sections(positions: Sequence[ExportPosition]) -> list[BeamSection]:
         )
         for (title, handle), items in by_beam.items()
     ]
-    sections.sort(key=lambda section: _beam_sort_key(section.title))
+    # Гредите първи, по номер; операторските блокове след тях, по заглавие.
+    # Редът е определен, за да не „се прибавя някъде на слуки".
+    sections.sort(
+        key=lambda section: (
+            1 if section.title in block_titles else 0,
+            _beam_sort_key(section.title),
+        )
+    )
     return sections
 
 
@@ -3158,6 +3190,11 @@ def _validate_beam_assignments(
     assigned_by_frame: dict[int, set[str]] = defaultdict(set)
     for position in positions:
         if position.frame_index not in beam_frame_indexes:
+            continue
+        if str(position.column_group_label or "").strip():
+            # Позицията е в операторски блок и излиза със СВОЕ заглавие в
+            # листа. Липсващата греда тук не е дефект, а решението на
+            # оператора — виж ``_beam_sections``.
             continue
         if not position.beam_label_handle or not position.beam_name:
             raise ExcelExportError(

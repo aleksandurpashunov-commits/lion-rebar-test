@@ -22,6 +22,7 @@ from lion_rebar.export.operator_areas import (
     KIND_BEAM,
     KIND_GROUP,
     OPERATOR_AREA_BEAM_METHOD,
+    OPERATOR_AREA_GROUP_METHOD,
     area_for_point,
     load_operator_areas,
 )
@@ -563,6 +564,29 @@ def _freeze_beam_assignments(
                         "beam_name": area_label.title,
                         "beam_label_handle": area_label.handle,
                         "beam_assignment_method": OPERATOR_AREA_BEAM_METHOD,
+                        "beam_assignment_score": "",
+                        "beam_assignment_margin": "",
+                    }
+                )
+                assignments[handle] = frozen
+                continue
+            # Операторският БЛОК е изрично твърдение „тези позиции са на този
+            # елемент" и евристиката по близост няма право да ги закачи за
+            # греда. Измерено в „Сграда бета\Плоча_кота 14.90" (19.09.2026):
+            # щурците, капандурите и бордът излизаха под Гр. B.8, B.12 и
+            # B.14 — 22 позиции, 3254 kg, 7.1% от описа под чужд елемент.
+            # Собственият показател на ``_assign_beam_label`` за тези редове
+            # беше най-слабият в чертежа (3.0-3.9 стъпки на ред): тя се е
+            # протягала далеч и пак е побеждавала решението на оператора.
+            #
+            # Рамката за ГРЕДА по-горе остава над блока: тя е по-конкретното
+            # твърдение („това е греда X"), а блокът важи за останалото.
+            if frozen["column_group_label"]:
+                frozen.update(
+                    {
+                        "beam_name": "",
+                        "beam_label_handle": "",
+                        "beam_assignment_method": OPERATOR_AREA_GROUP_METHOD,
                         "beam_assignment_score": "",
                         "beam_assignment_margin": "",
                     }

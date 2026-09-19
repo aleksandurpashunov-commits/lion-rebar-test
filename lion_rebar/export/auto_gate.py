@@ -635,8 +635,7 @@ def _printed_detail_dimension_evidence_is_owned(
       за такива; появил се кандидат прави доказателството остаряло);
     * че всяка надписана кота има свой handle и измерена стойност, и че
       надписаните числа са ТОЧНО тези, от които са сглобени участъците;
-    * че прочитът е един от двата допустими — две коти с ЕДИН изчислен
-      размер (F006) или пет коти в симетричен набор без изчислени (F010);
+    * че прочитът е точно двете коти с ЕДИН изчислен размер (F006);
     * че куката е най-късият размер и е в измерения диапазон;
     * че уравнението затваря декларираната дължина точно.
 
@@ -645,8 +644,12 @@ def _printed_detail_dimension_evidence_is_owned(
     написал, и без нея прочитът е чужд.
     """
 
+    # Само затвореното стреме. Петсегментният прочит е спрян, докато ENGINE
+    # не получи активна форма с вярната самоличност (виж
+    # ``printed_detail_dimensions``), а гейтът не бива да приема код, който
+    # писателят вече не произвежда.
     shape_code = str(row.get("master_shape_code") or "").strip().upper()
-    if shape_code not in {"F006", "F010"}:
+    if shape_code != "F006":
         return False
     if local_detail_shape_code(str(evidence.get("label_text") or "")) != "F006":
         return False
@@ -674,31 +677,21 @@ def _printed_detail_dimension_evidence_is_owned(
     if printed is None or sorted(printed) != sorted(measurements.values()):
         return False
 
-    computed_raw = evidence.get("computed_value_cm")
-    if shape_code == "F006":
-        if len(segments) != 6 or len(printed) != 2:
-            return False
-        hook, side_a, side_b = segments[0], segments[1], segments[2]
-        if segments != (hook, side_a, side_b, side_a, side_b, hook):
-            return False
-        computed = _finite_positive_scalar(computed_raw)
-        if computed is None:
-            return False
-        sizes = sorted((hook, side_a, side_b))
-        if sorted([*printed, computed]) != sizes:
-            return False
-        if hook != sizes[0]:
-            return False
-        if not _PRINTED_DETAIL_HOOK_MIN_CM <= hook <= _PRINTED_DETAIL_HOOK_MAX_CM:
-            return False
-    else:
-        if len(segments) != 5 or len(printed) != 5 or computed_raw is not None:
-            return False
-        end, leg, middle = segments[0], segments[1], segments[2]
-        if segments != (end, leg, middle, leg, end) or end > leg:
-            return False
-        if sorted(printed) != sorted(segments):
-            return False
+    if len(segments) != 6 or len(printed) != 2:
+        return False
+    hook, side_a, side_b = segments[0], segments[1], segments[2]
+    if segments != (hook, side_a, side_b, side_a, side_b, hook):
+        return False
+    computed = _finite_positive_scalar(evidence.get("computed_value_cm"))
+    if computed is None:
+        return False
+    sizes = sorted((hook, side_a, side_b))
+    if sorted([*printed, computed]) != sizes:
+        return False
+    if hook != sizes[0]:
+        return False
+    if not _PRINTED_DETAIL_HOOK_MIN_CM <= hook <= _PRINTED_DETAIL_HOOK_MAX_CM:
+        return False
     if abs(math.fsum(segments) - total) > _PRINTED_DETAIL_CLOSURE_TOLERANCE_CM:
         return False
 

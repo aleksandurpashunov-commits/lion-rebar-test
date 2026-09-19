@@ -7,6 +7,7 @@ import re
 import shutil
 import string
 import threading
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
@@ -305,6 +306,51 @@ def _manual_geometry_exceeds_declared_length(
     if measured <= 0 or declared <= 0:
         return False
     return measured > declared + max(5.0, declared * 0.05)
+
+
+@dataclass(frozen=True)
+class _EngineCorrection:
+    """Една изрично разрешена семантична поправка на MASTER engine.
+
+    ``review_shape_codes`` са кодовете, чиято САМОЛИЧНОСТ се променя с тази
+    версия. Старите одобрения точно с тях се връщат за нов преглед, защото
+    решението на инженера е било взето върху друга форма; всичко останало се
+    запазва. Проект с версия извън ``from_versions`` НЕ се мигрира.
+    """
+
+    to_version: str
+    from_versions: frozenset[str]
+    review_shape_codes: frozenset[str]
+    reason: str
+    message: str
+
+
+#: Историята на семантичните поправки, всяка с точните версии и текст.
+_KNOWN_ENGINE_CORRECTIONS: tuple[_EngineCorrection, ...] = (
+    _EngineCorrection(
+        to_version="0.3.14",
+        from_versions=frozenset({"0.3.12", "0.3.13"}),
+        review_shape_codes=frozenset({"F003", "F005"}),
+        reason="F005 independent arms and two-sided U relation correction",
+        message=(
+            "F005 вече приема три независими рамена, а F003/F005 се разделят "
+            "по двете външни рамена преди анализа на котите."
+        ),
+    ),
+    _EngineCorrection(
+        to_version="0.3.15",
+        from_versions=frozenset({"0.3.14"}),
+        review_shape_codes=frozenset({"F010"}),
+        reason="F009 open five-segment stirrup identity restored; F010 aliased",
+        message=(
+            "Отвореното петсегментно стреме вече излиза като F009 „ОТВОРЕНА "
+            "ФОРМА С ДВЕ РАМЕНА“ — формата, чийто одобрен контролен тест е "
+            "точно този прът (8+79+15+79+8 = 189 cm) и която има свой "
+            "прегледан чертеж. F010 („НЕСТАНДАРТНА – ДОЛНА СКАРА“, чертеж "
+            "през общия резервен рисувач) сочи към нея."
+        ),
+    ),
+)
 
 
 class MainWindow(QMainWindow):
@@ -1408,34 +1454,48 @@ class MainWindow(QMainWindow):
         )
 
     def _apply_known_engine_correction(self) -> None:
-        if (
-            self.project is None
-            or self.project.engine_version not in {"0.3.12", "0.3.13"}
-        ):
+        """Прехвърля проекта през ЕДНА изрично разрешена семантична поправка.
+
+        Всяка корекция се вписва тук с точните версии, кодовете, чиято
+        самоличност се променя, и текста към оператора. Нищо не се мигрира
+        мълчаливо: комбинация, която не е в таблицата, оставя проекта на
+        неговия snapshot (виж ``docs/ENGINE_UPGRADE_AND_APPROVAL_BG.md``).
+        """
+
+        if self.project is None:
             return
         current = self.engine_repository.load_current()
-        if current.version != "0.3.14":
+        correction = next(
+            (
+                item
+                for item in _KNOWN_ENGINE_CORRECTIONS
+                if item.to_version == current.version
+                and self.project.engine_version in item.from_versions
+            ),
+            None,
+        )
+        if correction is None:
             return
         from_version = self.project.engine_version
         returned = self.project_manager.migrate_known_engine_snapshot(
             self.project,
             current,
-            allowed_from_versions={"0.3.12", "0.3.13"},
+            allowed_from_versions=set(correction.from_versions),
             reason=(
-                f"Engine v{from_version} to v0.3.14: F005 independent arms "
-                "and two-sided U relation correction"
+                f"Engine v{from_version} to v{correction.to_version}: "
+                + correction.reason
             ),
+            return_to_review_shape_codes=set(correction.review_shape_codes),
         )
         self._refresh_engine_label()
+        codes = "/".join(sorted(correction.review_shape_codes))
         QMessageBox.information(
             self,
-            "Engine корекция v0.3.14",
-            f"Проектът е прехвърлен от Engine v{from_version} към v0.3.14. "
-            "F005 вече приема "
-            "три независими рамена, а F003/F005 се разделят по двете "
-            "външни рамена преди анализа на котите."
+            f"Engine корекция v{correction.to_version}",
+            f"Проектът е прехвърлен от Engine v{from_version} към "
+            f"v{correction.to_version}. " + correction.message
             + (
-                f"\n\n{returned} стари F003/F005 одобрения са върнати за нов анализ."
+                f"\n\n{returned} стари {codes} одобрения са върнати за нов анализ."
                 if returned
                 else ""
             ),
