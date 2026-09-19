@@ -121,10 +121,26 @@ class DrawingFrame:
     #: тогава се пада обратно на най-близката котва.
     x_min: float | None = None
     x_max: float | None = None
+    #: Граници по y. Пълнят се САМО при обявена рамка (начертан правоъгълник
+    #: на класифициращ се слой). Един лист може да държи планове един над друг
+    #: и тогава лентата по x не ги дели — виж ``_detect_declared_area_frames``.
+    y_min: float | None = None
+    y_max: float | None = None
 
     @property
     def contains_x(self) -> bool:
         return self.x_min is not None and self.x_max is not None
+
+    @property
+    def is_declared_area(self) -> bool:
+        return self.contains_x and self.y_min is not None and self.y_max is not None
+
+    def contains_point(self, x: float, y: float) -> bool:
+        return (
+            self.is_declared_area
+            and float(self.x_min) <= x <= float(self.x_max)
+            and float(self.y_min) <= y <= float(self.y_max)
+        )
 
     @property
     def is_unknown(self) -> bool:
@@ -156,6 +172,11 @@ def detect_drawing_frames(entities: Iterable[DxfEntityRecord]) -> list[DrawingFr
         and _xy(record) is not None
     ]
     if not markers:
+        # Обявената рамка бие единичния лист: тя е изрично решение на
+        # оператора, а единичният лист е извод от едно заглавие.
+        declared = _detect_declared_area_frames(records)
+        if declared:
+            return declared
         return _detect_single_sheet_frame(records, text_records)
     frames: list[DrawingFrame] = []
     for marker in markers:
@@ -291,6 +312,110 @@ def detect_drawing_frames(entities: Iterable[DxfEntityRecord]) -> list[DrawingFr
         else frame
         for frame in result
     ]
+
+
+def _detect_declared_area_frames(
+    records: list[DxfEntityRecord],
+) -> list[DrawingFrame]:
+    """Обявени рамки: затворен правоъгълник на слой, чието ИМЕ се класифицира.
+
+    Собственик, 2026-09-19, върху първия чертеж от друг проектант
+    (AutoCAD Structural Detailing, `Тест-желязо\\d-2`): „ще ти направя 4 рамки
+    с номера 1 долна скара, 2 долна усилване, 3 горна скара, 4 горна
+    усилване“ — и ги начерта, всяка на свой слой.
+
+    ЗАЩО. Този чертеж няма щемпел и няма нито един текст с „АРМИРОВ“ или
+    „ЧЕРТЕЖ“: заглавието му живее само в името на файла. Затова
+    ``detect_drawing_frames`` връщаше нула рамки, портата отказваше всяка
+    позиция с ``MISSING_FRAME`` и от 178 позиции се одобряваха 0 — макар
+    разпознаването да даваше 124 силни.
+
+    Един лист държи четири плана: основна скара и усилване, долу и горе. Затова
+    обявената рамка носи и граници по y — лентата по x не дели планове, които
+    стоят един над друг.
+
+    ДОКАЗАТЕЛСТВОТО Е ДЕКЛАРАЦИЯ, НЕ ДОГАДКА. Операторът чертае правоъгълника и
+    го кръщава; програмата само проверява:
+
+      * точно един затворен правоъгълник на слоя — два са отказ за този слой;
+      * името на слоя да се класифицира еднозначно (``classify_title``);
+        „Подробна спецификация“ дава ``UNKNOWN`` и се пропуска;
+      * различните обявени рамки да не се застъпват.
+
+    Пътят се ползва САМО когато щемпелът не е дал рамки, за да не мени нито
+    един вече работещ чертеж.
+    """
+
+    by_layer: dict[str, list[tuple[float, float, float, float]]] = {}
+    for record in records:
+        if str(record.entity_type or "").upper() not in {"LWPOLYLINE", "POLYLINE"}:
+            continue
+        points = (record.geometry or {}).get("points") or (record.geometry or {}).get(
+            "vertices"
+        )
+        if not isinstance(points, (list, tuple)) or not 4 <= len(points) <= 5:
+            continue
+        try:
+            xs = [float(point[0]) for point in points]
+            ys = [float(point[1]) for point in points]
+        except (TypeError, ValueError, IndexError):
+            continue
+        # Правоъгълник: точно две различни стойности по всяка ос.
+        if len({round(value, 3) for value in xs}) != 2:
+            continue
+        if len({round(value, 3) for value in ys}) != 2:
+            continue
+        by_layer.setdefault(str(record.layer or ""), []).append(
+            (min(xs), min(ys), max(xs), max(ys))
+        )
+
+    declared: list[tuple[str, str, tuple[float, float, float, float]]] = []
+    for layer, boxes in sorted(by_layer.items()):
+        if len(boxes) != 1:
+            continue
+        category, confidence = classify_title(layer.replace("-", " ").replace("_", " "))
+        if category == "UNKNOWN" or confidence != "HIGH":
+            continue
+        declared.append((layer, category, boxes[0]))
+    if not declared:
+        return []
+    for left in range(len(declared)):
+        for right in range(left + 1, len(declared)):
+            a = declared[left][2]
+            b = declared[right][2]
+            if not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1]):
+                # Застъпени обявени рамки: не се знае чия е позицията.
+                return []
+
+    frames = [
+        DrawingFrame(
+            index=0,
+            marker_handle="",
+            anchor_x=(box[0] + box[2]) / 2.0,
+            anchor_y=(box[1] + box[3]) / 2.0,
+            title_text=layer,
+            supporting_text="",
+            category_code=category,
+            suggested_sheet_name=CATEGORY_SHEET_NAMES[category],
+            confidence="HIGH",
+            resolution_reason="DECLARED_AREA_LAYER",
+            resolved_by="OPERATOR",
+            x_min=box[0],
+            x_max=box[2],
+            y_min=box[1],
+            y_max=box[3],
+        )
+        for layer, category, box in declared
+    ]
+    frames.sort(key=lambda frame: (CATEGORY_ORDER[frame.category_code], frame.anchor_x))
+    result: list[DrawingFrame] = []
+    used: dict[str, int] = {}
+    for index, frame in enumerate(frames, start=1):
+        base = frame.suggested_sheet_name
+        used[base] = used.get(base, 0) + 1
+        name = base if used[base] == 1 else f"{base} {used[base]}"
+        result.append(replace(frame, index=index, suggested_sheet_name=name))
+    return result
 
 
 def _detect_single_sheet_frame(
@@ -565,6 +690,18 @@ def assign_point_to_frame(x: float, y: float, frames: list[DrawingFrame]) -> int
     """
 
     if not frames:
+        return None
+    # Обявената рамка е правоъгълник, начертан от оператора — тя бие и
+    # лентата, и разстоянието. Точката трябва да е в ТОЧНО ЕДНА: две
+    # припокриващи се обявени рамки са отказ, не догадка.
+    declared = [frame for frame in frames if frame.contains_point(x, y)]
+    if len(declared) == 1:
+        return declared[0].index
+    if declared:
+        return None
+    if any(frame.is_declared_area for frame in frames):
+        # Има обявени рамки, но точката не е в нито една: тя е извън
+        # плановете (таблица, легенда, бележки) и няма лист.
         return None
     banded = sorted(
         (frame for frame in frames if frame.contains_x),

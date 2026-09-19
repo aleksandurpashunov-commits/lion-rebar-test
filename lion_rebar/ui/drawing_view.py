@@ -96,6 +96,22 @@ class SceneBuildResult:
             )
 
 
+def _премахни(scene, items) -> None:
+    """Маха елементите от сцената, без да пада върху изтрити обекти.
+
+    След ``setScene`` старата сцена се освобождава заедно с всичко в нея.
+    Питането ``item.scene()`` върху вече изтрит C++ обект хвърля
+    ``RuntimeError`` — виж ``clear_operator_areas``.
+    """
+
+    for item in items:
+        try:
+            if scene is not None and item.scene() is scene:
+                scene.removeItem(item)
+        except RuntimeError:
+            continue
+
+
 class DrawingView(QGraphicsView):
     mouseScenePositionChanged = Signal(float, float)
     #: Двата ъгъла на операторска рамка, в координати на чертежа.
@@ -286,20 +302,29 @@ class DrawingView(QGraphicsView):
                 self._area_items.append(елемент)
 
     def clear_operator_areas(self) -> None:
-        scene = self.scene()
-        for item in self._area_items:
-            if scene is not None and item.scene() is scene:
-                scene.removeItem(item)
+        """Маха начертаните рамки от сцената.
+
+        Елементите може да са от ПРЕДИШНА сцена. При отваряне на нов проект
+        ``setScene`` подменя сцената; старата се освобождава и Qt изтрива
+        обектите в нея. Тогава ``item.scene()`` хвърля ``RuntimeError`` върху
+        изтрития C++ обект — а това чистене е първото нещо в
+        ``show_operator_areas``. Затова рамките на НОВИЯ проект не се
+        появяваха, докато програмата не се пусне наново.
+
+        Собственик, 2026-09-19: „задам рамки с R в даден чертеж, завърша,
+        отворя нов проект и опитам да създам рамка — не се визуализира в
+        зелено, трябва да затворя-отворя програмата наново“.
+        """
+
+        _премахни(self.scene(), self._area_items)
         self._area_items = []
 
     def has_operator_areas(self) -> bool:
         return bool(self._area_items)
 
     def clear_markers(self) -> None:
-        scene = self.scene()
-        for item in self._markers:
-            if scene is not None and item.scene() is scene:
-                scene.removeItem(item)
+        # Същото като при рамките: маркерите могат да са от изтрита сцена.
+        _премахни(self.scene(), self._markers)
         self._markers = []
         self._marker_bounds = None
 

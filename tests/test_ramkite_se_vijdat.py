@@ -214,3 +214,41 @@ class TestКлавишът:
         единични = re.findall(r'setShortcut\(QKeySequence\("([A-Z])"\)\)', код)
         единични += re.findall(r'setShortcut\("([A-Z])"\)', код)
         assert единични.count("R") == 1, f"клавишът R е зает повече от веднъж: {единични}"
+
+
+class TestНовПроект:
+    """Рамките на новия проект се появяват без рестарт (2026-09-19).
+
+    Собственик: „задам рамки с R в даден чертеж, завърша, отворя нов проект и
+    опитам да създам рамка — не се визуализира в зелено, трябва да
+    затворя-отворя програмата наново“.
+
+    Причината: при отваряне на нов проект ``setScene`` подменя сцената,
+    старата се освобождава и Qt изтрива елементите в нея. ``_area_items`` още
+    ги държи, а ``clear_operator_areas`` — първото нещо в
+    ``show_operator_areas`` — пита изтрития обект за сцената му и хвърля
+    ``RuntimeError``. Оттам нататък нито една рамка не се рисуваше.
+    """
+
+    def test_рамка_след_смяна_на_сцената(self) -> None:
+        import gc
+
+        from PySide6.QtWidgets import QGraphicsScene
+
+        view = _view()
+        view.show_operator_areas(_РАМКИ)
+        assert view.has_operator_areas()
+
+        # Нов проект: нова сцена, старата се освобождава заедно с елементите.
+        стара = view.scene()
+        нова = QGraphicsScene()
+        нова.setSceneRect(0.0, -3000.0, 4000.0, 3000.0)
+        view.setScene(нова)
+        del стара
+        gc.collect()
+
+        view.show_operator_areas([_РАМКИ[1]])
+
+        assert view.has_operator_areas()
+        assert len(_правоъгълници(view)) == 1
+        assert _надписи(view) == ["К11"]
