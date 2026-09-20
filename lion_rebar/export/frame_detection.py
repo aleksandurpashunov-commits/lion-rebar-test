@@ -7,6 +7,7 @@ from typing import Iterable, Sequence
 
 from lion_rebar.dxf.models import DxfEntityRecord
 from lion_rebar.dxf.text_normalization import decode_dxf_text, normalize_for_match
+from lion_rebar.dxf.text_parser import looks_like_rebar_text
 
 
 # Ключови думи за заглавие на рамка (използват се и в основния прозорец,
@@ -17,6 +18,16 @@ TITLE_TOKENS = ("АРМИРОВ", "ДЕТАЙЛ", "ГРЕД", "ДОЛНА", "Г�
 # use the dedicated label ``ЧЕРТЕЖ:``.  The previous substring search also
 # matched prose such as ``от чертежите`` and invented an UNKNOWN frame.
 FRAME_MARKER_RE = re.compile(r"^ЧЕРТЕЖ\s*:?$")
+
+#: Целият щемпел в един обект: „ЧЕРТЕЖ: <заглавие>“. Мери се върху декодирания
+#: текст, за да остане главно/малко както го е написал проектантът.
+FRAME_MARKER_WITH_TITLE_RE = re.compile(r"^ЧЕРТЕЖ\s*:\s*(.+)$", re.IGNORECASE)
+
+#: С колко пъти групата заглавия трябва да води по разстлан, за да бъде приета
+#: за заглавия на ЛИСТОВЕ (виж ``_detect_title_only_frames``). Измерено
+#: 2026-09-20 в „тест-01“: 6562 срещу 56 единици, тоест 117 пъти. Прагът е
+#: отношение, за да не зависи от мащаба на чертежа.
+TITLE_SPREAD_MARGIN = 4.0
 
 # Some designers deliver a single logical sheet without the ``ЧЕРТЕЖ:``
 # title-block field. Such a file may be accepted automatically only when one
@@ -165,21 +176,36 @@ def detect_drawing_frames(entities: Iterable[DxfEntityRecord]) -> list[DrawingFr
         if record.entity_type.upper() in {"TEXT", "MTEXT", "BLOCK_ATTR_TEXT"}
         and str(record.text or "").strip()
     ]
-    markers = [
-        record
-        for record in text_records
-        if FRAME_MARKER_RE.fullmatch(_normalize(record.text))
-        and _xy(record) is not None
-    ]
+    # Щемпелът идва в два законни вида: „ЧЕРТЕЖ:“ като свой обект и заглавието
+    # до него (основният проектант), или цялото „ЧЕРТЕЖ: <заглавие>“ в ЕДИН
+    # обект. Второто е измерено на 2026-09-20 в „KOFR_B“: 43 MTEXT заглавия на
+    # слой ``ramki``, заради които рамките бяха нула и портата отказваше всички
+    # 2974 позиции. Прототипът показа нула промяна в осемте познати чертежа —
+    # никой от тях не пише заглавието в един обект.
+    markers: list[tuple[DxfEntityRecord, str]] = []
+    for record in text_records:
+        if _xy(record) is None:
+            continue
+        if FRAME_MARKER_RE.fullmatch(_normalize(record.text)):
+            markers.append((record, ""))
+            continue
+        decoded = " ".join(decode_dxf_text(record.text).split())
+        inline = FRAME_MARKER_WITH_TITLE_RE.match(decoded)
+        if inline and inline.group(1).strip():
+            markers.append((record, inline.group(1).strip()))
     if not markers:
-        # Обявената рамка бие единичния лист: тя е изрично решение на
-        # оператора, а единичният лист е извод от едно заглавие.
+        # Редът е нарочен: обявената рамка (решение на оператора) бие изведената
+        # по заглавие, а изведената по заглавие бие единичния лист, защото
+        # няколко заглавия са по-силно доказателство от едно.
         declared = _detect_declared_area_frames(records)
         if declared:
             return declared
+        by_title = _detect_title_only_frames(records, text_records)
+        if by_title:
+            return by_title
         return _detect_single_sheet_frame(records, text_records)
     frames: list[DrawingFrame] = []
-    for marker in markers:
+    for marker, inline_title in markers:
         mx, my = _xy(marker) or (0.0, 0.0)
         nearby = []
         supporting = []
@@ -204,6 +230,11 @@ def detect_drawing_frames(entities: Iterable[DxfEntityRecord]) -> list[DrawingFr
         support_record = min(supporting, key=lambda item: item[0])[1] if supporting else None
         reason = "PRIMARY_WINDOW"
         title_distance = 0.0
+        if inline_title:
+            # Заглавието е в самия щемпел: не се търси съседен надпис и не се
+            # пуска резервният радиус — доказателството е в един обект.
+            title_record = marker
+            reason = "INLINE_TITLE"
 
         # --- FALLBACK: адаптивен радиус, мащабиран по височината на текста ---
         # Основният прозорец е с ТВЪРДИ абсолютни разстояния (dx 50..1800,
@@ -251,7 +282,11 @@ def detect_drawing_frames(entities: Iterable[DxfEntityRecord]) -> list[DrawingFr
                     title_distance, title_record = best_distance, best_record
                     reason = "FALLBACK_RADIUS"
 
-        title = decode_dxf_text(title_record.text).strip() if title_record else ""
+        title = (
+            inline_title
+            if inline_title
+            else (decode_dxf_text(title_record.text).strip() if title_record else "")
+        )
         support = decode_dxf_text(support_record.text).strip() if support_record else ""
         category, confidence = classify_title(title, support)
         if reason == "FALLBACK_RADIUS" and confidence == "HIGH":
@@ -312,6 +347,145 @@ def detect_drawing_frames(entities: Iterable[DxfEntityRecord]) -> list[DrawingFr
         else frame
         for frame in result
     ]
+
+
+def _detect_title_only_frames(
+    records: list[DxfEntityRecord],
+    text_records: list[DxfEntityRecord],
+) -> list[DrawingFrame]:
+    """Няколко листа, познати само по заглавията си, без щемпел „ЧЕРТЕЖ:“.
+
+    Собственик, 2026-09-20: „да си направи рамка и да и даде име като разпознае
+    името както в тест-01“.
+
+    ЗАЩО. Измерено върху `тест-01` (нов офис): чертежът носи „Долна армировка на
+    кота +6,68“ и „Горна армировка на кота +6,68“ на слой ``ANTETKA``, и двете
+    се класифицират еднозначно. Но щемпел „ЧЕРТЕЖ:“ няма, а резервният път за
+    ЕДИН лист вижда ДВЕ заглавия и правилно отказва. Затова рамки бяха нула и
+    портата спираше всичките 137 позиции, макар 120 да са силни по геометрия.
+    С две обявени рамки същият чертеж дава 90 автоматично одобрени.
+
+    ДОКАЗАТЕЛСТВОТО Е ГРУПА ЕДНОРОДНИ ЗАГЛАВИЯ, НЕ ЕДНО СЛУЧАЙНО:
+
+      * заглавието се класифицира еднозначно и с висока увереност;
+      * поне две такива заглавия, на ЕДИН И СЪЩ слой и с еднаква височина на
+        текста — така бележка в легенда не става лист;
+      * ако две различни групи са с еднакъв, най-голям брой — отказ, защото не
+        се избира между два еднакво силни прочита;
+      * лентите се режат от съдържанието (``_frame_bands``); не излязат ли
+        честно — отказ;
+      * всяка лента трябва да съдържа поне един армировъчен надпис, иначе
+        рамката е върху празно място.
+
+    Пътят се ползва САМО когато няма щемпел и няма обявена рамка, за да не мени
+    нито един вече работещ чертеж.
+    """
+
+    кандидати: list[tuple[DxfEntityRecord, str, str]] = []
+    for record in text_records:
+        if _xy(record) is None:
+            continue
+        заглавие = decode_dxf_text(record.text).strip()
+        if not заглавие:
+            continue
+        категория, увереност = classify_title(заглавие)
+        if категория == "UNKNOWN" or увереност != "HIGH":
+            continue
+        кандидати.append((record, заглавие, категория))
+    if len(кандидати) < 2:
+        return []
+
+    групи: dict[tuple[str, float], list[tuple[DxfEntityRecord, str, str]]] = {}
+    for record, заглавие, категория in кандидати:
+        # ``getattr``, защото модулът приема и по-бедни записи: няколко
+        # регресионни теста подават заместители само с handle, тип, текст и
+        # геометрия. Липсващият слой не бива да чупи търсенето на рамки.
+        ключ = (str(getattr(record, "layer", "") or ""), round(_text_height(record), 1))
+        групи.setdefault(ключ, []).append((record, заглавие, категория))
+    годни = [сп for сп in групи.values() if len(сп) >= 2]
+    if not годни:
+        return []
+
+    def разстлан(сп: list[tuple[DxfEntityRecord, str, str]]) -> float:
+        xs = [(_xy(record) or (0.0, 0.0))[0] for record, _з, _к in сп]
+        return max(xs) - min(xs)
+
+    # Заглавието на ЛИСТ дели листове, затова стои далеч от другите заглавия;
+    # етикетът на ДЕТАЙЛ стои вътре в един лист, до себеподобните си. Измерено
+    # 2026-09-20 в „тест-01“: заглавията на слой ANTETKA са на 6562 единици едно
+    # от друго, а двата етикета „Детайл за …“ на слой Text — на 56, тоест 117
+    # пъти по-близо. Затова се избира групата с най-голям разстлан, и то само
+    # когато води с ясен превес; иначе отказ, вместо избор вместо оператора.
+    най_много = max(len(сп) for сп in годни)
+    водачи = sorted(
+        (сп for сп in годни if len(сп) == най_много),
+        key=разстлан,
+        reverse=True,
+    )
+    най_голяма = водачи[0]
+    други = [сп for сп in годни if сп is not най_голяма]
+    ако_има = max((разстлан(сп) for сп in други), default=0.0)
+    if ако_има > 0.0 and разстлан(най_голяма) < ако_има * TITLE_SPREAD_MARGIN:
+        return []
+    if len(водачи) > 1 and разстлан(водачи[1]) > 0.0 and (
+        разстлан(най_голяма) < разстлан(водачи[1]) * TITLE_SPREAD_MARGIN
+    ):
+        return []
+
+    точки = {(_xy(record) or (0.0, 0.0)) for record, _з, _к in най_голяма}
+    if len(точки) != len(най_голяма):
+        return []
+
+    сурови: list[DrawingFrame] = []
+    for record, заглавие, категория in най_голяма:
+        x, y = _xy(record) or (0.0, 0.0)
+        сурови.append(
+            DrawingFrame(
+                index=0,
+                marker_handle=str(record.handle or ""),
+                anchor_x=x,
+                anchor_y=y,
+                title_text=заглавие,
+                supporting_text="",
+                category_code=категория,
+                suggested_sheet_name=CATEGORY_SHEET_NAMES[категория],
+                confidence="HIGH",
+                resolution_reason="TITLE_ONLY_BAND",
+                title_handle=str(record.handle or ""),
+                marker_text_height=round(_text_height(record), 3),
+            )
+        )
+
+    сурови.sort(key=lambda frame: (-round(frame.anchor_y / 500.0), frame.anchor_x))
+    наименувани: list[DrawingFrame] = []
+    ползвани: dict[str, int] = {}
+    for индекс, frame in enumerate(сурови, start=1):
+        база = frame.suggested_sheet_name
+        ползвани[база] = ползвани.get(база, 0) + 1
+        име = база if ползвани[база] == 1 else f"{база} {ползвани[база]}"
+        наименувани.append(replace(frame, index=индекс, suggested_sheet_name=име))
+
+    ленти = _frame_bands(records, наименувани)
+    if ленти is None or len(ленти) != len(наименувани):
+        return []
+    с_ленти = [
+        replace(frame, x_min=ленти[frame.index][0], x_max=ленти[frame.index][1])
+        for frame in наименувани
+    ]
+
+    # Рамка върху празно място не е лист.
+    надписи = [
+        _xy(record)
+        for record in text_records
+        if looks_like_rebar_text(decode_dxf_text(record.text))
+    ]
+    надписи = [точка for точка in надписи if точка is not None]
+    for frame in с_ленти:
+        ниско = float(frame.x_min if frame.x_min is not None else 0.0)
+        високо = float(frame.x_max if frame.x_max is not None else 0.0)
+        if not any(ниско <= x <= високо for x, _y in надписи):
+            return []
+    return с_ленти
 
 
 def _detect_declared_area_frames(
