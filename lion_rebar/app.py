@@ -29,16 +29,28 @@ def main() -> int:
             bundle_root = Path(sys._MEIPASS)
         else:
             bundle_root = Path(__file__).resolve().parents[1]
+        # Пакетираният engine, който тази версия на приложението носи.
+        # Инсталира се САМО от изрично изброен предшественик и само след
+        # структурна проверка плюс всички контролни тестове
+        # (``install_trusted_bundled_engine``). Машина, която вече е на
+        # целевата версия, не се пипа; публикуван файл със същата версия се
+        # запазва, вместо да бъде презаписан.
+        #
+        # 0.3.15 връща вярната самоличност на отвореното петсегментно стреме
+        # (F009 активна, F010 -> alias). Предшествениците от 0.3.12 и 0.3.13
+        # също се допускат, за да не остане машина без път напред; проектът
+        # после се мигрира от таблицата ``_KNOWN_ENGINE_CORRECTIONS``, която
+        # за тях връща за преглед и F003/F005 от поправката на 0.3.14.
         bundled_engine = (
             bundle_root
             / "engine_updates"
-            / "lion-rebar-master_v0.3.14_F005_INDEPENDENT_ARMS_PRODUCTION_DRAFT.lionengine"
+            / "lion-rebar-master_v0.3.15_F009_OPEN_STIRRUP_IDENTITY_PRODUCTION_DRAFT.lionengine"
         )
         if bundled_engine.is_file():
             repository.install_trusted_bundled_engine(
                 bundled_engine,
-                allowed_current_versions={"0.0.0", "0.3.12", "0.3.13"},
-                expected_target_version="0.3.14",
+                allowed_current_versions={"0.0.0", "0.3.12", "0.3.13", "0.3.14"},
+                expected_target_version="0.3.15",
             )
     except Exception as exc:
         app = QApplication(sys.argv)
