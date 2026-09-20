@@ -49,6 +49,15 @@ PROPOSABLE_ROLES = (
     "REBAR_GEOMETRY",
 )
 
+#: Как ролите се казват на оператора. Едно място, за да няма два превода.
+ROLE_NAMES: dict[str, str] = {
+    "POSITION_KEY": "позиционен ключ в кръгче",
+    "ZONE_TITLE": "заглавие на зона",
+    "POSITION_ANNOTATION": "позиционни надписи",
+    "POSITION_LABEL_BLOCK": "надписи в блокове",
+    "REBAR_GEOMETRY": "армировъчна геометрия",
+}
+
 #: Позиционен ключ: „цифра + буква“ — 6a, 4c, 12b.
 POSITION_KEY_PATTERN = re.compile(r"^\d{1,2}[A-Za-zА-Яа-я]$")
 

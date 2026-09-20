@@ -531,6 +531,14 @@ class MainWindow(QMainWindow):
         self.action_learning_report = QAction("Отчет за конвенциите", self)
         self.action_learning_report.triggered.connect(self.show_learning_report)
 
+        self.action_drawing_passport = QAction("Паспорт на чертежа…", self)
+        self.action_drawing_passport.setToolTip(
+            "Предлага ролята на всеки слой по СЪДЪРЖАНИЕТО му — позиционни "
+            "ключове, заглавия на зони, надписи и армировъчна геометрия — с "
+            "доказателство и с контрола, и иска потвърждение."
+        )
+        self.action_drawing_passport.triggered.connect(self.open_drawing_passport)
+
         self.action_session_summary = QAction("Състояние на сесията", self)
         self.action_session_summary.setShortcut(QKeySequence("Ctrl+Shift+S"))
         self.action_session_summary.triggered.connect(self.show_session_summary)
@@ -649,6 +657,7 @@ class MainWindow(QMainWindow):
         analysis_menu.addAction(self.action_operator_box)
         analysis_menu.addAction(self.action_operator_areas)
         analysis_menu.addAction(self.action_learning_report)
+        analysis_menu.addAction(self.action_drawing_passport)
         analysis_menu.addAction(self.action_export_excel)
         analysis_menu.addAction(self.action_layer_report)
         session_menu = self.menuBar().addMenu("Сесия")
@@ -1320,6 +1329,50 @@ class MainWindow(QMainWindow):
         if dialog.exec() and dialog.decisions_made:
             self._session_project_event(
                 "FRAME_DECISIONS_RECORDED", {"count": dialog.decisions_made})
+
+    def open_drawing_passport(self) -> None:
+        """Паспорт на чертежа: предложените роли по съдържание за потвърждение.
+
+        Профилът се записва с автор, време и самоличност на данните, но ЗАСЕГА
+        не влиза в разпознаването — виж докстринга на
+        ``project/convention_profile_decisions.py``.
+        """
+
+        if self.project is None or self.import_result is None:
+            QMessageBox.information(
+                self,
+                "Няма чертеж",
+                "Отвори проект и импортирай DXF, преди да искаш паспорт.",
+            )
+            return
+        from lion_rebar.dxf.convention_profile import propose_convention_profile
+        from lion_rebar.ui.drawing_passport_dialog import DrawingPassportDialog
+
+        identity = current_identity(self.project)
+        try:
+            proposal = propose_convention_profile(
+                self.import_result.entities,
+                source_sha256=identity.source_sha256 or None,
+            )
+        except Exception as error:  # noqa: BLE001 - помощен път
+            self._error(f"Паспортът не може да бъде съставен: {error}")
+            return
+        if not proposal.get("proposals") and not proposal.get("refusals"):
+            QMessageBox.information(
+                self,
+                "Паспорт на чертежа",
+                "Нито едно правило не намери доказателство в този чертеж.\n\n"
+                "Това не е грешка — правилата мълчат, вместо да гадаят.",
+            )
+            return
+        dialog = DrawingPassportDialog(
+            proposal,
+            Path(self.project.root),
+            identity,
+            getattr(self, 'operator_name', '') or 'оператор',
+            self,
+        )
+        dialog.exec()
 
     def show_learning_report(self) -> None:
         """Отчет какви конвенции е открила програмата в този проект.
