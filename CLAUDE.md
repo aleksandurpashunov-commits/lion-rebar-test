@@ -190,6 +190,7 @@ openpyxl, pytest.
 | `docs/MANUAL_APPLICATION_UPDATE_BG.md` | ръчно обновяване на приложението |
 | `docs/ROADMAP_PRODUCT_BG.md` | пътна карта към продаваем продукт — за обсъждане |
 | `docs/OCENKA_ZAVARSHENOST_BG.md` | завършеност по измерено и оценка на стойността — 20.09 |
+| `docs/MASHINEN_IZHOD_BVBS_BG.md` | машинен изход към арматурния двор (BVBS) — проверено и какво липсва |
 | `docs/NOVI_FORMI_OT_SLUCHAI_BG.md` | нова MASTER форма от отказан случай — предложение |
 | `docs/SLOEVE_I_ZRENIE_BG.md` | слоевете по съдържание и къде помага зрението — предложение |
 | `docs/ASD_DIALEKT_D2_BG.md` | вторият чертожен диалект (AutoCAD Structural Detailing) — измереното по `d-2` |
