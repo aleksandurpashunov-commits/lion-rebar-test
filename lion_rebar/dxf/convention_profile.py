@@ -31,7 +31,11 @@ from datetime import datetime
 from typing import Any, Iterable, Sequence
 
 from lion_rebar.dxf.models import DxfEntityRecord
-from lion_rebar.dxf.text_parser import looks_like_rebar_text
+from lion_rebar.dxf.recognition_policy import (
+    DEFAULT_RECOGNITION_POLICY,
+    RecognitionPolicy,
+)
+from lion_rebar.dxf.text_parser import looks_like_rebar_text, parse_rebar_text
 
 CONVENTION_PROFILE_SCHEMA = "lion-rebar-convention-profile/v1"
 PROPOSER_VERSION = "1.0"
@@ -42,6 +46,7 @@ PROPOSABLE_ROLES = (
     "ZONE_TITLE",
     "POSITION_ANNOTATION",
     "POSITION_LABEL_BLOCK",
+    "REBAR_GEOMETRY",
 )
 
 #: Позиционен ключ: „цифра + буква“ — 6a, 4c, 12b.
@@ -99,6 +104,42 @@ MIN_LABEL_BLOCKS = 3
 #: Колко примера се показват на оператора за всяко предложение.
 SAMPLE_COUNT = 3
 
+# --------------------------------------------------------------------------- #
+# Армировъчен слой по съдържание
+#
+# Признакът: до надписа стои обект, дълъг точно колкото ПИШЕ в него. Само
+# съвпадение по дължина НЕ стига — измерено 2026-09-20 в „KOFR_B“ слоят
+# ``Plumbing`` дава 729 съвпадения при 18× превес, защото тръбите случайно са с
+# армировъчни дължини. Затова съвпадението трябва да е ЛОКАЛНО: обектът да е в
+# радиуса на политиката около своя надпис. С това условие ``Plumbing`` изчезва
+# напълно, а остават:
+#
+#   KOFR_B:      Колони 101 надписа (контрола 2) -> 50,5x;  BARS 170 (30) -> 5,7x
+#   Плоча 14.90: Arm - N12 104 (0);  Arm - N14 22 (0);  Arm - N10 6 (0)
+#   d-2 (ASD):   три слоя с 74 (1), 52 (0) и 46 (0)
+#   s-11:        Stremena 14 (0);  Horiz.arm 4 (0)
+#   шум:         korekciq2 2, otvori 1, Stairs & Landings 1
+#
+# ``s-1`` и ``s-10`` дават нула и това е ВЯРНО: там надписът е разгънатата
+# дължина, а стремето е начертано като правоъгълник, тоест нито един обект не е
+# дълъг колкото надписа. Правилото мълчи, вместо да гадае.
+
+#: Допуск при сравнение на дължини — 1% или поне 1 cm.
+GEOMETRY_LENGTH_TOLERANCE = 0.01
+
+#: Контролата против случайно съвпадение: същата сметка срещу дължина + това.
+#: Не е праг, а контрола — стойността е избрана само да не съвпада системно с
+#: реални размери. Измерените контроли излизат 0–2 при 4–170 истински.
+GEOMETRY_CONTROL_SHIFT_CM = 13.0
+
+#: Минимум надписи с локално съвпадение и минимален превес над контролата.
+#: Измерено: истинските слоеве дават 4–170 при превес 5,7–104; шумът дава 1–2.
+MIN_GEOMETRY_MATCHES = 5
+MIN_GEOMETRY_CONTROL_RATIO = 4.0
+
+#: Отказ се съобщава само когато правилото е било близо — иначе екранът се пълни.
+GEOMETRY_NEAR_MISS_MATCHES = 2
+
 
 @dataclass(frozen=True)
 class ProfileProposal:
@@ -153,6 +194,7 @@ class ProfileRefusal:
 def propose_convention_profile(
     entities: Iterable[DxfEntityRecord],
     *,
+    policy: RecognitionPolicy | None = None,
     source_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Предлага профил на чертожната конвенция по съдържанието на обектите.
@@ -192,6 +234,13 @@ def propose_convention_profile(
             proposals.append(proposal)
         if refusal is not None:
             refusals.append(refusal)
+
+    геометрични, геометрични_откази = _propose_rebar_geometry_layers(
+        записи,
+        policy=policy or DEFAULT_RECOGNITION_POLICY,
+    )
+    proposals.extend(геометрични)
+    refusals.extend(геометрични_откази)
 
     role_counts = Counter(proposal.role for proposal in proposals)
     return {
@@ -518,8 +567,164 @@ def _propose_label_block_family(
     )
 
 
+def _propose_rebar_geometry_layers(
+    records: Sequence[DxfEntityRecord],
+    *,
+    policy: RecognitionPolicy,
+) -> tuple[list[ProfileProposal], list[ProfileRefusal]]:
+    """Армировъчен слой: до надписа стои обект с точно надписаната дължина.
+
+    Правилото е кръстосано (над всички слоеве наведнъж), защото признакът е
+    връзка между надпис и геометрия, а не свойство на един слой.
+
+    Двете условия заедно: **съвпадение по дължина** и **в радиуса на
+    политиката**. Само първото не стига — виж бележката при константите, където
+    е измерено как слой с водопровод дава 18× превес без второто условие.
+
+    Контролата (дължина + ``GEOMETRY_CONTROL_SHIFT_CM``) се мери за всеки слой и
+    влиза в доказателството, за да се вижда, че съвпадението не е случайно.
+    """
+
+    радиус = float(getattr(policy, "max_search_distance_raw", 90.0) or 90.0)
+    ако_клетка = max(100.0, радиус)
+
+    геометрия: list[tuple[str, float, list[tuple[float, float]], str]] = []
+    решетка: dict[tuple[int, int], list[int]] = defaultdict(list)
+    for entity in records:
+        точки = _polyline_points(entity)
+        if len(точки) < 2:
+            continue
+        дължина = sum(
+            math.dist(точки[индекс], точки[индекс + 1])
+            for индекс in range(len(точки) - 1)
+        )
+        if дължина <= 5.0:
+            continue
+        индекс = len(геометрия)
+        геометрия.append(
+            (str(entity.layer or ""), дължина, точки, str(entity.handle or ""))
+        )
+        for x, y in точки:
+            решетка[(int(x // ако_клетка), int(y // ако_клетка))].append(индекс)
+
+    if not геометрия:
+        return [], []
+
+    попадения: Counter[str] = Counter()
+    контрола: Counter[str] = Counter()
+    примери: dict[str, list[str]] = defaultdict(list)
+    надписи = 0
+    for entity in records:
+        текст = str(entity.text or "").strip()
+        if not текст or not looks_like_rebar_text(текст):
+            continue
+        прочит = parse_rebar_text(текст)
+        дължина = getattr(прочит, "length_cm", None)
+        точка = _point(
+            (entity.geometry or {}).get("insert")
+            or (entity.geometry or {}).get("position")
+        )
+        if not дължина or точка is None:
+            continue
+        надписи += 1
+        цел = float(дължина)
+        контролна = цел + GEOMETRY_CONTROL_SHIFT_CM
+        gx, gy = int(точка[0] // ако_клетка), int(точка[1] // ако_клетка)
+        близки: set[int] = set()
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                близки.update(решетка.get((gx + dx, gy + dy), ()))
+        съвпаднали: set[str] = set()
+        съвпаднали_контрола: set[str] = set()
+        for индекс in близки:
+            слой, дълж, точки, handle = геометрия[индекс]
+            if min(math.dist(точка, върх) for върх in точки) > радиус:
+                continue
+            if _близки_дължини(дълж, цел):
+                съвпаднали.add(слой)
+                if len(примери[слой]) < SAMPLE_COUNT:
+                    примери[слой].append(handle)
+            elif _близки_дължини(дълж, контролна):
+                съвпаднали_контрола.add(слой)
+        for слой in съвпаднали:
+            попадения[слой] += 1
+        for слой in съвпаднали_контрола:
+            контрола[слой] += 1
+
+    proposals: list[ProfileProposal] = []
+    refusals: list[ProfileRefusal] = []
+    for слой, брой in попадения.most_common():
+        контролни = контрола[слой]
+        превес = брой / max(1, контролни)
+        counts = {
+            "annotations_with_length": надписи,
+            "local_length_matches": брой,
+            "control_matches": контролни,
+        }
+        if брой >= MIN_GEOMETRY_MATCHES and превес >= MIN_GEOMETRY_CONTROL_RATIO:
+            proposals.append(
+                ProfileProposal(
+                    target_kind="LAYER",
+                    layer=слой,
+                    role="REBAR_GEOMETRY",
+                    confidence=min(0.95, 0.7 + min(превес, 20.0) / 80.0),
+                    evidence=(
+                        f"{брой} надписа имат до себе си обект от този слой с точно "
+                        f"своята надписана дължина (до {радиус:.0f} единици); при "
+                        f"контролната проверка с изместена дължина — {контролни}"
+                    ),
+                    sample_handles=tuple(примери.get(слой, ())),
+                    counts=counts,
+                )
+            )
+        elif брой >= GEOMETRY_NEAR_MISS_MATCHES:
+            refusals.append(
+                ProfileRefusal(
+                    target_kind="LAYER",
+                    layer=слой,
+                    role="REBAR_GEOMETRY",
+                    reason=(
+                        f"само {брой} надписа намират дължината си тук"
+                        + (
+                            f", а контролата дава {контролни} — превесът "
+                            f"{превес:.1f}x не убеждава"
+                            if контролни
+                            else f" — под {MIN_GEOMETRY_MATCHES}"
+                        )
+                    ),
+                    counts=counts,
+                )
+            )
+    return proposals, refusals
+
+
 # --------------------------------------------------------------------------- #
 # помощни
+
+
+def _близки_дължини(измерена: float, цел: float) -> bool:
+    return abs(измерена - цел) <= max(1.0, цел * GEOMETRY_LENGTH_TOLERANCE)
+
+
+def _polyline_points(entity: DxfEntityRecord) -> list[tuple[float, float]]:
+    """Върховете на линеен обект, както екстракторът ги пази."""
+
+    geometry = entity.geometry or {}
+    for ключ in ("points", "vertices", "polyline_points"):
+        сурови = geometry.get(ключ)
+        if isinstance(сурови, list) and len(сурови) >= 2:
+            точки = [
+                точка
+                for точка in (_point(стойност) for стойност in сурови)
+                if точка is not None
+            ]
+            if len(точки) >= 2:
+                return точки
+    начало = _point(geometry.get("start"))
+    край = _point(geometry.get("end"))
+    if начало is not None and край is not None:
+        return [начало, край]
+    return []
 
 
 def _texts(records: Sequence[DxfEntityRecord]) -> list[tuple[DxfEntityRecord, str]]:

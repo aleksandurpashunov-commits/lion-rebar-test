@@ -228,6 +228,110 @@ def test_блок_без_диаметри_не_е_позиционен_надп�
     assert откази and "не изглежда позиционен надпис" in откази[0]["reason"]
 
 
+def _polyline(
+    handle: str,
+    layer: str,
+    начало: tuple[float, float],
+    дължина: float,
+) -> DxfEntityRecord:
+    return DxfEntityRecord(
+        handle=handle,
+        entity_type="LWPOLYLINE",
+        layer=layer,
+        geometry={
+            "points": [
+                [начало[0], начало[1], 0.0],
+                [начало[0] + дължина, начало[1], 0.0],
+            ]
+        },
+    )
+
+
+def _етикетирано_желязо(
+    брой: int,
+    *,
+    layer: str = "желязо",
+    нарисувана_дължина=None,
+    отстояние: float = 20.0,
+) -> list[DxfEntityRecord]:
+    """Надпис „NxØxL“ и до него прът, дълъг точно L (или колкото кажем)."""
+
+    записи: list[DxfEntityRecord] = []
+    for индекс in range(брой):
+        дължина = 200.0 + индекс * 10.0
+        y = 1000.0 * индекс
+        записи.append(
+            DxfEntityRecord(
+                handle=f"A{индекс}",
+                entity_type="TEXT",
+                layer="надписи",
+                geometry={"insert": [0.0, y, 0.0]},
+                text=f"{10 + индекс}N12x{дължина:.0f}",
+            )
+        )
+        нарисувана = дължина if нарисувана_дължина is None else нарисувана_дължина(дължина)
+        записи.append(_polyline(f"G{индекс}", layer, (отстояние, y), нарисувана))
+    return записи
+
+
+def test_армировъчният_слой_се_познава_по_дължината_до_надписа() -> None:
+    payload = propose_convention_profile(_етикетирано_желязо(6))
+
+    предложения = proposals_by_role(payload, "REBAR_GEOMETRY")
+    assert len(предложения) == 1
+    предложение = предложения[0]
+    assert предложение["layer"] == "желязо"
+    assert предложение["counts"]["local_length_matches"] == 6
+    assert предложение["counts"]["control_matches"] == 0
+    assert "контролна" in предложение["evidence"]
+
+
+def test_далечният_обект_не_прави_слоя_армировъчен() -> None:
+    """Измереният случай: слой с водопровод, чиито дължини случайно съвпадат.
+
+    Разликата е само в разстоянието — тръбата не стои до надписа.
+    """
+
+    записи = _етикетирано_желязо(6, layer="водопровод", отстояние=5000.0)
+
+    payload = propose_convention_profile(записи)
+
+    assert proposals_by_role(payload, "REBAR_GEOMETRY") == []
+
+
+def test_контролата_отказва_слой_без_превес() -> None:
+    """Слой, който съвпада и с изместената дължина, не убеждава."""
+
+    записи = _етикетирано_желязо(6, layer="съмнителен")
+    # до всеки надпис слагаме и обект с дължина + 13 cm (контролната мярка)
+    for индекс in range(6):
+        дължина = 200.0 + индекс * 10.0
+        записи.append(
+            _polyline(f"C{индекс}", "съмнителен", (40.0, 1000.0 * индекс), дължина + 13.0)
+        )
+
+    payload = propose_convention_profile(записи)
+
+    assert proposals_by_role(payload, "REBAR_GEOMETRY") == []
+    откази = [row for row in payload["refusals"] if row["role"] == "REBAR_GEOMETRY"]
+    assert откази and "не убеждава" in откази[0]["reason"]
+
+
+def test_стремето_не_дава_съвпадение_и_това_е_вярно() -> None:
+    """Надписът е разгънатата дължина, а формата е начертана на участъци.
+
+    Измерено в ``s-1`` и ``s-10``: нито един обект не е дълъг колкото надписа,
+    затова правилото мълчи, вместо да върже най-близкото.
+    """
+
+    записи = _етикетирано_желязо(6, нарисувана_дължина=lambda L: L / 4.0)
+
+    payload = propose_convention_profile(записи)
+
+    assert proposals_by_role(payload, "REBAR_GEOMETRY") == []
+    assert [row for row in payload["refusals"] if row["role"] == "REBAR_GEOMETRY"] == []
+
+
 def test_паспортът_никога_не_обявява_нещо_за_шум() -> None:
     """Той предлага роли; скриването на обект е промяна в инженерния резултат."""
 
