@@ -159,12 +159,17 @@ def build_batch_export_context(
     )
     if not frames:
         raise BatchAutoOutputError("Не са намерени чертожни рамки за автоматичния Excel.")
-    unknown_frames = [frame for frame in frames if frame.category_code == "UNKNOWN"]
-    if unknown_frames:
-        titles = ", ".join(frame.combined_title or f"рамка {frame.index}" for frame in unknown_frames)
-        raise BatchAutoOutputError(
-            "Има рамки с неопределена категория; автоматичният Excel е блокиран: " + titles
-        )
+    # Неопределената рамка е отказ за ПОЗИЦИИТЕ В НЕЯ, не за целия чертеж.
+    #
+    # Собственик, 20.09.2026, след измерването върху новите чертежи. Дотогава
+    # една рамка без категория вдигаше грешка за всичко: „KOFR_B“ има 43 листа,
+    # от които 6 с разпозната категория, и въпреки това нула от 2974 позиции
+    # минаваха; „S-SR+27,82“ намира вярно ГОРНА и ДОЛНА, но една трета рамка без
+    # заглавие обезсилваше и двете.
+    #
+    # Финалният контрол остава строг: той пази пълната спецификация и продължава
+    # да спира при неопределена рамка (``integrity`` -> ``FRAME_CATEGORY_UNRESOLVED``).
+    # Тоест разхлабва се автоматичното одобрение, а не производственият изход.
 
     entity_map = {str(record.handle): record for record in entities}
     frame_map = {frame.index: frame for frame in frames}
@@ -334,6 +339,14 @@ def build_batch_export_context(
         frame = frame_map.get(int(frame_index)) if frame_index is not None else None
         if frame is None:
             reasons.append(("MISSING_FRAME", "надписът не може да бъде свързан с чертожна рамка"))
+        elif frame.is_unknown:
+            reasons.append(
+                (
+                    "UNKNOWN_FRAME",
+                    "листът на надписа е с неопределена категория и чака "
+                    "операторско решение",
+                )
+            )
         elif frame.category_code == "BEAMS" and shape_code.startswith("F01"):
             reasons.append(
                 (
@@ -522,6 +535,9 @@ def build_batch_export_context(
             "Excel не е създаден, за да не изглежда празен файл като готова заявка."
         )
 
+    # Лист за неопределена рамка не се прави: в нея няма нито една автоматично
+    # одобрена позиция (блокер ``UNKNOWN_FRAME``), а празен лист „неопределен“
+    # изглежда като готова заявка, без да е.
     configs = tuple(
         ExportFrameConfig(
             frame_index=frame.index,
@@ -531,6 +547,7 @@ def build_batch_export_context(
             confirmed=frame.confidence == "HIGH",
         )
         for frame in frames
+        if not frame.is_unknown
     )
     return BatchExportContext(
         frames=tuple(frames),

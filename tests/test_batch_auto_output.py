@@ -354,3 +354,46 @@ def test_generic_production_block_keeps_its_real_reason(tmp_path: Path) -> None:
     blocker = next(item for item in context.blockers if item.annotation_handle == "T1")
     assert "AUTHORITATIVE_DIMENSION_SHAPE_INVALID" in blocker.reason_codes
     assert "F006_PRODUCTION_REVIEW" not in blocker.reason_codes
+
+
+def test_неопределената_рамка_блокира_само_своите_позиции(tmp_path: Path) -> None:
+    """Собственик, 20.09.2026: една рамка без категория да не спира целия чертеж.
+
+    Дотогава ``build_batch_export_context`` вдигаше грешка за ВСИЧКО, щом има
+    поне една неопределена рамка. Измерено: „KOFR_B“ има 43 листа, от които 6 с
+    разпозната категория, и въпреки това нула от 2974 позиции минаваха;
+    „S-SR+27,82“ намира вярно ГОРНА и ДОЛНА, но една трета рамка без заглавие
+    обезсилваше и двете.
+
+    Финалният контрол остава строг — той пази пълната спецификация.
+    """
+
+    entities = [
+        # лист 1: щемпел със заглавие -> ДОЛНА
+        DxfEntityRecord("FRAME1", "TEXT", "$Ramka", {"insert": [0, 0, 0]}, "ЧЕРТЕЖ:"),
+        DxfEntityRecord("TITLE1", "TEXT", "0", {"insert": [100, 0, 0]}, "ДОЛНА АРМИРОВКА"),
+        DxfEntityRecord("T1", "BLOCK_ATTR_TEXT", "ARM_TXT", {"insert": [100, 500, 0]}, "2N8x100"),
+        DxfEntityRecord("G1", "LINE", "ARM_Bars", {"start": [100, 500, 0], "end": [200, 500, 0]}),
+        # лист 2: щемпел БЕЗ заглавие -> неопределена категория
+        DxfEntityRecord("FRAME2", "TEXT", "$Ramka", {"insert": [10000, 0, 0]}, "ЧЕРТЕЖ:"),
+        DxfEntityRecord("T2", "BLOCK_ATTR_TEXT", "ARM_TXT", {"insert": [10100, 500, 0]}, "3N8x120"),
+        DxfEntityRecord("G2", "LINE", "ARM_Bars", {"start": [10100, 500, 0], "end": [10220, 500, 0]}),
+    ]
+    rows = [
+        _row("T1", "2N8x100", code="F001", count=2, length=100, handles=["G1"]),
+        _row("T2", "3N8x120", code="F001", count=3, length=120, handles=["G2"]),
+    ]
+    report = tmp_path / "batch.json"
+    report.write_text(json.dumps({"cancelled": False, "rows": rows}), encoding="utf-8")
+
+    context = build_batch_export_context(report, entities=entities, engine=_engine())
+
+    # позицията в разпознатия лист минава
+    assert [position.annotation_handle for position in context.positions] == ["T1"]
+    # позицията в неопределения лист е отказана, и то с точната причина
+    blocker = next(item for item in context.blockers if item.annotation_handle == "T2")
+    assert "UNKNOWN_FRAME" in blocker.reason_codes
+    # и лист „неопределен“ не се прави: празен лист изглежда като готова заявка
+    assert [config.category_code for config in context.frame_configs] == ["BOTTOM"]
+    assert context.actionable_count == 2
+    assert not context.complete
