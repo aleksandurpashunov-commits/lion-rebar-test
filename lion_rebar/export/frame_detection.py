@@ -349,6 +349,33 @@ def detect_drawing_frames(entities: Iterable[DxfEntityRecord]) -> list[DrawingFr
     ]
 
 
+def _anchored_sheet_category(record: DxfEntityRecord) -> str:
+    """Категория по ЗАКОТВЕН образец за заглавие на лист, или празно.
+
+    Същият прочит като в ``_detect_single_sheet_frame``: образците в
+    ``SINGLE_SHEET_TITLE_PATTERNS`` са закотвени в началото и нарочно изключват
+    бележки и общи споменавания на армировка.
+
+    ``classify_title`` е по-широк — търси ключовата дума КЪДЕТО И ДА Е в текста —
+    и затова не бива да избира кандидати за лист. Измерено: бележката
+    „колони, шайби и вътр.сут.стени от фундамент до покрив“ от „Сграда бета“
+    дава през него ``WALLS``/``HIGH``, тоест би станала лист „шайби“.
+    """
+
+    decoded = decode_dxf_text(record.text)
+    normalized = _normalize(decoded)
+    if not normalized or len(normalized) > 180 or "\n" in decoded:
+        return ""
+    return next(
+        (
+            category_code
+            for category_code, pattern in SINGLE_SHEET_TITLE_PATTERNS
+            if pattern.search(normalized)
+        ),
+        "",
+    )
+
+
 def _detect_title_only_frames(
     records: list[DxfEntityRecord],
     text_records: list[DxfEntityRecord],
@@ -385,13 +412,12 @@ def _detect_title_only_frames(
     for record in text_records:
         if _xy(record) is None:
             continue
+        категория = _anchored_sheet_category(record)
+        if not категория:
+            continue
         заглавие = decode_dxf_text(record.text).strip()
-        if not заглавие:
-            continue
-        категория, увереност = classify_title(заглавие)
-        if категория == "UNKNOWN" or увереност != "HIGH":
-            continue
-        кандидати.append((record, заглавие, категория))
+        if заглавие:
+            кандидати.append((record, заглавие, категория))
     if len(кандидати) < 2:
         return []
 
@@ -813,6 +839,17 @@ def classify_title(title: str, supporting_text: str = "") -> tuple[str, str]:
         normalized,
     ):
         return "VERTICALS", "HIGH"
+    # ШАЙБИ и КОЛОНИ бяха обявени на две други места в този модул -- имат свои
+    # листове в ``CATEGORY_SHEET_NAMES`` и свои образци в
+    # ``SINGLE_SHEET_TITLE_PATTERNS`` -- но липсваха тук. Затова заглавие
+    # „Армировка шайби“ оставаше UNKNOWN, а в „KOFR_B“ листовете „ЧЕРТЕЖ: ШАЙБИ
+    # 1-6“ и „ЧЕРТЕЖ: ТАБЛИЦА НА КОЛОНИТЕ“ не получаваха категория. Проверките
+    # са НАКРАЯ, за да не отнемат заглавие на вече работещите категории:
+    # „ДОЛНА АРМИРОВКА ПЛОЧА И ГРЕДИ“ остава BOTTOM, както досега.
+    if "ШАЙБ" in normalized:
+        return "WALLS", "HIGH"
+    if "КОЛОН" in normalized:
+        return "COLUMNS", "HIGH"
     return "UNKNOWN", "LOW"
 
 
