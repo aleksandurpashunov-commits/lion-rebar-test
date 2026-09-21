@@ -127,6 +127,9 @@ from lion_rebar.ui.export_worker import ExportWorker, PairedExportResult
 from lion_rebar.ui.entity_panel import EntityPanel
 from lion_rebar.ui.engineer_decision_dialog import EngineerDecisionDialog
 from lion_rebar.ui.geometry_candidates_dialog import GeometryCandidatesDialog
+from lion_rebar.project.convention_profile_decisions import (
+    policy_with_confirmed_profile,
+)
 from lion_rebar.ui.import_report import ImportReportDialog
 from lion_rebar.ui.layer_panel import LayerPanel
 from lion_rebar.ui.manual_form_assignment_dialog import ManualFormAssignmentDialog
@@ -1941,7 +1944,14 @@ class MainWindow(QMainWindow):
             approved_links=approved_links,
             shape_definitions=engine.shapes,
             control_tests=engine.tests,
-            policy=engine.settings,
+            # Политиката на engine-а, наслоена с потвърдения профил на
+            # чертежа: обявените от оператора слоеве влизат в
+            # разпознаването. Без профил се връща непроменена.
+            policy=policy_with_confirmed_profile(
+                engine.settings,
+                Path(self.project.root),
+                identity=data_identity,
+            ),
             engine_metadata={
                 "engine_id": engine.engine_id,
                 "engine_version": engine.version,

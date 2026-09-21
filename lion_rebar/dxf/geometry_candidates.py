@@ -3733,12 +3733,23 @@ def _rebar_geometry_layer_role(
     layer: str,
     policy: RecognitionPolicy | None = None,
 ) -> str | None:
+    resolved = policy or DEFAULT_RECOGNITION_POLICY
+    # Обявеният от оператора слой бие речника: декларацията е за ТОЗИ чертеж и
+    # е дадена от човек, видял доказателството (виж
+    # ``RecognitionPolicy.declared_rebar_geometry_layers``). Сравнява се цялото
+    # име, не подниз, за да не хване съседен слой по случайност.
+    declared = {
+        str(name).strip().upper()
+        for name in resolved.declared_rebar_geometry_layers
+        if str(name).strip()
+    }
+    if declared and str(layer or "").strip().upper() in declared:
+        return "DECLARED_REBAR_LAYER"
     normalized = (layer or "").upper().replace("_", " ").replace("-", " ")
     if _diameter_from_layer(layer) is not None:
         return "DIAMETER_LAYER"
     if any(keyword in normalized for keyword in _REBAR_LAYER_KEYWORDS):
         return "REBAR_LAYER"
-    resolved = policy or DEFAULT_RECOGNITION_POLICY
     words = tuple(re.findall(r"[A-ZА-Я0-9]+", normalized))
     aliases = tuple(
         str(alias).strip().upper()

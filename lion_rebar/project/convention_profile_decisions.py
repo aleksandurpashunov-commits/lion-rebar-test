@@ -20,28 +20,31 @@
 * профил от друг DXF или друга генерация **не се наследява** — ``load`` отказва
   при разминаване, точно както решенията за рамки.
 
-КАКВО ТОЗИ МОДУЛ НАРОЧНО НЕ ПРАВИ
----------------------------------
-Не обезсилва Финалния контрол. Днес потвърденият профил **не влиза в
-разпознаването** — нито един продуктов модул не го чете — затова записът му не
-мени нито едно инженерно число и обезсилването би било празна пречка. Това е
-пиннато с тест (``test_потвърждаването_днес_не_пипа_замразяването``).
+ПРОФИЛЪТ ВЛИЗА В РАЗПОЗНАВАНЕТО (от 21.09.2026)
+-----------------------------------------------
+``policy_with_confirmed_profile`` наслоява обявените слоеве върху политиката на
+engine-а, тоест профилът мени кои обекти се смятат за армировъчна геометрия.
+Затова потвърждаването е **production-impacting** и обезсилва Финалния контрол,
+точно както решението за категория на рамка.
 
-**Когато профилът влезе в разпознаването (стъпка 5 от Етап 2 в
-``docs/ROADMAP_PRODUCT_BG.md``), обезсилването става задължително** — тогава
-профилът мени резултата и стар Финален контрол не бива да остава валиден.
-Смяната да е нарочна, не случайна: тестът по-горе ще падне и ще принуди
-решение.
+Първата редакция на този модул нарочно НЕ обезсилваше нищо, защото профилът
+тогава не влизаше в разпознаването, и това беше заковано с тест-капан. Капанът
+се задейства при тази промяна и обезсилването е добавено нарочно, а тестът вече
+проверява него — а не обратното.
+
+Без профил, при празен профил или при чужда самоличност на данните политиката
+се връща НЕПРОМЕНЕНА: проект без профил работи точно както досега.
 """
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from lion_rebar.dxf.convention_profile import PROPOSABLE_ROLES
+from lion_rebar.dxf.recognition_policy import RecognitionPolicy
 from lion_rebar.project.data_identity import DataIdentity, mismatch_reason
 
 PROFILE_NAME = "convention_profile.json"
@@ -191,6 +194,28 @@ def record_convention_profile(
     if len(set(ключове)) != len(ключове):
         raise ConventionProfileError("Един и същ слой или блок има две решения.")
 
+    # Профилът влиза в разпознаването (``policy_with_confirmed_profile``),
+    # тоест мени кои обекти са армировъчна геометрия. Затова потвърждаването е
+    # production-impacting и стар Финален контрол не бива да остава валиден --
+    # същото правило като при решението за категория на рамка.
+    try:
+        from lion_rebar.project.final_control_lifecycle import invalidate_final_control
+
+        invalidate_final_control(
+            Path(project_root),
+            event="CONVENTION_PROFILE_DECISION",
+            actor=str(confirmed_by).strip() or "оператор",
+            note=(
+                "Потвърден профил на чертожната конвенция: "
+                + ", ".join(
+                    f"{решение.layer or решение.block_name} -> {решение.role or 'отхвърлен'}"
+                    for решение in подготвени
+                )
+            ),
+        )
+    except Exception:  # noqa: BLE001 - решението се записва дори при проблем тук
+        pass
+
     път = _profile_path(project_root)
     payload = {
         "schema": SCHEMA,
@@ -250,6 +275,60 @@ def confirmed_roles(payload: Mapping[str, Any] | None) -> dict[str, str]:
         if ключ:
             изход[ключ] = роля
     return изход
+
+
+def declared_layers_for_role(
+    payload: Mapping[str, Any] | None,
+    role: str,
+) -> tuple[str, ...]:
+    """Слоевете, потвърдени за дадена роля. Отхвърлените и блоковете не влизат."""
+
+    изход: list[str] = []
+    for ред in (payload or {}).get("decisions", []) or []:
+        if not isinstance(ред, dict):
+            continue
+        if str(ред.get("verdict") or "") == REJECTED:
+            continue
+        if str(ред.get("role") or "") != role:
+            continue
+        if str(ред.get("target_kind") or "LAYER") != "LAYER":
+            continue
+        слой = str(ред.get("layer") or "").strip()
+        if слой:
+            изход.append(слой)
+    return tuple(dict.fromkeys(изход))
+
+
+def policy_with_confirmed_profile(
+    settings: Any,
+    project_root: Path | str,
+    *,
+    identity: DataIdentity | None = None,
+) -> RecognitionPolicy:
+    """Политиката на engine-а, наслоена с обявените слоеве от профила.
+
+    Без потвърден профил, при празен профил или при чужда самоличност на
+    данните връща политиката НЕПРОМЕНЕНА — така поведението на всеки проект без
+    профил остава точно както досега.
+
+    Обявеното се ДОБАВЯ към политиката, не я замества: речникът на engine-а
+    продължава да важи, а декларацията само разширява какво се смята за
+    армировъчна геометрия в този чертеж.
+    """
+
+    policy = (
+        settings
+        if isinstance(settings, RecognitionPolicy)
+        else RecognitionPolicy.from_settings(settings)
+    )
+    payload = load_convention_profile(project_root, identity=identity)
+    слоеве = declared_layers_for_role(payload, "REBAR_GEOMETRY")
+    if not слоеве:
+        return policy
+    обединени = tuple(
+        dict.fromkeys((*policy.declared_rebar_geometry_layers, *слоеве))
+    )
+    return replace(policy, declared_rebar_geometry_layers=обединени)
 
 
 def _now() -> str:

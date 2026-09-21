@@ -115,6 +115,23 @@ class RecognitionPolicy:
         "ЕСОВ",
     )
 
+    # Слоеве, ОБЯВЕНИ от оператора като армировъчна геометрия за конкретния
+    # чертеж — потвърденият профил от паспорта
+    # (``project/convention_profile_decisions.py``). Празно по подразбиране,
+    # затова поведението без профил е непроменено.
+    #
+    # ЗАЩО. Речникът в ``geometry_candidates._rebar_geometry_layer_role``
+    # познава ARM, REBAR, BAR, STEEL, АРМ, АРМАТ, ЖЕЛЯЗ. Измерено 20.09.2026: в
+    # „S-SR-WALL_7_8_9“ и „S-SR+27,82“ прътите стоят на слой ``s-Reinf`` —
+    # дума, която речникът няма — и затова 786 от 805 и 299 от 329 позиции
+    # нямат нито един кандидат. Още една ключова дума би оправила този офис и
+    # би се счупила на следващия, който пише „Zhelezo“ или „Ferro“.
+    #
+    # Декларацията важи само за своя чертеж и идва от човек, който е видял
+    # доказателството (паспортът мери колко надписа намират точната си дължина
+    # на този слой). Затова е тук, а не в речника.
+    declared_rebar_geometry_layers: tuple[str, ...] = ()
+
     # Owner-approved resolver for the designer's C/S punching-rebar symbols.
     # In the DXF the ESove centreline has one tangent bend and therefore
     # normalizes to two visible straight parts.  The production F007 MASTER,

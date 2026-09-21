@@ -180,18 +180,31 @@ def test_отхвърлените_не_влизат_в_ролите(tmp_path: Pa
     assert роли == {"Колони": "REBAR_GEOMETRY"}
 
 
-def test_потвърждаването_днес_не_пипа_замразяването(tmp_path: Path) -> None:
-    """Пин на днешното поведение — и капан за деня, в който се промени.
+def test_потвърждаването_обезсилва_замразяването(tmp_path: Path) -> None:
+    """Профилът влиза в разпознаването, значи е production-impacting.
 
-    Профилът още НЕ влиза в разпознаването, затова записът му не мени инженерен
-    резултат и не бива да обезсилва Финалния контрол. Когато профилът започне да
-    се чете от разпознаването, този тест ще падне — и тогава обезсилването
-    трябва да се добави НАРОЧНО, а не да се появи случайно.
+    Капанът от първата редакция се задейства точно тук: докато профилът не
+    влизаше в разпознаването, записът му нарочно НЕ обезсилваше нищо. От
+    21.09.2026 ``policy_with_confirmed_profile`` мени кои обекти са армировъчна
+    геометрия, затова стар Финален контрол не бива да остава валиден.
     """
 
-    from lion_rebar.project.final_control_lifecycle import FREEZE_NAME, freeze_state
+    import json as _json
 
-    преди = freeze_state(tmp_path)
+    from lion_rebar.project.final_control_lifecycle import (
+        FREEZE_NAME,
+        STATUS_INVALID,
+        STATUS_VALID,
+        freeze_status,
+    )
+
+    работна = tmp_path / "working"
+    работна.mkdir(parents=True, exist_ok=True)
+    (работна / FREEZE_NAME).write_text(
+        _json.dumps({"status": STATUS_VALID}), encoding="utf-8"
+    )
+    assert freeze_status(tmp_path) == STATUS_VALID
+
     record_convention_profile(
         tmp_path,
         decisions=[_решение()],
@@ -199,5 +212,97 @@ def test_потвърждаването_днес_не_пипа_замразяв�
         identity=_identity(),
     )
 
-    assert freeze_state(tmp_path) == преди
-    assert not (tmp_path / "working" / FREEZE_NAME).exists()
+    assert freeze_status(tmp_path) == STATUS_INVALID
+    замразено = _json.loads((работна / FREEZE_NAME).read_text(encoding="utf-8"))
+    assert "CONVENTION_PROFILE_DECISION" in str(замразено.get("invalidated_reason"))
+    assert замразено.get("invalidated_by") == "Александър"
+
+
+def test_без_профил_политиката_остава_непроменена(tmp_path: Path) -> None:
+    from lion_rebar.dxf.recognition_policy import DEFAULT_RECOGNITION_POLICY
+    from lion_rebar.project.convention_profile_decisions import (
+        policy_with_confirmed_profile,
+    )
+
+    политика = policy_with_confirmed_profile(
+        DEFAULT_RECOGNITION_POLICY, tmp_path, identity=_identity()
+    )
+
+    assert политика == DEFAULT_RECOGNITION_POLICY
+    assert политика.declared_rebar_geometry_layers == ()
+
+
+def test_обявеният_слой_влиза_в_политиката(tmp_path: Path) -> None:
+    """Измереният случай: желязото стои на слой ``s-Reinf``."""
+
+    from lion_rebar.dxf.geometry_candidates import _rebar_geometry_layer_role
+    from lion_rebar.dxf.recognition_policy import DEFAULT_RECOGNITION_POLICY
+    from lion_rebar.project.convention_profile_decisions import (
+        policy_with_confirmed_profile,
+    )
+
+    assert _rebar_geometry_layer_role("s-Reinf", DEFAULT_RECOGNITION_POLICY) is None
+
+    record_convention_profile(
+        tmp_path,
+        decisions=[_решение(layer="s-Reinf")],
+        confirmed_by="Александър",
+        identity=_identity(),
+    )
+    политика = policy_with_confirmed_profile(
+        DEFAULT_RECOGNITION_POLICY, tmp_path, identity=_identity()
+    )
+
+    assert политика.declared_rebar_geometry_layers == ("s-Reinf",)
+    assert _rebar_geometry_layer_role("s-Reinf", политика) == "DECLARED_REBAR_LAYER"
+    # съседен слой с подобно име НЕ се хваща
+    assert _rebar_geometry_layer_role("s-Reinf-2", политика) is None
+
+
+def test_профил_от_друг_чертеж_не_мени_политиката(tmp_path: Path) -> None:
+    from lion_rebar.dxf.recognition_policy import DEFAULT_RECOGNITION_POLICY
+    from lion_rebar.project.convention_profile_decisions import (
+        policy_with_confirmed_profile,
+    )
+
+    record_convention_profile(
+        tmp_path,
+        decisions=[_решение(layer="s-Reinf")],
+        confirmed_by="Александър",
+        identity=_identity(),
+    )
+
+    политика = policy_with_confirmed_profile(
+        DEFAULT_RECOGNITION_POLICY, tmp_path, identity=_identity(source_sha256="друг")
+    )
+
+    assert политика.declared_rebar_geometry_layers == ()
+
+
+def test_отхвърленият_слой_не_влиза_в_политиката(tmp_path: Path) -> None:
+    from lion_rebar.dxf.recognition_policy import DEFAULT_RECOGNITION_POLICY
+    from lion_rebar.project.convention_profile_decisions import (
+        policy_with_confirmed_profile,
+    )
+
+    record_convention_profile(
+        tmp_path,
+        decisions=[
+            _решение(layer="s-Reinf"),
+            _решение(
+                layer="Plumbing",
+                verdict=REJECTED,
+                role="",
+                proposed_role="REBAR_GEOMETRY",
+                note="това е водопровод, не желязо",
+            ),
+        ],
+        confirmed_by="Александър",
+        identity=_identity(),
+    )
+
+    политика = policy_with_confirmed_profile(
+        DEFAULT_RECOGNITION_POLICY, tmp_path, identity=_identity()
+    )
+
+    assert политика.declared_rebar_geometry_layers == ("s-Reinf",)

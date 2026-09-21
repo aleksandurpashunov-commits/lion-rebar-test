@@ -52,6 +52,11 @@ PRODUCTION_IMPACTING_EVENTS: tuple[str, ...] = (
     "APPLY_TO_GROUP",
     "APPLY_TO_SIMILAR",
     "FRAME_CATEGORY_DECISION",
+    # Потвърденият профил на чертожната конвенция влиза в разпознаването
+    # (``RecognitionPolicy.declared_rebar_geometry_layers``), тоест мени кои
+    # обекти са армировъчна геометрия. Стар freeze след такава промяна не бива
+    # да остава валиден.
+    "CONVENTION_PROFILE_DECISION",
     "BEAM_ASSIGNMENT_CHANGED",
     "NEW_BATCH_ANALYSIS",
     "SOURCE_GENERATION_CHANGED",

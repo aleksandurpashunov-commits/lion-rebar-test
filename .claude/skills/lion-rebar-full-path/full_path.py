@@ -237,6 +237,9 @@ def run_chain(source: Path, target: Path, summary: dict[str, Any]) -> None:
     from lion_rebar.config.constants import APP_VERSION
     from lion_rebar.dxf.batch_geometry_report import count_batch_annotations
     from lion_rebar.dxf.importer import DxfImporter
+    from lion_rebar.project.convention_profile_decisions import (
+        policy_with_confirmed_profile,
+    )
     from lion_rebar.export.batch_auto_output import (
         BatchAutoOutputError,
         build_batch_export_context,
@@ -371,7 +374,11 @@ def run_chain(source: Path, target: Path, summary: dict[str, Any]) -> None:
         approved_links=approved_links,
         shape_definitions=engine.shapes,
         control_tests=engine.tests,
-        policy=engine.settings,
+        # Както в прозореца: политиката на engine-а, наслоена с
+        # потвърдения профил на чертежа (обявени слоеве).
+        policy=policy_with_confirmed_profile(
+            engine.settings, target, identity=identity,
+        ),
         engine_metadata={
             "engine_id": engine.engine_id,
             "engine_version": engine.version,
