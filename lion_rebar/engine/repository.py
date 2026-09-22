@@ -134,8 +134,27 @@ class EngineRepository:
         return EnginePackage.from_dict(read_json(path))
 
     def list_drafts(self) -> list[EngineVersionInfo]:
+        """Черновите, подредени по ВЕРСИЯ — последната е най-новата.
+
+        Дотук се сортираше по име на файл, тоест като низ. При десет чернови
+        подредбата ставаше 0.3.1, 0.3.12, 0.3.15, 0.3.16, 0.3.2 … 0.3.7,
+        защото знакът „7“ е след „1“. ``EngineStudio`` отваря последната
+        (``drafts[-1]``) и затова показваше **0.3.7** вместо най-скорошната.
+
+        Намерено 22.09.2026: собственикът роди форма от случай, черновата
+        0.3.16 се записа вярно, а Studio отвори 0.3.7 и формата „я нямаше“.
+        """
+
+        def по_версия(path: Path) -> tuple:
+            стъбло = path.name[: -len(".draft.json")]
+            версия = стъбло.rsplit("_v", 1)[-1] if "_v" in стъбло else стъбло
+            части = []
+            for къс in версия.split("."):
+                части.append((0, int(къс)) if къс.isdigit() else (1, къс))
+            return (tuple(части), path.name)
+
         result: list[EngineVersionInfo] = []
-        for path in sorted(self.drafts_dir.glob("*.draft.json")):
+        for path in sorted(self.drafts_dir.glob("*.draft.json"), key=по_версия):
             try:
                 engine = EnginePackage.from_dict(read_json(path))
             except Exception:

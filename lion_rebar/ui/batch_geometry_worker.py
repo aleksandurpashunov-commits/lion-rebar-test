@@ -18,6 +18,26 @@ from lion_rebar.export.auto_approval import (
 from lion_rebar.engine.models import EnginePackage, ShapeDefinition
 from lion_rebar.project.data_identity import DataIdentity
 from lion_rebar.project.models import ProjectModel
+from lion_rebar.utils.app_paths import AppPaths
+
+
+def _local_checkpoint_parent() -> Path | None:
+    """Локална папка за междинния ``progress.json``.
+
+    Прозорецът пише отчетите в ``LION_REBAR_CLOUD`` — на собственика това е
+    Google Drive. Междинната точка се презаписва цяла на всеки 10 надписа и
+    при 3 006 надписа сборът е около 16 GB през стриймващата файлова система
+    (измерено на „т-1“, 21.09.2026). Крайните файлове остават в облака;
+    местим само работната точка.
+
+    При липсваща папка с данни се връща ``None`` и поведението е старото —
+    анализът не бива да пада заради мястото на едно работно досие.
+    """
+
+    try:
+        return AppPaths.default().root / "batch_progress"
+    except Exception:  # noqa: BLE001
+        return None
 
 
 @dataclass(frozen=True)
@@ -108,6 +128,7 @@ class BatchGeometryWorker(QObject):
                 checkpoint_every=10,
                 skip_approved=True,
                 operator_areas=self._operator_areas,
+                checkpoint_parent=_local_checkpoint_parent(),
             )
         except Exception as exc:
             self.failed.emit(str(exc), traceback.format_exc())
