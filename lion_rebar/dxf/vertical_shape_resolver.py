@@ -32,6 +32,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Sequence
 
+from lion_rebar.engine.bend_allowance import segments_match_total
+
 #: Радиус, в който котировка се смята за принадлежаща на позицията.
 DIMENSION_RADIUS = 260.0
 
@@ -229,6 +231,45 @@ def _read_stirrup(values, distance_of, length_cm, preferred_hook=None,
     return best
 
 
+def _printed_pair_with_bend_allowance(values, distance_of, length_cm: float):
+    """Двата НАДПИСАНИ размера при F004, когато остатъкът е добавка за огъване.
+
+    Досега вторият размер се изчисляваше като ``L - първия`` и в описа
+    влизаше рамо, каквото в чертежа няма: при ``28N12x455`` се получаваше
+    440 + 15, докато проектантът е начертал 440 и 13. Собственик,
+    21.09.2026: „задавайки правото и куката останалото да остава за
+    огъвката“.
+
+    Остатъкът се приема само по правилото за закръгляне
+    (``engine.bend_allowance``), не по плосък таван.
+
+    ОТКАЗ ПРИ ДВЕ СЪВПАДЕНИЯ: ако две различни двойки надписани размери
+    минават правилото и по-близката не е ЯВНО по-близка, не се връща нищо —
+    позицията отива при оператора. Близост не е принадлежност.
+    """
+
+    qualified: list[tuple[float, float, float]] = []
+    for first, second in itertools.permutations(values, 2):
+        if first <= second:
+            continue
+        total = first + second
+        if abs(total - length_cm) <= EXACT_TOLERANCE:
+            continue  # точното затваряне вече е намерено по друг път
+        if not segments_match_total("F004", total, length_cm,
+                                    tolerance=EXACT_TOLERANCE):
+            continue
+        span = (distance_of.get(first, DIMENSION_RADIUS)
+                + distance_of.get(second, DIMENSION_RADIUS))
+        qualified.append((span, first, second))
+    if not qualified:
+        return None
+    qualified.sort()
+    if len(qualified) > 1 and qualified[1][0] < qualified[0][0] * 2:
+        return None
+    span, first, second = qualified[0]
+    return first, second, span
+
+
 def derive_shape(point, dimensions, length_cm: float,
                  expected_shape: str | None = None,
                  preferred_hook: float | None = None,
@@ -294,6 +335,16 @@ def derive_shape(point, dimensions, length_cm: float,
             solutions.append((3 - measured([first, second]),
                               distance_of.get(first, DIMENSION_RADIUS) + 25,
                               "F004", (first, second)))
+    # Само когато кодът НАКРАЯ ще е F004. При ``wanted`` F002 и F007 долният
+    # ред преозначава намереното (``code = wanted``), а F002 няма добавка за
+    # огъване: двойката би спечелила подредбата и после щеше да падне на
+    # MASTER проверката — позиция, която днес минава, щеше да се откаже.
+    if wanted not in ("F002", "F007"):
+        printed_pair = _printed_pair_with_bend_allowance(values, distance_of, length_cm)
+        if printed_pair is not None:
+            first, second, span = printed_pair
+            solutions.append((3 - measured([first, second]), span, "F004",
+                              (first, second)))
     if wanted:
         allowed = {"F007": {"F003", "F007"}, "F002": {"F004", "F002"}}.get(wanted, {wanted})
         solutions = [item for item in solutions if item[2] in allowed]

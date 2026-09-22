@@ -177,7 +177,8 @@ def _parameters_from_engine_definition(
 
     calculated = sum(lengths)
     tolerance = _shape_total_tolerance(shape)
-    if not segments_match_total(code, calculated, total, tolerance=tolerance):
+    if not segments_match_total(code, calculated, total, tolerance=tolerance,
+                                rounding_step=shape_bend_rounding_step(shape)):
         raise EngineShapeParameterError(
             f"{code}: Engine сегментите дават {calculated:g} cm, "
             f"а производствената L е {total:g} cm."
@@ -268,6 +269,39 @@ def _segment_tolerance(raw: object) -> float:
             if math.isfinite(value) and value >= 0:
                 return value
     return DEFAULT_LENGTH_TOLERANCE_CM
+
+
+def shape_bend_rounding_step(shape: ShapeDefinition) -> float | None:
+    """Стъпката за закръгляне, ОБЯВЕНА от самата форма, или ``None``.
+
+    ЗАЩО. Формата, родена от отказан случай, получава код, измислен при
+    създаването ѝ — той не може да стои в ``BEND_ROUNDING_SHAPES``, която е
+    константа. Затова формата носи стъпката си като ДАННИ в ``recognition``:
+
+        "bend_allowance": {"mode": "ROUND_UP", "step_cm": 5.0}
+
+    Същият модел, по който формата вече обявява допуска си
+    (``production_total_tolerance_cm``). Правилото остава в
+    ``engine.bend_allowance`` — тук се чете само дали важи и с каква стъпка.
+    ``mode`` различен от ``ROUND_UP`` не се тълкува: непозната политика е
+    отказ, не догадка.
+    """
+
+    for source in (shape.recognition, shape.rendering, shape.legacy_raw):
+        if not isinstance(source, dict):
+            continue
+        policy = source.get("bend_allowance")
+        if not isinstance(policy, dict):
+            continue
+        if str(policy.get("mode") or "").strip().upper() != "ROUND_UP":
+            continue
+        try:
+            step = float(policy.get("step_cm"))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(step) and step > 0:
+            return step
+    return None
 
 
 def _shape_total_tolerance(shape: ShapeDefinition) -> float:

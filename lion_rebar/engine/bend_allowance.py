@@ -24,13 +24,16 @@
 -------------------------------
 * недостиг до 8 cm при F006 (затворено стреме) -> приема се;
 * недостиг до 2.1 cm при F009 (отворено стреме с четири огъвки) -> приема се;
+* недостиг при F004/F012 до следващото кратно на 5 cm -> приема се;
 * недостиг над тавана за формата -> отказ (сгрешени размери);
 * НАДВИШАВАНЕ -> отказ при всяка форма (не е добавка, а грешка).
 
 Таваните са в ``BEND_ALLOWANCE_LIMITS_CM``; форма извън него няма добавка.
+Закръглянето е отделно правило -- ``BEND_ROUNDING_SHAPES``.
 """
 from __future__ import annotations
 
+import math
 from typing import Iterable
 
 #: Максимална добавка за огъване при затворено стреме.
@@ -69,6 +72,97 @@ BEND_ALLOWANCE_LIMITS_CM: dict[str, float] = {
 #: Запазено име за обратна съвместимост на вносителите.
 BEND_ALLOWANCE_SHAPES = frozenset(BEND_ALLOWANCE_LIMITS_CM)
 
+#: Стъпка, до която проектантът закръглява НАГОРЕ общата дължина на огъната
+#: форма.
+#:
+#: Измерено на 21.09.2026 по запазените пакетни отчети (само най-новият отчет
+#: за всеки проект, доверени съвпадения, без неразрешени криви):
+#:
+#: * прав прът F001 -- 177 позиции в "тест-001" и "d-2": недостиг НУЛА, нула
+#:   изключения. Правият прът НЕ се закръгля;
+#: * F004/F012 -- 36 позиции в същите два чертежа: всички с недостиг и всички
+#:   точно ``ceil(сбор / 5) * 5``, нула изключения.
+#:
+#: Разликата между двете групи е доказателството: недостигът Е добавката за
+#: огъване, а проектантът я изразява като закръгляне на общата дължина.
+#: Стойностите в "тест-001" са 2, 3 и 4 cm; в "d-2" 0,91-1,70 cm. Затова
+#: критерият е закръглянето, а не плосък таван: закръглянето приема 4,99 cm,
+#: когато това е целта, и ОТКАЗВА 2 cm, когато надписаното не е кратно на 5.
+#:
+#: Собственик, 21.09.2026, за ``11N8x115`` (начертани 100 + 12 при надпис 115):
+#: "задавайки правото и куката останалото да остава за огъвката".
+BEND_ROUNDING_STEP_CM = 5.0
+
+#: Форми БЕЗ добавка за огъване: правият прът няма какво да огъне.
+#:
+#: Измерено 21.09.2026: F001 дава недостиг НУЛА при 177 позиции в "тест-001" и
+#: "d-2", с нула изключения. Всяка форма С огъвка дава недостиг и той е точно
+#: закръгляне нагоре до кратно на 5 cm (42 от 42 при F004/F012/F003).
+STRAIGHT_SHAPES = frozenset({"F001"})
+
+#: Собственик, 22.09.2026: „оправи това с допуска +- няколко сантиметра при
+#: огъвките да се показва така, както е на чертежа, нищо че не съвпада 100%
+#: с общата дължина“.
+#:
+#: Дотук закръглянето важеше само за F004 и F012 — формите, за които имаше
+#: широка измерена популация. Случаят, който отвори въпроса, е F008 СТОЛЧЕ:
+#: надписаните 15 + 9 + 20 + 9 + 15 = 68 при обявени 70, а ``ceil(68/5)*5``
+#: дава точно 70. Второто му столче: 15 + 13 + 20 + 13 + 15 = 76 при 80.
+#:
+#: Затова правилото се обръща: важи за ВСЯКА форма с огъвка, а изключението е
+#: изброено. Асиметрията НЕ се мени — надвишаването си остава отказ при всяка
+#: форма, а недостиг, който не е цел на закръгляне, също.
+BEND_ROUNDING_SHAPES = frozenset({"F004", "F012"})
+
+
+def _rounding_applies(shape_code: str | None) -> bool:
+    """Има ли тази форма право на закръгляне.
+
+    Празен код значи „не се знае каква е формата“ — тогава нищо не се приема.
+    """
+
+    code = str(shape_code or "").strip().upper()
+    return bool(code) and code not in STRAIGHT_SHAPES
+
+
+def rounded_production_total(
+    shape_code: str | None,
+    segments_total: float,
+    *,
+    tolerance: float = 0.51,
+    rounding_step: float | None = None,
+) -> float | None:
+    """Дължината, която проектантът би написал при закръгляне нагоре до 5 cm.
+
+    ``None`` -- формата няма такова правило. Сбор, който ВЕЧЕ е кратен на 5,
+    сочи сам себе си: затова закръглянето не оправдава недостиг при кръгъл
+    размер (450 -> 450, а не 455).
+
+    ``rounding_step`` позволява формата да ОБЯВИ стъпката си, вместо да се
+    търси по код. Нужно е за форма, родена от случай: нейният код се измисля
+    при създаването ѝ и затова не може да стои в ``BEND_ROUNDING_SHAPES``.
+    Правилото остава тук -- обявява се само ДАЛИ важи, не как работи.
+    """
+
+    if rounding_step is None:
+        if not _rounding_applies(shape_code):
+            return None
+        step = BEND_ROUNDING_STEP_CM
+    else:
+        try:
+            step = float(rounding_step)
+        except (TypeError, ValueError):
+            return None
+        if step <= 0:
+            return None
+    try:
+        total = float(segments_total)
+    except (TypeError, ValueError):
+        return None
+    if total <= 0:
+        return None
+    return math.ceil((total - abs(float(tolerance))) / step) * step
+
 
 def allowance_for(shape_code: str | None) -> float:
     """Допустимият НЕДОСТИГ за дадена форма."""
@@ -83,11 +177,16 @@ def segments_match_total(
     production_total: float,
     *,
     tolerance: float = 0.51,
+    rounding_step: float | None = None,
 ) -> bool:
     """Приемлив ли е сборът на сегментите спрямо производствената дължина.
 
     ``tolerance`` е симетричният допуск за закръгляне; добавката за огъване
     се прилага ОТГОРЕ на него и само в посока недостиг.
+
+    ``rounding_step`` е за форма, родена от случай: тя обявява стъпката си в
+    дефиницията си (данни, не код) и я подава оттам. Асиметрията не се мени --
+    надвишаването остава отказ.
     """
 
     try:
@@ -96,7 +195,14 @@ def segments_match_total(
         return False
     if difference > tolerance:
         return False
-    return -(tolerance + allowance_for(shape_code)) <= difference
+    if -(tolerance + allowance_for(shape_code)) <= difference:
+        return True
+    target = rounded_production_total(shape_code, segments_total,
+                                      tolerance=tolerance,
+                                      rounding_step=rounding_step)
+    if target is None:
+        return False
+    return abs(target - float(production_total)) <= tolerance
 
 
 def explain_mismatch(
@@ -118,13 +224,31 @@ def explain_mismatch(
             f"общата дължина ({float(production_total):g} cm) с "
             f"{difference:g} cm."
         )
+    # Недостиг. Казват се ВСИЧКИ граници, които формата има: плоският таван
+    # (F006 = 8 cm, F009 = 2,1) и целта на закръглянето. След 22.09.2026
+    # закръглянето важи за почти всяка форма и ако то се изпишеше първо и
+    # само̀, съобщението за F006 спираше да споменава осемте сантиметра —
+    # точно това хвана ``test_explanation_names_the_real_problem``.
+    начало = (
+        f"Сборът на сегментите ({float(segments_total):g} cm) е по-малък от "
+        f"общата дължина ({float(production_total):g} cm) с {-difference:g} cm"
+    )
+    части: list[str] = []
     allowance = allowance_for(shape_code)
     if allowance:
-        return (
-            f"Сборът на сегментите ({float(segments_total):g} cm) е по-малък от "
-            f"общата дължина ({float(production_total):g} cm) с {-difference:g} cm "
-            f"— повече от допустимата добавка за огъване ({allowance:g} cm)."
+        части.append(
+            f"допустимата добавка за огъване е {allowance:g} cm"
         )
+    target = rounded_production_total(shape_code, segments_total,
+                                      tolerance=tolerance)
+    if target is not None:
+        части.append(
+            f"закръгляне нагоре до кратно на {BEND_ROUNDING_STEP_CM:g} cm сочи "
+            f"{target:g} cm, а надписаната дължина е "
+            f"{float(production_total):g} cm"
+        )
+    if части:
+        return начало + " — " + "; ".join(части) + "."
     return (
         f"Сборът на сегментите ({float(segments_total):g} cm) не съвпада с "
         f"общата дължина ({float(production_total):g} cm)."
