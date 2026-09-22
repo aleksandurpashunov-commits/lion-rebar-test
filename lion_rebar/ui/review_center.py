@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from lion_rebar.config.constants import APP_VERSION
+from lion_rebar.engine.shape_from_case import can_seed_new_shape
 from lion_rebar.project.data_identity import IDENTITY_KEY, DataIdentity
 from lion_rebar.project.non_production import (
     is_valid_non_production_decision,
@@ -297,6 +298,8 @@ class ReviewCenterDialog(QDialog):
     finalBulkConfirmationRequested = Signal(object)
     engineerDecisionRequested = Signal(object)
     formAssignmentRequested = Signal(object)
+    newShapeFromCaseRequested = Signal(object)
+    allNewShapesRequested = Signal(object)
     decisionRecorded = Signal(str, object)
     decisionsChanged = Signal()
     diagnosticExportRequested = Signal()
@@ -527,6 +530,30 @@ class ReviewCenterDialog(QDialog):
         )
         self.assign_form_button.clicked.connect(self._engineer_decision_current)
 
+        # Форма от отказан случай. Собственик, 22.09.2026, за кобилицата в
+        # `тест-001`: „много сложно се чертае в нашия конструктор форми; искам
+        # да мога да го маркирам и да го пусна за одобрение“. Бутонът не
+        # рисува нищо — подава готовата сигнатура на ``engine.shape_from_case``.
+        self.new_shape_button = QPushButton("Направи форма от този случай")
+        self.new_shape_button.setStyleSheet("font-weight:700; background:#fef3c7;")
+        self.new_shape_button.setToolTip(
+            "Ражда ЧЕРНОВА форма от геометрията на този случай и от всички "
+            "останали със същия образец в чертежа. Черновата никога не минава "
+            "автоматично одобрение."
+        )
+        self.new_shape_button.clicked.connect(self._new_shape_from_case_current)
+
+        # Всички семейства наведнъж. Собственик, 22.09.2026: „адски тромаво и
+        # бавно“ — церемонията беше на форма, а в един чертеж семействата са
+        # няколко.
+        self.all_shapes_button = QPushButton("Форми от този чертеж…")
+        self.all_shapes_button.setStyleSheet("font-weight:700; background:#fef3c7;")
+        self.all_shapes_button.setToolTip(
+            "Намира ВСИЧКИ семейства без MASTER форма в чертежа, показва силуета "
+            "и случаите зад всяко, и ги ражда в ЕДНА чернова."
+        )
+        self.all_shapes_button.clicked.connect(self._all_new_shapes)
+
         self.select_geometry_button = QPushButton("Избери друга геометрия")
         self.select_geometry_button.setStyleSheet("font-weight:700; background:#eef2ff;")
         self.select_geometry_button.setToolTip(
@@ -647,6 +674,8 @@ class ReviewCenterDialog(QDialog):
         expert_buttons = QGridLayout(self.expert_panel)
         expert_buttons.setContentsMargins(0, 0, 0, 0)
         expert_widgets = (
+            self.all_shapes_button,
+            self.new_shape_button,
             self.flag_button,
             self.reject_button,
             self.candidates_button,
@@ -1533,6 +1562,21 @@ class ReviewCenterDialog(QDialog):
             return
         self.formAssignmentRequested.emit(dict(row))
 
+    def _all_new_shapes(self) -> None:
+        self.allNewShapesRequested.emit(
+            {"rows": [dict(item) for item in self._rows]}
+        )
+
+    def _new_shape_from_case_current(self) -> None:
+        row = self.current_row()
+        if row is None:
+            return
+        # Подава се ЦЕЛИЯТ отчет: формата се ражда от всички случаи със
+        # същия образец, не от един. Броят им е и мярката за зрялост.
+        self.newShapeFromCaseRequested.emit(
+            {"row": dict(row), "rows": [dict(item) for item in self._rows]}
+        )
+
     def _approve_current(self) -> None:
         row = self.current_row()
         if row is None:
@@ -2226,6 +2270,8 @@ class ReviewCenterDialog(QDialog):
             "Редактирай инженерно решение" if approved else "Инженерно решение"
         )
         self.select_geometry_button.setEnabled(row is not None)
+        self.new_shape_button.setEnabled(can_seed_new_shape(row))
+        self.all_shapes_button.setEnabled(bool(self._rows))
         self.next_button.setEnabled(row is not None)
         geometry_progress = self._geometry_sample_progress()
         f006_progress = self._f006_sample_progress()

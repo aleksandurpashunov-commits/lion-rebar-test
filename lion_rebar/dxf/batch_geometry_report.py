@@ -168,6 +168,7 @@ def build_batch_geometry_report(
     checkpoint_every: int = 10,
     skip_approved: bool = True,
     operator_areas: Sequence[Any] = (),
+    checkpoint_parent: Path | None = None,
 ) -> BatchGeometryReportResult:
     """Analyze all valid annotations without blocking the Qt user interface.
 
@@ -176,6 +177,21 @@ def build_batch_geometry_report(
     are indexed once for the whole DXF. A checkpoint is written atomically after
     each chunk, and one bad annotation becomes an error row instead of aborting
     the complete report.
+
+    ``checkpoint_parent`` мести МЕЖДИННИЯ ``progress.json`` другаде. Крайните
+    файлове -- отчетът и ``progress_final.json`` -- винаги остават в
+    ``report_dir``.
+
+    ЗАЩО. Междинната точка е целият отчет дотук, записан наново с ``fsync``
+    на всеки ``checkpoint_every`` надписа. Измерено 21.09.2026 на „т-1“
+    (3 006 надписа): 300 записа, файлът расте до 108 MB, сборът е около 16 GB.
+    Когато ``report_dir`` е в Google Drive, тези 16 GB минават през
+    стриймващата файлова система. Същият по размер чертеж „KOFR_B“ през
+    ``full_path.py`` (локален запис) дава 6 435 s анализ.
+
+    Разходът е квадратичен по брой надписи, затова важи точно за големите
+    чертежи, където и без това боли. По подразбиране е ``None`` -- тогава
+    точката е в ``report_dir`` и поведението е непроменено.
     """
 
     generated_at = generated_at or datetime.now().astimezone()
@@ -188,6 +204,11 @@ def build_batch_geometry_report(
     safe_project = _safe_name(project_name or "LION_REBAR_PROJECT")
     report_dir = output_parent / f"{safe_project}_BATCH_REVIEW_{timestamp}"
     report_dir.mkdir(parents=True, exist_ok=False)
+    if checkpoint_parent is None:
+        checkpoint_dir = report_dir
+    else:
+        checkpoint_dir = Path(checkpoint_parent) / report_dir.name
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     approved_links = approved_links or {}
     resolved_policy = (
@@ -370,7 +391,7 @@ def build_batch_geometry_report(
             progress_callback(index, total_annotations, annotation.text or annotation.handle)
         if index % checkpoint_every == 0:
             _write_checkpoint(
-                report_dir,
+                checkpoint_dir,
                 project_name=project_name,
                 generated_at=generated_at,
                 total_annotations=total_annotations,
@@ -466,6 +487,7 @@ def build_batch_geometry_report(
     # котировките. Прилага се САМО върху позиции, останали в production
     # review след доказания път по-горе, и само при точно уравнение.
     _apply_dimension_derived_production_sizes(rows, entities)
+    _apply_born_from_case_production_sizes(rows, shape_definitions)
     # Owner-requested 2026-09-11 ("много позиции има за ръчно решение, това
     # не ми харесва"): surface the arm_koloni/arm_shaibi declared-shape
     # evidence as the operator's on-screen SUGGESTION, replacing whatever
@@ -694,6 +716,19 @@ def build_batch_geometry_report(
         final=True,
         data_identity=identity_payload,
     )
+
+    # Крайната точка е записана: междинната вече не пази нищо. Чисти се САМО
+    # когато е в отделна папка, която сме направили ние -- в ``report_dir``
+    # ``progress.json`` е част от отчета и не се пипа.
+    if checkpoint_dir != report_dir:
+        stale = checkpoint_dir / "progress.json"
+        try:
+            stale.unlink(missing_ok=True)
+            if not any(checkpoint_dir.iterdir()):
+                checkpoint_dir.rmdir()
+        except OSError:
+            # Неуспешното чистене не е повод да се провали готов отчет.
+            pass
 
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(report_dir.rglob("*")):
@@ -2701,6 +2736,131 @@ def _explicit_square_stirrup(
     return [side, side, hook]
 
 
+#: Колко може да се разминат предложен участък и надписана кота, за да се
+#: смята, че котата Е този участък. Същият обсег като при раждането на форма
+#: от случай (``engine.shape_from_case.DIMENSION_SNAP_CM``).
+_SUGGESTION_PRINTED_TOLERANCE_CM = 1.2
+
+
+def _apply_born_from_case_production_sizes(
+    rows: list[dict],
+    shape_definitions: Sequence[Any],
+) -> int:
+    """Размерите на форма, РОДЕНА ОТ СЛУЧАЙ, се четат както е родена тя.
+
+    ЗАЩО. Формата от отказан случай се ражда, като отношенията от каноничната
+    сигнатура посочват коя НАДПИСАНА кота е кой участък
+    (``engine.shape_from_case``). Matcher-ът после я разпознава, но
+    производствените ѝ размери оставаха празни и портата спираше позицията с
+    ``MASTER_LENGTH_CHECK``.
+
+    Измерено на „тест-001“ след раждането на F020: и петте кобилици излизат
+    „СИЛЕН ПО ГЕОМЕТРИЯ“ с форма F020, а ``production_segments_cm`` е ``None``.
+    Двете ``2x3N14x210`` падат, защото начертаното (205,25) сочи закръгляне към
+    205, а надписът е 210 — докато надписаните 50/23/60 дават 206 и сочат 210.
+
+    Прилага се САМО върху форми, които носят ``born_from_case`` в дефиницията
+    си: те са родени с това правило и е редно да се мерят с него. Останалите
+    форми не се пипат.
+    """
+
+    from lion_rebar.engine.shape_from_case import (
+        ShapeFromCaseError,
+        parse_signature,
+        read_segment_values,
+    )
+
+    родени = {
+        str(shape.code or "").strip().upper()
+        for shape in (shape_definitions or ())
+        if isinstance(getattr(shape, "recognition", None), dict)
+        and bool(shape.recognition.get("born_from_case"))
+    }
+    if not родени:
+        return 0
+
+    попълнени = 0
+    for row in rows:
+        код = str(row.get("master_shape_code") or "").strip().upper()
+        if код not in родени or row.get("production_segments_cm"):
+            continue
+        if row.get("suggested_segments_cm"):
+            continue
+        try:
+            _closed, ratios, _angles = parse_signature(
+                str(row.get("canonical_signature") or "")
+            )
+        except ShapeFromCaseError:
+            continue
+        сурова = _positive_float(row.get("geometry_length_raw"))
+        if сурова is None:
+            continue
+        стойности = read_segment_values(
+            ratios, сурова, [
+                стойност
+                for стойност in (row.get("nearby_dimensions_cm") or ())
+                if isinstance(стойност, (int, float))
+            ],
+        )
+        if not стойности:
+            continue
+        # ПРЕДЛОЖЕНИЕ, не производствена стойност.
+        #
+        # ``validate_production_segment_evidence`` приема само изброени
+        # източници, всеки със своя проверка за принадлежност, и минава през
+        # ``master_engine_v031.parameters_from_segments`` — който познава само
+        # F001..F010 и отказва „Неподдържан MASTER код: F020“. Тоест родена
+        # форма не може да мине автоматично одобрение, докато гейтът не научи
+        # формите от ДЕФИНИЦИЯ. Дотогава тук не се твърди доказан размер:
+        # операторът вижда готовите числа и ги потвърждава с един клик.
+        row["suggested_shape_code"] = код
+        row["suggested_segments_cm"] = [round(float(v), 3) for v in стойности]
+        row["suggested_evidence"] = {
+            "source": "BORN_FROM_CASE_PRINTED",
+            "shape_code": код,
+            "segments": [round(float(v), 3) for v in стойности],
+        }
+        row["candidate_notes"] = [
+            *list(row.get("candidate_notes", [])),
+            (
+                f"{код}_BORN_FROM_CASE_SIZES: размерите са прочетени от "
+                "надписаните коти по същото правило, по което е родена "
+                "формата; остават предложение до одобрение от оператора"
+            ),
+        ]
+        попълнени += 1
+    return попълнени
+
+
+def _every_segment_is_printed(segments, printed) -> bool:
+    """Всеки предложен участък трябва да е НАДПИСАН в чертежа.
+
+    Без разпозната форма нищо не ограничава досмятането: уравнението приема
+    всяка близка кота и довършва остатъка наум. Реален случай (собственик,
+    22.09.2026, `тест-001`): за „4N14x310“ — прав прът, който той сам реши
+    като F001 с причина „липсва или не е необходима отделна геометрия“ —
+    предложението излизаше „F003 · 51 + 208 + 51“, където 51 е кота на
+    съседна фигура, а 208 е 310 − 2×51.
+    """
+
+    стойности = []
+    for item in printed or ():
+        try:
+            стойности.append(float(item))
+        except (TypeError, ValueError):
+            continue
+    if not стойности or not segments:
+        return False
+    for участък in segments:
+        try:
+            цел = float(участък)
+        except (TypeError, ValueError):
+            return False
+        if min(abs(цел - кота) for кота in стойности) > _SUGGESTION_PRINTED_TOLERANCE_CM:
+            return False
+    return True
+
+
 def _apply_dimension_derived_production_sizes(
     rows: list[dict],
     entities: Sequence[DxfEntityRecord],
@@ -2941,7 +3101,27 @@ def _apply_dimension_derived_production_sizes(
             hint = derive_shape(point_for_row, dimensions, declared_for_hint,
                                 preferred_hook=preferred_hook,
                                 preferred_gap=preferred_gap)
-            if hint is not None:
+            # ВСЕКИ участък да е НАДПИСАН. Без форма и без геометрия няма
+            # какво да ограничи досмятането: уравнението приема всяка близка
+            # кота и довършва остатъка наум.
+            #
+            # Реален случай (собственик, 22.09.2026, `тест-001`): за
+            # „4N14x310“ — прав прът, който той сам е решил като F001 с
+            # причина „липсва или не е необходима отделна геометрия“ —
+            # предложението излизаше „F003 · 51 + 208 + 51“. Петдесет и едно
+            # е кота на съседна фигура, а 208 е 310 − 2×51, тоест изчислено.
+            # Такова предложение изглежда точно и затова е по-опасно от
+            # никакво: операторът вижда три размера вместо въпрос.
+            #
+            # Позиция с разпозната форма НЕ минава оттук — там досмятането е
+            # ограничено от самата форма.
+            #
+            # Проверява се срещу САМИТЕ коти, не по ``computed_count``: при
+            # F004 то е ``3 − измерени`` и при две надписани дава 1, тоест не
+            # брои досметнатите.
+            if hint is not None and _every_segment_is_printed(
+                hint.segments, row.get("nearby_dimensions_cm")
+            ):
                 row["suggested_shape_code"] = hint.shape_code
                 row["suggested_segments_cm"] = list(hint.segments)
                 row["suggested_evidence"] = hint.to_dict()

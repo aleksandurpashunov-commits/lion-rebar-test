@@ -1887,6 +1887,26 @@ class MainWindow(QMainWindow):
             self._info("Вече се изпълнява пакетен анализ.")
             return
 
+        # Нова форма да влезе в този анализ, а не чак при следващото отваряне.
+        # Собственик, 22.09.2026: „когато направя нова форма, да може да се
+        # разпознава… в този чертеж“. Пренася се само добавка — проверката е
+        # същата и отказва при всяка промяна в съществуваща форма.
+        try:
+            добавени = self.project_manager.migrate_additive_engine(
+                self.project,
+                self.engine_repository.load_current(),
+                by="Пакетен анализ",
+            )
+        except Exception:  # noqa: BLE001 — анализът не бива да пада заради това
+            добавени = ()
+        if добавени:
+            self._refresh_engine_label()
+            self._info(
+                "Проектът е пренесен към engine с %d нови форми: %s.\n"
+                "Нищо съществуващо не е променяно."
+                % (len(добавени), ", ".join(добавени))
+            )
+
         output_parent = self._detect_cloud_review_folder()
         using_cloud = output_parent is not None
         if output_parent is None:
@@ -2187,7 +2207,8 @@ class MainWindow(QMainWindow):
             self._batch_progress = None
         self._error(
             "Пакетният анализ спря поради системна грешка. "
-            "Ако е създаден progress.json, междинните резултати са запазени.\n\n"
+            "Ако е създаден progress.json, междинните резултати са запазени "
+            "в папката с данни на приложението, подпапка batch_progress.\n\n"
             f"{message}"
         )
 
@@ -2413,6 +2434,8 @@ class MainWindow(QMainWindow):
         dialog.finalBulkConfirmationRequested.connect(self._review_final_confirm_rows)
         dialog.engineerDecisionRequested.connect(self._review_engineer_decision)
         dialog.formAssignmentRequested.connect(self._review_begin_form_assignment)
+        dialog.newShapeFromCaseRequested.connect(self._review_new_shape_from_case)
+        dialog.allNewShapesRequested.connect(self._review_all_new_shapes)
         dialog.decisionRecorded.connect(self._review_decision_recorded)
         dialog.decisionsChanged.connect(self._review_group_decisions_changed)
         dialog.diagnosticExportRequested.connect(self.create_ai_diagnostic_bundle)
@@ -3787,6 +3810,264 @@ class MainWindow(QMainWindow):
             },
         )
         self.statusBar().showMessage(f"Инженерното решение е записано: {path}", 12000)
+
+    def _review_all_new_shapes(self, payload: dict) -> None:
+        """Всички семейства без MASTER форма — в ЕДНА чернова.
+
+        Собственик, 22.09.2026: „адски тромаво и бавно“. Дотук всяка форма
+        искаше своя чернова, свое одобрение и свое публикуване; в един чертеж
+        семействата са няколко.
+
+        Пътят остава: черновата не влиза в производството, а одобрението и
+        публикуването са си отделни стъпки в Engine Studio.
+        """
+
+        from lion_rebar.engine.shape_from_case import (
+            ShapeFromCaseError,
+            build_draft_shape,
+            collect_cases,
+            propose_shape,
+        )
+        from lion_rebar.ui.new_shapes_dialog import NewShapesDialog
+
+        rows = list(payload.get("rows") or [])
+        project_name = str(getattr(self.project, "name", "") or "")
+        точки = self._block_points_by_handle()
+
+        семейства = collect_cases(rows, project_name=project_name,
+                                  points_by_handle=точки)
+        предложения: list[tuple[str, Any]] = []
+        откази: list[str] = []
+        engine = self.engine_repository.load_current()
+        следващ = self._next_free_shape_code(engine)
+        номер = int(следващ[1:])
+        for _ключ, случаи in sorted(семейства.items(), key=lambda kv: -len(kv[1])):
+            try:
+                предложения.append((f"F{номер:03d}", propose_shape(случаи)))
+                номер += 1
+            except ShapeFromCaseError as exc:
+                откази.append(str(exc))
+
+        if not предложения:
+            self._info(
+                "Няма семейство, от което да се роди форма.\n\n"
+                + ("\n".join(откази[:5]) if откази else
+                   "Всички позиции без форма нямат годна геометрия.")
+            )
+            return
+
+        dialog = NewShapesDialog(предложения, parent=self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        избрани = dialog.selected()
+        if not избрани:
+            return
+
+        try:
+            чернова = self.engine_repository.clone_current_to_draft(
+                self._next_draft_version(engine), created_by="Review Center"
+            )
+            имена = []
+            for код, име, предложение in избрани:
+                чернова.shapes.append(
+                    build_draft_shape(предложение, code=код, name=име)
+                )
+                имена.append(f"{код} „{име}“")
+            път = self.engine_repository.save_draft(чернова)
+        except ShapeFromCaseError as exc:
+            self._error(str(exc))
+            return
+        except Exception as exc:  # noqa: BLE001
+            self._error(f"Черновата не можа да се запише: {exc}")
+            return
+
+        QMessageBox.information(
+            self,
+            "Черновата е записана",
+            "В чернова %s влязоха %d форми:\n  %s\n\n"
+            "Всички са НЕАКТИВНИ и не минават автоматично одобрение. Отвори\n"
+            "MASTER → Engine Studio, пусни контролните тестове, одобри ги и\n"
+            "публикувай веднъж.\n\n%s"
+            % (чернова.version, len(избрани), "\n  ".join(имена), път),
+        )
+
+    def _block_points_by_handle(self) -> dict:
+        """Върховете на начертаните полилинии по handle.
+
+        С тях посоката на огъвките идва от чертежа, а не от нормализираната
+        сигнатура, която не пази накъде прескача прътът.
+        """
+
+        точки: dict[str, list] = {}
+        if self.import_result is None:
+            return точки
+        for запис in self.import_result.entities:
+            геометрия = запис.geometry or {}
+            върхове = геометрия.get("points") or геометрия.get("vertices")
+            if върхове:
+                точки[str(запис.handle)] = list(върхове)
+        return точки
+
+    def _review_new_shape_from_case(self, payload: dict) -> None:
+        """Ражда ЧЕРНОВА форма от отказан случай и от събратята му в чертежа.
+
+        Собственик, 22.09.2026, за кобилицата в `тест-001`: „много сложно се
+        чертае в нашия конструктор форми; искам да мога да го маркирам и да го
+        пусна за одобрение“.
+
+        Прозорецът не смята нищо — цялата работа е в
+        ``engine.shape_from_case``, което е покрито с тестове. Тук стоят само
+        въпросите към оператора и записът на черновата.
+
+        Черновата излиза НЕАКТИВНА. Пътят до производството остава непроменен:
+        Engine Studio -> контролни тестове -> одобрение -> публикуване.
+        """
+
+        from lion_rebar.engine.shape_from_case import (
+            ShapeFromCaseError,
+            build_draft_shape,
+            case_from_report_row,
+            collect_cases,
+            family_key,
+            propose_shape,
+        )
+
+        row = dict(payload.get("row") or {})
+        rows = list(payload.get("rows") or [])
+        project_name = str(getattr(self.project, "name", "") or "")
+
+        точки = self._block_points_by_handle()
+
+        случай = case_from_report_row(
+            row, project_name=project_name,
+            geometry_points=next(
+                (точки[str(h)] for h in (row.get("candidate_handles") or ())
+                 if str(h) in точки),
+                None,
+            ),
+        )
+        if случай is None:
+            self._error("Този случай няма годна геометрия за нова форма.")
+            return
+
+        ключ = family_key(случай)
+        семейства = collect_cases(rows, project_name=project_name,
+                                  points_by_handle=точки)
+        случаи = семейства.get(ключ) or [случай]
+
+        try:
+            предложение = propose_shape(случаи)
+        except ShapeFromCaseError as exc:
+            self._error(
+                "Форма не се ражда от този случай.\n\n"
+                f"{exc}\n\n"
+                "Размер не се извежда от измереното — проектантът трябва да го е "
+                "написал."
+            )
+            return
+
+        редове = "\n".join(
+            "    %s:  %s  ->  сбор %g cm при надпис %g cm"
+            % (
+                стойности.case.annotation_text,
+                ", ".join(
+                    f"{код}={стойност:g}"
+                    for код, стойност in sorted(стойности.parameter_values_cm.items())
+                ),
+                стойности.total_cm,
+                стойности.case.declared_length_cm,
+            )
+            for стойности in предложение.values
+        )
+        ъгли = ", ".join(f"{a:+g}°" for a in предложение.turn_angles_deg)
+        отговор = QMessageBox.question(
+            self,
+            "Нова форма от случай",
+            "Намерена е форма с %d участъка и образец %s.\n\n"
+            "Ъгли: %s\nУравнение: %s\n\n"
+            "Случаи в този чертеж (%d):\n%s\n\n"
+            "Да се роди ли ЧЕРНОВА форма от тях?"
+            % (
+                предложение.segment_count,
+                предложение.pattern,
+                ъгли,
+                предложение.equation,
+                предложение.case_count,
+                редове,
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if отговор != QMessageBox.StandardButton.Yes:
+            return
+
+        име, ok = QInputDialog.getText(
+            self, "Име на формата", "Как се казва тази форма:"
+        )
+        if not ok or not str(име).strip():
+            return
+
+        try:
+            engine = self.engine_repository.load_current()
+            код = self._next_free_shape_code(engine)
+            чернова = self.engine_repository.clone_current_to_draft(
+                self._next_draft_version(engine), created_by="Review Center"
+            )
+            форма = build_draft_shape(предложение, code=код, name=str(име))
+            чернова.shapes.append(форма)
+            път = self.engine_repository.save_draft(чернова)
+        except ShapeFromCaseError as exc:
+            self._error(str(exc))
+            return
+        except Exception as exc:  # noqa: BLE001
+            self._error(f"Черновата не можа да се запише: {exc}")
+            return
+
+        QMessageBox.information(
+            self,
+            "Черновата е записана",
+            "Формата %s „%s“ е записана в чернова %s.\n\n"
+            "Тя е НЕАКТИВНА и не минава автоматично одобрение. Отвори "
+            "MASTER -> Engine Studio, за да прегледаш силуета, да пуснеш "
+            "контролните тестове (%d от случаите) и да я одобриш.\n\n%s"
+            % (код, форма.name, чернова.version, len(форма.tests), път),
+        )
+
+    def _next_free_shape_code(self, engine) -> str:
+        """Първият свободен код. Оттеглените кодове НЕ се преизползват."""
+
+        заети = {
+            int(shape.code[1:])
+            for shape in engine.shapes
+            if str(shape.code or "").startswith("F") and shape.code[1:].isdigit()
+        }
+        номер = max(заети, default=9) + 1
+        return f"F{номер:03d}"
+
+    def _next_draft_version(self, engine) -> str:
+        """Първата версия, за която НЯМА вече чернова.
+
+        ``save_draft`` пише по име на файл, а името идва от версията. Ако се
+        върне версия, която вече има чернова, тя се презаписва мълчаливо —
+        чужда работа изчезва без въпрос. Затова заетите се прескачат.
+        """
+
+        # Заети са и черновите, И вече публикуваните: ``publish`` отказва
+        # номер, който вече е публикуван („Използвай нов номер“), а
+        # ``save_draft`` презаписва чернова със същото име. Гледането само на
+        # черновите оставяше и двата капана.
+        заети = {str(info.version) for info in self.engine_repository.list_drafts()}
+        заети |= {str(info.version) for info in self.engine_repository.list_published()}
+        части = str(engine.version or "0.0.0").split(".")
+        try:
+            последна = int(части[-1])
+        except (ValueError, IndexError):
+            return "0.0.1"
+        for стъпка in range(1, 1000):
+            кандидат = ".".join(части[:-1] + [str(последна + стъпка)])
+            if кандидат not in заети:
+                return кандидат
+        return ".".join(части[:-1] + [str(последна + 1)])
 
     def _review_begin_form_assignment(self, row: dict) -> None:
         """Open the explicit cyan selection mode before any manual assignment."""
@@ -5952,6 +6233,39 @@ class MainWindow(QMainWindow):
         )
         if not differences:
             return
+
+        # Добавена форма стига до ОТВОРЕНИЯ проект.
+        #
+        # Собственик, 22.09.2026: „искам, когато направя нова форма, да може да
+        # се разпознава или поне избира в този чертеж, а на следващия вече да
+        # си я има одобрена“.
+        #
+        # Пренася се само когато новият engine НЕ променя нищо, а единствено
+        # добавя — условието е проверимо форма по форма
+        # (``engine.additive_upgrade``). Тогава нито едно старо одобрение не
+        # може да смени смисъла си и закотвянето не пази нищо. Всеки друг
+        # случай минава по стария път: диалогът отдолу и ръчно решение.
+        добавени = self.project_manager.migrate_additive_engine(
+            self.project, current, by="Отваряне на проект"
+        )
+        if добавени:
+            self._refresh_engine_label()
+            self._session_project_event(
+                "ADDITIVE_ENGINE_MIGRATION",
+                {"to_version": current.version, "added_shapes": list(добавени)},
+            )
+            QMessageBox.information(
+                self,
+                "Проектът получи новите форми",
+                "Engine %s носи %d нови форми спрямо тази на проекта, а нито една\n"
+                "съществуваща не е променена: %s.\n\n"
+                "Проектът е пренесен към нея. Нищо не се връща за преглед —\n"
+                "старите решения са взети върху същите форми.\n\n"
+                "Пусни пакетен анализ, за да се разпознаят новите."
+                % (current.version, len(добавени), ", ".join(добавени)),
+            )
+            return
+
         # P0-4: не показвай "друга версия", когато версиите СЪВПАДАТ.
         # Реалното разминаване (id / version / SHA) се изписва точно.
         title = (

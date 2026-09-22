@@ -184,3 +184,53 @@ def test_известните_корекции_имат_по_един_път_з�
     assert len(previous) == 1
     assert previous[0].review_shape_codes == frozenset({"F003", "F005"})
     assert previous[0].from_versions == frozenset({"0.3.12", "0.3.13"})
+
+
+def test_празният_набор_НЕ_връща_нищо_за_преглед(tmp_path: Path) -> None:
+    """Празно множество значи „нищо“, не „подразбиращото се“.
+
+    Миграция, която само ДОБАВЯ форма, не мени самоличността на нито една
+    съществуваща — затова нищо не бива да се връща за преглед. Дотук
+    ``return_to_review_shape_codes or {"F003", "F005"}`` третираше празното
+    множество като неказано и мълчаливо връщаше F003/F005 за нов анализ.
+    """
+
+    root = Path(__file__).resolve().parents[1]
+    old, _m, _n = inspect_engine_bundle(
+        root / "engine_updates"
+        / "lion-rebar-master_v0.3.12_POSITION_KEY_F001_CALIBRATION_PRODUCTION_DRAFT.lionengine"
+    )
+    new, _m, _n = inspect_engine_bundle(
+        root / "engine_updates"
+        / "lion-rebar-master_v0.3.13_F003_F005_DISTINCT_CONTEXT_PRODUCTION_DRAFT.lionengine"
+    )
+    manager = ProjectManager()
+    project = manager.create_project(tmp_path, "Addition only", old)
+    manager.save_engine_snapshot(project, old)
+
+    approvals = Path(project.root) / "working" / "approved_geometry_links.json"
+    approvals.write_text(
+        json.dumps(
+            {
+                "schema": "lion-rebar-approved-links/v1",
+                "links": [
+                    {"annotation_handle": "A", "master_shape_code": "F003"},
+                    {"annotation_handle": "B", "master_shape_code": "F005"},
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    returned = manager.migrate_known_engine_snapshot(
+        project,
+        new,
+        allowed_from_versions={old.version},
+        reason="само добавена форма; нито една съществуваща не се мени",
+        return_to_review_shape_codes=set(),
+    )
+
+    assert returned == 0
+    payload = json.loads(approvals.read_text(encoding="utf-8"))
+    assert len(payload["links"]) == 2

@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSplitter,
+    QStyledItemDelegate,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -71,6 +72,31 @@ from lion_rebar.engine.test_runner import (
 from lion_rebar.engine.validation import has_errors, issue_summary, validate_engine
 from lion_rebar.ui.approval_dialogs import ApprovalDialog
 from lion_rebar.ui.shape_preview import ShapePreview
+
+
+class _ChoiceDelegate(QStyledItemDelegate):
+    """Клетка с избор от затворен списък вместо свободен текст.
+
+    Прочитът на таблицата остава текстов (``_cell``), затова нищо друго по
+    записа не се мени — сменя се само как стойността ВЛИЗА.
+    """
+
+    def __init__(self, choices, parent=None) -> None:
+        super().__init__(parent)
+        self._choices = tuple(str(value) for value in choices)
+
+    def createEditor(self, parent, option, index):  # noqa: N802 (Qt)
+        editor = QComboBox(parent)
+        editor.addItems(self._choices)
+        return editor
+
+    def setEditorData(self, editor, index) -> None:  # noqa: N802 (Qt)
+        стойност = str(index.data() or "").strip().upper()
+        позиция = editor.findText(стойност)
+        editor.setCurrentIndex(позиция if позиция >= 0 else 0)
+
+    def setModelData(self, editor, model, index) -> None:  # noqa: N802 (Qt)
+        model.setData(index, editor.currentText())
 
 
 class EngineStudio(QDialog):
@@ -404,6 +430,12 @@ class EngineStudio(QDialog):
         self.shape_closed = QCheckBox()
         self.shape_symmetric = QCheckBox()
         self.shape_mirror = QCheckBox()
+        # „Активна“ решава дали формата изобщо влиза в производството:
+        # ``active_production_shapes`` филтрира точно по нея. Дотук полето
+        # съществуваше в модела, но го нямаше на екрана — форма с
+        # ``active=False`` се публикуваше и после мълчаливо не се ползваше
+        # (така стои F010 и така излезе първата родена F020).
+        self.shape_active = QCheckBox()
         self.shape_locked_label = QLabel("—")
         self.shape_family = QLineEdit()
         self.shape_family.setPlaceholderText("напр. STAIR.LANDING")
@@ -434,6 +466,8 @@ class EngineStudio(QDialog):
         flags.addWidget(self.shape_symmetric)
         flags.addWidget(QLabel("Огледална допустима"))
         flags.addWidget(self.shape_mirror)
+        flags.addWidget(QLabel("Активна (влиза в производството)"))
+        flags.addWidget(self.shape_active)
         form.addRow("Свойства:", flags)
         form.addRow("Семейство:", self.shape_family)
         form.addRow("Alias на форма:", self.shape_alias)
@@ -467,6 +501,14 @@ class EngineStudio(QDialog):
         )
         self.segments_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.segments_table.horizontalHeader().setStretchLastSection(True)
+        # Посоката на огъвката се ИЗБИРА, не се пише. Собственик, 22.09.2026:
+        # „не ми харесва начина, по който оправям градусите“ — колоната беше
+        # свободен текст и сгрешена дума мълчаливо ставаше „надясно“ (виж
+        # ``shape_preview``: ``direction in {"LEFT", "НАЛЯВО"}``). Изборът маха
+        # цял клас тихи грешки; прочитът остава текстов и нищо друго не се мени.
+        self.segments_table.setItemDelegateForColumn(
+            5, _ChoiceDelegate(("NONE", "LEFT", "RIGHT"), self.segments_table)
+        )
         self.segments_table.itemChanged.connect(self._preview_from_editor)
 
         segment_buttons = QHBoxLayout()
@@ -566,6 +608,7 @@ class EngineStudio(QDialog):
         self.shape_closed.setChecked(shape.closed)
         self.shape_symmetric.setChecked(shape.symmetric)
         self.shape_mirror.setChecked(shape.mirror_allowed)
+        self.shape_active.setChecked(bool(shape.active))
         self.shape_locked_label.setText("ДА" if shape.locked else "НЕ")
         self.shape_family.setText(shape.family_id)
         self.shape_alias.setText(shape.alias_of or "")
@@ -608,7 +651,53 @@ class EngineStudio(QDialog):
         self._loading_form = False
         self._set_shape_editable(not shape.locked)
         self.shape_preview.set_shape(shape)
+        self._apply_preview_sample(shape)
         self._update_shape_preview_transform()
+
+    def _apply_preview_sample(self, shape: ShapeDefinition) -> None:
+        """Рисува формата с размерите на първия ѝ контролен тест.
+
+        ЗАЩО. ``ShapePreview`` взема дължините от ``set_production_values``
+        или от ``fixed_length_cm``. Studio дотук не подаваше нито едното, а
+        НИТО ЕДНА форма в публикувания engine няма фиксирани дължини — затова
+        прегледът винаги пишеше „L1 = липсва“ и чертаеше всички участъци
+        еднакво дълги. При симетрична форма това прави силует, който не прилича
+        на себе си.
+
+        Собственик, 22.09.2026, за родената „Кобилица“: „изобщо не изглежда
+        както трябва“.
+
+        Контролният тест е ДОКАЗАН размер, не пример: при форма, родена от
+        случай, той идва от самия чертеж. Без тест поведението е старото.
+        """
+
+        размери: list[float] = []
+        общо: float | None = None
+        източник = ""
+        for тест in shape.tests or ():
+            if not isinstance(тест, dict):
+                continue
+            стойности = тест.get("segment_lengths_cm")
+            if not isinstance(стойности, (list, tuple)) or len(стойности) != len(shape.segments):
+                continue
+            try:
+                размери = [float(v) for v in стойности]
+            except (TypeError, ValueError):
+                размери = []
+                continue
+            try:
+                общо = float(тест.get("production_length_cm"))
+            except (TypeError, ValueError):
+                общо = sum(размери)
+            източник = str(тест.get("annotation_text") or тест.get("id") or "")
+            break
+        if not размери:
+            return
+        self.shape_preview.set_production_values(
+            размери,
+            total_length_cm=общо,
+            status_text=f"по контролен тест {източник}".strip(),
+        )
 
     def _clear_form_editor(self) -> None:
         self._loading_form = True
@@ -635,6 +724,7 @@ class EngineStudio(QDialog):
             self.shape_closed,
             self.shape_symmetric,
             self.shape_mirror,
+            self.shape_active,
             self.shape_family,
             self.shape_alias,
             self.shape_relations,
@@ -927,7 +1017,7 @@ class EngineStudio(QDialog):
             state=self.shape_state.currentText(),
             revision=base.revision,
             locked=False,
-            active=base.active,
+            active=self.shape_active.isChecked(),
             initial_direction=self.shape_initial_direction.currentText(),
             closed=self.shape_closed.isChecked(),
             symmetric=self.shape_symmetric.isChecked(),

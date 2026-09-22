@@ -211,6 +211,79 @@ class ProjectManager:
         self.save(project)
         return path
 
+    def migrate_additive_engine(
+        self,
+        project: ProjectModel,
+        engine: EnginePackage,
+        *,
+        by: str = "",
+    ) -> tuple[str, ...]:
+        """Пренася проекта към engine, който САМО добавя форми.
+
+        Собственик, 22.09.2026: „искам, когато направя нова форма, да може да
+        се разпознава или поне избира в този чертеж, а на следващия вече да си
+        я има одобрена“.
+
+        Проектът е закотвен за своя snapshot, за да се възпроизвежда стар
+        резултат и да не мени мълчаливо смисъла на минало одобрение. Това пази
+        нещо само когато формата, върху която е взето решението, се е
+        променила. Когато новият engine НЕ променя нищо, а само добавя, нито
+        едно старо одобрение не може да смени смисъла си — и закотвянето само
+        пречи.
+
+        Условието е ПРОВЕРИМО, не преценка: ``compare_for_additive_upgrade``
+        сравнява всяка стара форма буква по буква и всички полета на пакета,
+        които влияят на разпознаването. Различие -> проектът си остава на своя
+        snapshot и се връща празен кортеж.
+
+        Нито едно одобрение не се връща за преглед: няма какво да се преглежда,
+        защото нищо съществуващо не се е променило. Старият snapshot остава в
+        ``master``; пренасянето се вписва в ``engine_migrations``.
+        """
+
+        from lion_rebar.engine.additive_upgrade import compare_for_additive_upgrade
+
+        if project.engine_version == engine.version:
+            return ()
+        текущ = self.load_project_engine(project)
+        if текущ is None:
+            return ()
+        изход = compare_for_additive_upgrade(текущ, engine)
+        if not изход.is_additive:
+            return ()
+
+        предишна = project.engine_version
+        self.save_engine_snapshot(project, engine)
+        migrations = list(project.extensions.get("engine_migrations") or [])
+        migrations.append(
+            {
+                "at": utc_now_iso(),
+                "kind": "ADDITIVE",
+                "from_version": предишна,
+                "to_version": engine.version,
+                "added_shapes": list(изход.added_shape_codes),
+                "returned_to_review": 0,
+                "by": by or "",
+            }
+        )
+        project.extensions["engine_migrations"] = migrations
+        self.save(project)
+        return изход.added_shape_codes
+
+    def load_project_engine(self, project: ProjectModel) -> EnginePackage | None:
+        """Закотвеният engine на проекта, или ``None``, ако няма/не се чете."""
+
+        relative = str(project.extensions.get("engine_snapshot") or "").strip()
+        if not relative:
+            return None
+        path = Path(project.root) / relative
+        if not path.is_file():
+            return None
+        try:
+            return EnginePackage.from_dict(read_json(path))
+        except Exception:  # noqa: BLE001
+            return None
+
     def migrate_known_engine_snapshot(
         self,
         project: ProjectModel,
@@ -233,9 +306,16 @@ class ProjectManager:
         версията под нея. Виж ``docs/ENGINE_UPGRADE_AND_APPROVAL_BG.md``.
         """
 
+        # ``None`` значи „не е казано“ и пада на старата поправка. ПРАЗНО
+        # множество значи „нищо не се връща за преглед“ и трябва да се уважи:
+        # такава е миграцията, която само ДОБАВЯ форма — нито една
+        # съществуваща не сменя самоличност. Дотук ``or`` третираше двете
+        # еднакво и празното мълчаливо връщаше F003/F005 за преглед.
+        източник = ({"F003", "F005"} if return_to_review_shape_codes is None
+                    else return_to_review_shape_codes)
         affected_codes = {
             str(code).strip().upper()
-            for code in (return_to_review_shape_codes or {"F003", "F005"})
+            for code in източник
             if str(code).strip()
         }
 
