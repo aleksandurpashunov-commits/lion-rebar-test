@@ -10,9 +10,16 @@ from lion_rebar.dxf.text_normalization import decode_dxf_text, normalize_for_mat
 from lion_rebar.dxf.text_parser import looks_like_rebar_text
 
 
-# Ключови думи за заглавие на рамка (използват се и в основния прозорец,
-# и във fallback-а, за да няма два различни речника).
-TITLE_TOKENS = ("АРМИРОВ", "ДЕТАЙЛ", "ГРЕД", "ДОЛНА", "ГОРНА", "ВЕРТИКАЛ")
+# Ключови думи за заглавие на рамка. Ползват се в основния прозорец; fallback-ът
+# има свой, ПО-СТРОГ речник (виж ``FALLBACK_TITLE_TOKENS`` и мотива там).
+#
+# „АРМИР“, не „АРМИРОВ“: измерено 2026-09-21 върху истинския чертеж на трети
+# офис (`S-SR-WALL_7_8_9.dxf`) — заглавието е „АРМИРАНЕ НА ШАЙБА 7“, стои на
+# dx = 211,1 / dy = -10,2 от маркера „ЧЕРТЕЖ“, тоест ВЪТРЕ в доказания прозорец,
+# и ``classify_title`` го чете като („WALLS“, „HIGH“). Спираше го единствено
+# словоформата: речникът познаваше „армировка“, но не „армиране“. Коренът
+# покрива и двете, без да се мести нито един праг — близостта не се разхлабва.
+TITLE_TOKENS = ("АРМИР", "ДЕТАЙЛ", "ГРЕД", "ДОЛНА", "ГОРНА", "ВЕРТИКАЛ")
 
 # ``ЧЕРТЕЖ`` inside a note is not a title-block marker.  Real title blocks
 # use the dedicated label ``ЧЕРТЕЖ:``.  The previous substring search also
@@ -82,11 +89,30 @@ FALLBACK_RADIUS_MIN = 200.0
 #   "АРМИРОВКА ГРЕДИ НА КОТА +11,90".
 # Височината на текста НЕ е надежден дискриминатор (бележката е 27.3,
 # колкото е и височината на маркер), затова разделяме по речник.
-FALLBACK_TITLE_TOKENS = ("АРМИРОВ", "ДЕТАЙЛ")
+# Коренът „АРМИР“ (не „АРМИРОВ“) по същата причина като в ``TITLE_TOKENS``:
+# словоформата „армиране“ е също толкова законна, колкото „армировка“.
+FALLBACK_TITLE_TOKENS = ("АРМИР", "ДЕТАЙЛ")
 
 # Ако два кандидата на близко разстояние дават РАЗЛИЧНА категория,
 # рамката се обявява за двусмислена и отива при оператора.
 FALLBACK_AMBIGUITY_RATIO = 1.25
+
+# Номер на листа в антетката: „ЧЕРТ. :17/31“, „ЛИСТ 3/12“, „SHEET 4/9“.
+# Полето трябва да е НАЗОВАНО — голото „n/d“ е и размер („35/852“ за колона,
+# „15/300“ за отвор), затова само по себе си не е доказателство за лист.
+SHEET_NUMBER_RE = re.compile(
+    r"^(?:ЧЕРТ|ЛИСТ|SHEET|SH)\s*\.?\s*[:№]?\s*(\d{1,3})\s*/\s*(\d{1,3})$",
+    re.IGNORECASE,
+)
+
+# Два номера са най-малкото, което дели чертеж на листове.
+MIN_SHEET_NUMBERS = 2
+
+# Второто по близост заглавие трябва да е поне толкова пъти по-далеч.
+# Измерено в `ARM.2.R02`: честните двойки са на ~280–306 единици, второто
+# заглавие — на 5 867–8 022, тоест 19–26 пъти. Прагът е със запас и е същият
+# като ``MIN_GEOMETRY_CONTROL_RATIO`` в паспорта на чертежа.
+SHEET_NUMBER_TITLE_MARGIN = 4.0
 
 CATEGORY_ORDER = {
     "BOTTOM": 10,
@@ -208,6 +234,13 @@ def detect_drawing_frames(entities: Iterable[DxfEntityRecord]) -> list[DrawingFr
         by_title = _detect_title_only_frames(records, text_records)
         if by_title:
             return by_title
+        # Номерът на листа идва СЛЕД заглавията: пътят по заглавия иска
+        # различни категории и затова е по-строг. Идва ПРЕДИ единичния лист,
+        # защото няколко номерирани листа са по-силно доказателство от едно
+        # заглавие.
+        by_sheet_number = _detect_sheet_number_frames(records, text_records)
+        if by_sheet_number:
+            return by_sheet_number
         return _detect_single_sheet_frame(records, text_records)
     frames: list[DrawingFrame] = []
     for marker, inline_title in markers:
@@ -225,7 +258,10 @@ def detect_drawing_frames(entities: Iterable[DxfEntityRecord]) -> list[DrawingFr
             dy = y - my
             if 50.0 <= dx <= 1800.0 and -12.0 <= dy <= 15.0:
                 normalized = _normalize(record.text)
-                if any(token in normalized for token in ("АРМИРОВ", "ДЕТАЙЛ", "ГРЕД", "ДОЛНА", "ГОРНА")):
+                # Речникът е един (``TITLE_TOKENS``); дотук прозорецът носеше
+                # свой кортеж и константата стоеше неползвана, въпреки че
+                # коментарът ѝ твърдеше обратното.
+                if any(token in normalized for token in TITLE_TOKENS):
                     nearby.append((abs(dy) + dx / 10000.0, record))
             if 50.0 <= dx <= 1800.0 and -85.0 <= dy <= 25.0:
                 normalized = _normalize(record.text)
@@ -529,6 +565,195 @@ def _detect_title_only_frames(
     ]
     надписи = [точка for точка in надписи if точка is not None]
     for frame in с_ленти:
+        ниско = float(frame.x_min if frame.x_min is not None else 0.0)
+        високо = float(frame.x_max if frame.x_max is not None else 0.0)
+        if not any(ниско <= x <= високо for x, _y in надписи):
+            return []
+    return с_ленти
+
+
+def _detect_sheet_number_frames(
+    records: list[DxfEntityRecord],
+    text_records: list[DxfEntityRecord],
+) -> list[DrawingFrame]:
+    """Листове, познати по НОМЕРА на листа в антетката.
+
+    ЗАЩО. Измерено 2026-09-21 в `ARM.2.R02.dxf` („К-С-ПРОЕКТ ИНЖЕНЕРИНГ“, същият
+    офис като `тест-01`): цялата сграда е на един файл — седем нива по две
+    скари, 14 листа. Всеки носи „ЧЕРТ. :17/31“ и „Долна армировка на кота
+    +6,68“ на слой ``ANTETKA``. Пътят по заглавия отказва, защото иска толкова
+    РАЗЛИЧНИ категории, колкото са заглавията, а тук 14 заглавия дават две (7
+    долни + 7 горни). Това изискване е вярно и остава — то пази `h03_3902` от
+    два листа „детайли“ и 39 позиции на чужд лист. Затова тук не се разхлабва
+    проверка, а се ползва по-силно, НЕЗАВИСИМО доказателство.
+
+    ДОКАЗАТЕЛСТВОТО има четири части и всяка може да откаже:
+
+      * полето на антетката е назовано (``ЧЕРТ.``/``ЛИСТ``/``SHEET``) — голо
+        „n/d“ не е доказателство, защото такива са и размерите: измерено,
+        `S-SR-WALL_7_8_9` носи 24 числа „n/852“ (колони), `Тест-002` — 138 с
+        „/300“ (отвори);
+      * ЕДИН общ знаменател за целия чертеж — чертежът сам обявява колко листа
+        има; различни знаменатели значат, че полето не е номер на лист;
+      * всеки номер взима СВОЕТО най-близко заглавие с ясен превес над второто
+        (измерено: честните двойки са на ~280–306 единици, второто заглавие е
+        19–26 пъти по-далеч) и едно заглавие не се дава на два номера;
+      * лентите се режат от съдържанието и всяка ОЗАГЛАВЕНА лента трябва да
+        съдържа армировъчен надпис.
+
+    Номер без свое заглавие НЕ се досдвоява и НЕ се изхвърля: става неопределена
+    рамка. Изхвърлянето би оставило неговата площ без котва и позициите му биха
+    легнали на чужд лист — точно дефектът от `h03_3902`. Като неопределена рамка
+    те спират своите позиции (`UNKNOWN_FRAME`) и чакат оператора.
+    """
+
+    номера: list[tuple[DxfEntityRecord, int, int]] = []
+    for record in text_records:
+        if _xy(record) is None:
+            continue
+        match = SHEET_NUMBER_RE.match(_normalize(record.text))
+        if not match:
+            continue
+        знаменател = int(match.group(2))
+        if знаменател < 2:
+            continue
+        номера.append((record, int(match.group(1)), знаменател))
+    if len(номера) < MIN_SHEET_NUMBERS:
+        return []
+
+    знаменатели = {знаменател for _r, _n, знаменател in номера}
+    if len(знаменатели) != 1:
+        return []
+
+    заглавия = [
+        (record, decode_dxf_text(record.text).strip(), категория)
+        for record in text_records
+        if _xy(record) is not None
+        and (категория := _anchored_sheet_category(record))
+    ]
+    if not заглавия:
+        return []
+
+    # Сдвояване: първо най-късите двойки, за да не отнеме далечен номер
+    # заглавието на близкия. Заето заглавие не се дава втори път.
+    двойки: list[tuple[float, DxfEntityRecord, int, DxfEntityRecord, str, str]] = []
+    for record, номер, _знаменател in номера:
+        точка = _xy(record) or (0.0, 0.0)
+        разстояния = sorted(
+            (
+                math.dist(точка, _xy(заглавие) or (0.0, 0.0)),
+                заглавие,
+                текст,
+                категория,
+            )
+            for заглавие, текст, категория in заглавия
+        )
+        if not разстояния:
+            continue
+        най_близко = разстояния[0][0]
+        втори = разстояния[1][0] if len(разстояния) > 1 else float("inf")
+        if втори < най_близко * SHEET_NUMBER_TITLE_MARGIN:
+            # Две заглавия на сравнимо разстояние: не се избира вместо оператора.
+            continue
+        _d, заглавие, текст, категория = разстояния[0]
+        двойки.append((най_близко, record, номер, заглавие, текст, категория))
+
+    двойки.sort(key=lambda ред: ред[0])
+    взети: set[str] = set()
+    решени: dict[str, tuple[int, DxfEntityRecord, str, str, float]] = {}
+    for разстояние, record, номер, заглавие, текст, категория in двойки:
+        ключ = str(заглавие.handle or "")
+        if ключ in взети:
+            continue
+        взети.add(ключ)
+        решени[str(record.handle or "")] = (номер, заглавие, текст, категория, разстояние)
+    if not решени:
+        return []
+
+    сурови: list[DrawingFrame] = []
+    for record, номер, _знаменател in номера:
+        x, y = _xy(record) or (0.0, 0.0)
+        решение = решени.get(str(record.handle or ""))
+        if решение is None:
+            сурови.append(
+                DrawingFrame(
+                    index=0,
+                    marker_handle=str(record.handle or ""),
+                    anchor_x=x,
+                    anchor_y=y,
+                    title_text="",
+                    supporting_text="",
+                    category_code="UNKNOWN",
+                    suggested_sheet_name=CATEGORY_SHEET_NAMES["UNKNOWN"],
+                    confidence="LOW",
+                    resolution_reason="SHEET_NUMBER_NO_TITLE",
+                    marker_text_height=round(_text_height(record), 3),
+                )
+            )
+            continue
+        _номер, заглавие, текст, категория, разстояние = решение
+        сурови.append(
+            DrawingFrame(
+                index=0,
+                marker_handle=str(record.handle or ""),
+                anchor_x=x,
+                anchor_y=y,
+                title_text=текст,
+                supporting_text="",
+                category_code=категория,
+                suggested_sheet_name=CATEGORY_SHEET_NAMES[категория],
+                confidence="HIGH",
+                resolution_reason="SHEET_NUMBER_BAND",
+                title_handle=str(заглавие.handle or ""),
+                title_distance=round(float(разстояние), 3),
+                marker_text_height=round(_text_height(record), 3),
+            )
+        )
+
+    сурови.sort(key=lambda frame: (-round(frame.anchor_y / 500.0), frame.anchor_x))
+    наименувани: list[DrawingFrame] = []
+    ползвани: dict[str, int] = {}
+    for индекс, frame in enumerate(сурови, start=1):
+        база = frame.suggested_sheet_name
+        ползвани[база] = ползвани.get(база, 0) + 1
+        име = база if ползвани[база] == 1 else f"{база} {ползвани[база]}"
+        наименувани.append(replace(frame, index=индекс, suggested_sheet_name=име))
+
+    # Лентите по x са желани, но НЕ са задължителни. Измерено 2026-09-21 в
+    # `ARM.2.R02`: петнадесетте листа са в РЕШЕТКА — седем коти по y (разстлан
+    # 72 686) по две скари по x (разстлан 15 061), отношение 4,83 при праг 2,0.
+    # Затова ``_frame_bands`` отказва честно и връща ``None``.
+    #
+    # Отказът на лентите не бива да отменя доказателството за листове: същото
+    # прави и щемпелният път, където при ``None`` остава подреждането по
+    # най-близка котва — така минават `KOFR_B` (43 рамки) и `ARM HUS 2,3` (26).
+    # Лентите са уточнение за подредените в редица чертежи, не условие.
+    ленти = _frame_bands(records, наименувани)
+    if ленти is not None and len(ленти) != len(наименувани):
+        return []
+    if ленти is None:
+        return наименувани
+
+    с_ленти = [
+        replace(frame, x_min=ленти[frame.index][0], x_max=ленти[frame.index][1])
+        for frame in наименувани
+    ]
+
+    # Озаглавена лента без нито един армировъчен надпис е рамка върху празно
+    # място. Неопределената лента не се проверява: тя нарочно съществува само за
+    # да спре своите позиции.
+    надписи = [
+        точка
+        for точка in (
+            _xy(record)
+            for record in text_records
+            if looks_like_rebar_text(decode_dxf_text(record.text))
+        )
+        if точка is not None
+    ]
+    for frame in с_ленти:
+        if frame.is_unknown:
+            continue
         ниско = float(frame.x_min if frame.x_min is not None else 0.0)
         високо = float(frame.x_max if frame.x_max is not None else 0.0)
         if not any(ниско <= x <= високо for x, _y in надписи):
