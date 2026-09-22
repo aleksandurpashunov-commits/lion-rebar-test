@@ -90,6 +90,20 @@ class DxfImporter:
                     potential_rebar_texts += 1
 
             if entity_type == "INSERT":
+                разгънати = self._exploded_block_records(entity, record)
+                for вложен in разгънати:
+                    entities.append(вложен)
+                    counts[вложен.entity_type] += 1
+                    derived_entity_count += 1
+                    if вложен.text is not None:
+                        text_entities += 1
+                        if looks_like_rebar_text(вложен.text):
+                            potential_rebar_texts += 1
+                if разгънати:
+                    # Съдържанието вече се рисува само́: кръстчето 3x3 на
+                    # вмъкването (``drawing_view``) би стояло върху детайла и
+                    # би подсказвало, че там няма нищо.
+                    record.geometry["render_marker"] = False
                 derived = _rebar_annotation_from_insert_record(record)
                 if derived is not None:
                     record.geometry["render_marker"] = False
@@ -299,6 +313,70 @@ class DxfImporter:
             entities=entities,
             display_entities=proxy_display.records,
         )
+
+    #: Докъде се разгъват вложени блокове. Три нива стигат за чертежите,
+    #: които сме виждали, и пазят от безкрайна рекурсия при повреден файл.
+    MAX_BLOCK_DEPTH = 3
+
+    def _exploded_block_records(
+        self,
+        entity: Any,
+        insert_record: DxfEntityRecord,
+        *,
+        depth: int = 0,
+    ) -> list[DxfEntityRecord]:
+        """Съдържанието на един ``INSERT`` като отделни обекти.
+
+        ЗАЩО. Собственик, 22.09.2026: „невидимите геометрии“. Дотук ``INSERT``
+        се записваше като ЕДИН запис — точка на вмъкване, завъртане, мащаб и
+        атрибути — а съдържанието му не влизаше никъде. ``drawing_view`` го
+        рисува като кръстче 3x3, затова на екрана стоеше „+“ там, където в
+        AutoCAD има цял детайл.
+
+        Измерено на „Тест-003“ (1 530 обекта, 241 вмъквания): обекти, дошли
+        отвътре в блок — **нула**, а зад вмъкванията стоят **310 геометрични
+        обекта** (160 LWPOLYLINE, 102 LINE, 44 CIRCLE, 4 SPLINE). Само блокът
+        ``skr.gr.`` до надписа ``2x28N8x100`` носи 33 обекта, всичките на
+        армировъчни слоеве: ``ARM. gredi`` (8 кръга — сеченията на прътите),
+        ``ARM stremena`` (стремето), ``text arm. gredi``.
+
+        ``virtual_entities()`` връща съдържанието с ВЕЧЕ преобразувани
+        координати (завъртане, мащаб, вмъкване). Обектите нямат свой handle,
+        затова получават производен: ``<handle на вмъкването>::B<индекс>`` —
+        същият способ, по който вече се именуват изведените обекти. Така
+        връзката с чертежа се пази.
+
+        Отказът е тих по нужда: повреден или неподдържан блок не бива да
+        проваля целия импорт — тогава просто няма разгъване, както досега.
+        """
+
+        if depth >= self.MAX_BLOCK_DEPTH:
+            return []
+        try:
+            virtual = list(entity.virtual_entities())
+        except Exception:  # noqa: BLE001 — неподдържан/повреден блок
+            return []
+
+        родител = str(insert_record.handle or "")
+        записи: list[DxfEntityRecord] = []
+        for индекс, вложен in enumerate(virtual, start=1):
+            try:
+                запис = self._record_from_entity(вложен)
+            except Exception:  # noqa: BLE001
+                continue
+            запис.handle = f"{родител}::B{индекс}"
+            # Слой „0“ вътре в блок наследява слоя на вмъкването — така го
+            # рисува и AutoCAD.
+            if str(запис.layer or "").strip() in ("", "0"):
+                запис.layer = insert_record.layer
+            запис.raw["source_insert_handle"] = родител
+            запис.raw["source_block_name"] = insert_record.block_name
+            записи.append(запис)
+            if запис.entity_type == "INSERT":
+                записи.extend(
+                    self._exploded_block_records(вложен, запис, depth=depth + 1)
+                )
+        return записи
 
     def _record_from_entity(self, entity: Any) -> DxfEntityRecord:
         entity_type = entity.dxftype()

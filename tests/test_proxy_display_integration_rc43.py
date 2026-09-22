@@ -240,7 +240,15 @@ def test_r10_strict_engineering_and_batch_quantities_survive_display_dedup(
     assert summary.proxy_display_rendered_primitive_count == 1491
     assert summary.proxy_display_suppressed_duplicate_count == 1221
     assert summary.proxy_display_unsupported_primitive_count == 0
-    assert len(result.entities) == 1751
+    # 1751 -> 2504 на 22.09.2026: импортът вече разгъва съдържанието на
+    # блоковете (``DxfImporter._exploded_block_records``). Дотук ``INSERT`` се
+    # записваше като ЕДИН запис и геометрията вътре не съществуваше за
+    # анализа — собственикът я нарече „невидимите геометрии“. Числото расте с
+    # точно толкова, колкото са обектите в блоковете; всичко останало по този
+    # чертеж е непроменено, затова съседните твърдения тук стоят както са.
+    assert len(result.entities) == 2504
+    от_блок = [r for r in result.entities if (r.raw or {}).get("source_insert_handle")]
+    assert len(от_блок) == 2504 - 1751
     assert len(result.display_entities) == 1491
 
     strict_geometry = [
@@ -398,10 +406,10 @@ def test_r10_project_reopen_replaces_cache_without_accumulating_display_records(
     assert first_import.to_dict() == second_import.to_dict()
     assert first_display_ids == second_display_ids
     assert len(second_display_ids) == len(set(second_display_ids)) == 1491
-    assert len(second_import.entities) == 1751
+    assert len(second_import.entities) == 2504
     assert first_cache_bytes == second_cache_bytes
     cached_payload = _read_json(second_cache_path)
-    assert len(cached_payload["entities"]) == 1751
+    assert len(cached_payload["entities"]) == 2504
     assert len(cached_payload["display_entities"]) == 1491
     assert cached_payload["data_identity"] == before_identity.to_dict()
     assert _decision_bytes(copied_root) == before_decisions
