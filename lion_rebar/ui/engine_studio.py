@@ -223,6 +223,7 @@ class EngineStudio(QDialog):
             ("Нова празна чернова", self.new_empty_draft),
             ("Импорт MASTER HTML/XLSX", self.import_legacy_master),
             ("Импорт .lionengine", self.import_bundle),
+            ("Внеси форми от редактора", self.import_editor_drafts),
             ("Публикувай черновата", self.publish_draft),
             ("Активирай / върни версия", self.activate_selected_version),
             ("Експорт .lionengine", self.export_engine),
@@ -374,6 +375,64 @@ class EngineStudio(QDialog):
             self.refresh_versions()
         except EngineRepositoryError as exc:
             self._error(str(exc))
+
+    def import_editor_drafts(self) -> None:
+        """Форми, начертани в редактора, влизат в отворената чернова.
+
+        Собственик, 23.09.2026: „можем ли да направим такъв HTML, който аз да
+        запазя и от него да вкарваме формите, защото много добре ги рисува и
+        много лесно“.
+
+        Не се публикува и не се одобрява нищо: формите влизат като ЧЕРНОВИ с
+        контролен тест от начертаните размери. Пътят чернова -> тестове ->
+        одобрение -> публикуване остава непроменен.
+        """
+
+        if self.draft is None:
+            self._info(
+                "Няма отворена чернова. Създай чернова от активната версия и "
+                "пусни внасянето отново."
+            )
+            return
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Внеси форми от редактора",
+            "",
+            "Чернови на редактора (*.json)",
+        )
+        if not filename:
+            return
+
+        from lion_rebar.engine.draft_import import (
+            DraftImportError,
+            shapes_from_editor_package,
+        )
+
+        try:
+            payload = json.loads(Path(filename).read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            self._error(f"Файлът не може да бъде прочетен: {exc}")
+            return
+        try:
+            форми = shapes_from_editor_package(
+                payload,
+                taken_codes=[shape.code for shape in self.draft.shapes],
+            )
+        except DraftImportError as exc:
+            # Отказът е по цялото — не се внася половин пакет.
+            self._error(str(exc))
+            return
+
+        self.draft.shapes.extend(форми)
+        self._refresh_form_list(форми[0].code)
+        имена = "\n  ".join(f"{ф.code} „{ф.name}“" for ф in форми)
+        self._info(
+            "В черновата влязоха %d форми:\n  %s\n\n"
+            "Всички са ЧЕРНОВИ (state=DRAFT) и затова не се разпознават:\n"
+            "матчърът индексира само одобрени форми. Пусни контролните\n"
+            "тестове, одобри всяка форма и публикувай веднъж."
+            % (len(форми), имена)
+        )
 
     def publish_draft(self) -> None:
         if self.draft is None:
