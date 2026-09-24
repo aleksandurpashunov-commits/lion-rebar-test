@@ -51,6 +51,29 @@ def test_releasnite_dokumenti_za_tazi_versiya_sushtestvuvat() -> None:
     assert (КОРЕН / f"WINDOWS_ACCEPTANCE_{кратка}.md").is_file()
 
 
+def test_manifestut_nosi_sushtata_versiya() -> None:
+    данни = json.loads((КОРЕН / "SHA256_MANIFEST.json").read_text(encoding="utf-8"))
+    assert данни["version"] == f"v{APP_VERSION}"
+
+
+def test_manifestut_kazva_ot_koy_komit_e() -> None:
+    """Без комит манифестът е списък със суми, не релийз."""
+
+    данни = json.loads((КОРЕН / "SHA256_MANIFEST.json").read_text(encoding="utf-8"))
+    assert re.fullmatch(r"[0-9a-f]{40}", str(данни.get("commit", ""))), данни.get("commit")
+
+
+def test_manifestut_ne_hashira_sebe_si() -> None:
+    данни = json.loads((КОРЕН / "SHA256_MANIFEST.json").read_text(encoding="utf-8"))
+    assert "SHA256_MANIFEST.json" not in данни["files"]
+
+
+def test_manifestut_sochi_dokazatelstvata_si() -> None:
+    данни = json.loads((КОРЕН / "SHA256_MANIFEST.json").read_text(encoding="utf-8"))
+    доказателства = данни.get("evidence_files") or []
+    assert any(f"RELEASE_v{APP_VERSION}" in име for име in доказателства), доказателства
+
+
 # --- генераторът ------------------------------------------------------------
 
 
