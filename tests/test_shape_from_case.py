@@ -13,8 +13,10 @@
 import pytest
 
 from lion_rebar.engine.shape_from_case import (
+    CaseEvidence,
     ShapeFromCaseError,
     build_draft_shape,
+    initial_direction_for,
     case_from_report_row,
     collect_cases,
     family_key,
@@ -439,3 +441,94 @@ def test_родената_форма_влиза_в_производствени�
 
     кодове = [s.code for s in active_production_shapes([форма])]
     assert кодове == ["F020"]
+
+
+# --- началната посока на родената форма -------------------------------------
+
+
+def _случай(текст, дължина, отношения, завои, сурова, коти) -> CaseEvidence:
+    return CaseEvidence(
+        annotation_handle="H",
+        annotation_text=текст,
+        declared_length_cm=дължина,
+        diameter_mm=14.0,
+        ratios=отношения,
+        turn_angles_deg=завои,
+        geometry_length_raw=сурова,
+        printed_dimensions_cm=коти,
+    )
+
+
+def _кобилица_1() -> CaseEvidence:
+    """Реалният случай `6A1033` — `2x4N14x125`, образец ABCD."""
+
+    return _случай(
+        "2x4N14x125", 125.0,
+        (0.14045, 0.24785, 0.19862, 0.41308),
+        (-90.0, -45.0, 45.0),
+        121.04162449981916,
+        (17.0, 30.0, 24.0, 50.0, 25.0, 23.0, 60.0, 16.0),
+    )
+
+
+def _кобилица() -> CaseEvidence:
+    """Реалният случай `6A04B1` — `2x3N14x195`, образец ABCBA."""
+
+    return _случай(
+        "2x3N14x195", 195.0,
+        (0.25781, 0.08750, 0.30937, 0.08750, 0.25781),
+        (-45.0, 45.0, 45.0, -45.0),
+        193.94109065039964,
+        (17.0, 50.0, 60.0, 25.0, 35.0, 18.0, 325.0, 12.0),
+    )
+
+
+def test_родената_форма_ляга_водоравно():
+    """Собственик, 23.09.2026, за F021: „обърни я един път наляво“.
+
+    Дотук ``build_draft_shape`` не задаваше начална посока и всяка родена
+    форма падаше на ``RIGHT``. „Кобилица-1“ така излизаше 17 cm широка и 97
+    висока — в клетка на описа не се вижда.
+    """
+
+    предложение = propose_shape([_кобилица_1()])
+
+    assert предложение.values[0].segment_values_cm == (17.0, 30.0, 24.0, 50.0)
+    assert initial_direction_for(предложение) == "UP"
+    assert build_draft_shape(предложение, code="F021", name="Кобилица-1").initial_direction == "UP"
+
+
+def test_вече_водоравната_форма_не_се_върти():
+    """F020 е широка още с „надясно“ — правилото не бива да я мести."""
+
+    предложение = propose_shape([_кобилица()])
+
+    assert initial_direction_for(предложение) == "RIGHT"
+    assert build_draft_shape(предложение, code="F020", name="Кобилица").initial_direction == "RIGHT"
+
+
+def test_изборът_е_измерим_а_не_предпочитание():
+    """Взема се посоката с най-голям размах по хоризонталата."""
+
+    import math
+
+    предложение = propose_shape([_кобилица_1()])
+    посоки = {"RIGHT": 0.0, "UP": 90.0, "LEFT": 180.0, "DOWN": -90.0}
+    размах = {}
+    for име, старт in посоки.items():
+        посока, x, xs = старт, 0.0, [0.0]
+        for индекс, дължина in enumerate(предложение.values[0].segment_values_cm):
+            x += дължина * math.cos(math.radians(посока))
+            xs.append(x)
+            if индекс < len(предложение.turn_angles_deg):
+                посока += предложение.turn_angles_deg[индекс]
+        размах[име] = max(xs) - min(xs)
+
+    assert initial_direction_for(предложение) == max(размах, key=размах.get)
+
+
+def test_без_случаи_посоката_е_надясно():
+    from dataclasses import replace
+
+    предложение = replace(propose_shape([_кобилица()]), values=())
+    assert initial_direction_for(предложение) == "RIGHT"
