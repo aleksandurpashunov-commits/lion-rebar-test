@@ -374,6 +374,104 @@ _KNOWN_ENGINE_CORRECTIONS: tuple[_EngineCorrection, ...] = (
         ),
     ),
 )
+def operator_area_preview(
+    entities,
+    *,
+    box,
+    bent_around=(),
+    kind,
+    title_handle,
+    policy=None,
+):
+    """Какво показва рамката с два клика, преди да се запише.
+
+    Връща ``(брой_позиции, [(надпис, сегашна_греда), …])``.
+
+    БРОЯТ Е НА ПОЗИЦИИ, НЕ НА ОБЕКТИ. Дотук се обикаляха всички DXF обекти в
+    правоъгълника и въпросът за гредата се задаваше на всеки от тях — включително
+    на ЗАГЛАВИЕТО на самата греда, която операторът огражда. ``_assign_beam_label``
+    е направена за позиции (детайли вдясно и под заглавието си); подадеш ли ѝ
+    точката на заглавието, тя връща гредата на реда НАД него.
+
+    Измерено на „тест-006" (2026-09-24): 16 от 31 рамки искаха обосновка, а
+    всичките 42 „премествани" бяха заглавия на греди и бележки „стр. 59N8/s=20".
+    Нито една позиция. Сверка на автоматиката срещу същите 31 рамки: 146 от 146
+    съвпадения, тоест нямаше какво да се мести. Целият път, пуснат два пъти —
+    с рамките и без тях — дава един и същ ledger до клетка и една и съща греда
+    на всяка от 139-те позиции; различават се само проследимите полета
+    ``beam_assignment_method`` и score/margin.
+
+    Затова тук се броят и се питат САМО истинските армировъчни надписи — същото
+    множество, което брои ``count_batch_annotations`` при анализа.
+
+    Старият филтър по одобрени връзки отпада: той пазеше донякъде, но само АКО
+    вече има одобрени. При чертане на рамки преди анализа одобрени няма и
+    филтърът не правеше нищо — точно тогава дефектът хапеше.
+    """
+
+    from lion_rebar.dxf.batch_geometry_report import _annotation_class
+    from lion_rebar.dxf.recognition_policy import RecognitionPolicy
+    from lion_rebar.dxf.text_parser import parse_rebar_text
+    from lion_rebar.export.excel_export import (
+        _assign_beam_label,
+        _detect_beam_labels,
+        _entity_insert,
+    )
+    from lion_rebar.export.frame_detection import (
+        assign_point_to_frame,
+        detect_drawing_frames,
+    )
+    from lion_rebar.export.operator_areas import KIND_BEAM, region_contains
+
+    resolved = (
+        policy
+        if isinstance(policy, RecognitionPolicy)
+        else RecognitionPolicy.from_settings(policy)
+    )
+    allowed = {"BLOCK_ATTR_TEXT"}
+    if resolved.include_text_mtext_annotations:
+        allowed.update({"TEXT", "MTEXT"})
+
+    try:
+        records = list(entities)
+        frames = detect_drawing_frames(records)
+        labels = _detect_beam_labels(records, frames)
+    except Exception:  # noqa: BLE001 - прегледът не бива да чупи записа
+        return 0, []
+
+    обхванати = 0
+    премествани: list[tuple[str, str]] = []
+    for record in records:
+        if str(record.entity_type or "").upper() not in allowed:
+            continue
+        # ПОЗИЦИЯ значи същото, което значи и при анализа: надпис с брой,
+        # диаметър и дължина. „стр. 59N8/s=20" минава за армировъчен текст, но
+        # няма дължина и не е позиция — а точно такива бележки пълнеха списъка
+        # с „премествани".
+        if _annotation_class(parse_rebar_text(record.text or "")) != "ACTIONABLE":
+            continue
+        point = _entity_insert(record)
+        if point is None:
+            continue
+        if not region_contains(tuple(box), tuple(bent_around), point[0], point[1]):
+            continue
+        обхванати += 1
+        if kind != KIND_BEAM:
+            continue
+        index = assign_point_to_frame(point[0], point[1], list(frames))
+        if index is None:
+            continue
+        assignment = _assign_beam_label(point[0], point[1], int(index), labels)
+        if assignment is None:
+            continue
+        if assignment.label.handle == title_handle:
+            continue
+        текст = re.sub(r"\s+", " ", str(record.text or "")).strip() or str(record.handle)
+        премествани.append((текст, assignment.label.title))
+    return обхванати, премествани
+
+
+
 
 
 class MainWindow(QMainWindow):
@@ -1064,7 +1162,7 @@ class MainWindow(QMainWindow):
         )
 
     def _operator_area_preview(self, resolution, bent_around=()):
-        """Колко позиции обхваща рамката и кои от тях премества.
+        """Колко ПОЗИЦИИ обхваща рамката и кои от тях премества.
 
         Връща ``(брой_обхванати, [(надпис, сегашна_греда), …])``. Второто са
         позициите, които автоматиката вече е свързала с ДРУГА греда — те се
@@ -1074,55 +1172,35 @@ class MainWindow(QMainWindow):
         позиции не се броят тук, защото няма да станат нейни.
         """
 
-        from lion_rebar.export.excel_export import (
-            _assign_beam_label,
-            _detect_beam_labels,
-            _entity_insert,
-        )
-        from lion_rebar.export.frame_detection import (
-            assign_point_to_frame,
-            detect_drawing_frames,
-        )
-        from lion_rebar.export.operator_areas import KIND_BEAM, region_contains
-
         try:
             entities = list(self.import_result.entities)
-            frames = detect_drawing_frames(entities)
-            labels = _detect_beam_labels(entities, frames)
-            approved = set(self._read_all_approved_geometry_links())
+            policy = self._recognition_policy()
         except Exception:  # noqa: BLE001 - прегледът не бива да чупи записа
             return 0, []
+        return operator_area_preview(
+            entities,
+            box=resolution.box,
+            bent_around=bent_around,
+            kind=resolution.kind,
+            title_handle=resolution.title_handle,
+            policy=policy,
+        )
 
-        x0, y0, x1, y1 = resolution.box
-        обхванати = 0
-        премествани: list[tuple[str, str]] = []
-        for record in entities:
-            handle = str(record.handle)
-            if approved and handle not in approved:
-                continue
-            point = _entity_insert(record)
-            if point is None:
-                continue
-            if not region_contains(
-                (x0, y0, x1, y1), bent_around, point[0], point[1]
-            ):
-                continue
-            обхванати += 1
-            if resolution.kind != KIND_BEAM:
-                continue
-            index = assign_point_to_frame(point[0], point[1], list(frames))
-            if index is None:
-                continue
-            assignment = _assign_beam_label(
-                point[0], point[1], int(index), labels
+    def _recognition_policy(self):
+        """Политиката на закования engine; при липса — подразбирането."""
+
+        from lion_rebar.dxf.recognition_policy import RecognitionPolicy
+
+        try:
+            engine = load_pinned_engine(
+                self.project, self.engine_repository.load_current()
             )
-            if assignment is None:
-                continue
-            if assignment.label.handle == resolution.title_handle:
-                continue
-            текст = re.sub(r"\s+", " ", str(record.text or "")).strip() or handle
-            премествани.append((текст, assignment.label.title))
-        return обхванати, премествани
+            return RecognitionPolicy.from_settings(
+                (engine.settings or {}).get("geometry_recognition") or {}
+            )
+        except Exception:  # noqa: BLE001 - подразбирането е достатъчно за преглед
+            return RecognitionPolicy.from_settings({})
+
 
     def manage_operator_areas(self) -> None:
         """Показва начертаните рамки и оттегля сгрешена.
