@@ -22,6 +22,10 @@ from lion_rebar.dxf.geometry_candidates import (
     build_geometry_candidate_context,
     find_geometry_candidates,
 )
+from lion_rebar.dxf.disagreement_report import (
+    build_disagreement_report,
+    disagreement_summary_lines,
+)
 from lion_rebar.export.frame_detection import assign_point_to_frame, detect_drawing_frames
 from lion_rebar.export.excel_export import (
     ExcelExportError,
@@ -572,10 +576,18 @@ def build_batch_geometry_report(
     decision_counts = _matcher_decision_counts(rows)
     group_counts = _review_group_counts(rows)
     review_groups = _review_group_metadata(rows)
+    # Разногласията се мерят върху ГОТОВИТЕ редове и не ги пипат: отчет, не
+    # решение. Виж ``dxf/disagreement_report.py`` защо влизат само три
+    # проверки и защо всяка пита самата програма вместо плосък допуск.
+    disagreements = build_disagreement_report(
+        rows,
+        shape_definitions=shape_definitions,
+    )
     base_name = f"{safe_project}_geometry_batch"
     json_path = report_dir / f"{base_name}.json"
     csv_path = report_dir / f"{base_name}.csv"
     html_path = report_dir / f"{base_name}.html"
+    disagreement_path = report_dir / f"{base_name}_razminavaniya.csv"
     zip_path = output_parent / f"{report_dir.name}.zip"
 
     payload = {
@@ -646,6 +658,7 @@ def build_batch_geometry_report(
         "review_groups": review_groups,
         "recognition_policy": resolved_policy.to_dict(),
         "recognition_laws": list(resolved_policy.laws_bg()),
+        "disagreements": disagreements,
         "errors": errors,
         "rows": [{key: value for key, value in row.items() if key != "svg_preview"} for row in rows],
     }
@@ -654,6 +667,7 @@ def build_batch_geometry_report(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
     )
     _write_csv(csv_path, rows)
+    _write_disagreement_csv(disagreement_path, disagreements)
     _write_category_csvs(report_dir, base_name, rows)
     html_path.write_text(
         _render_html(
@@ -701,7 +715,9 @@ def build_batch_geometry_report(
         "Този пакет е диагностичен. Няма автоматично одобрени връзки.\n"
         "Отвори HTML файла за общ визуален преглед.\n"
         "JSON е пълният машинен отчет, а CSV е табличният изход.\n"
-        "Отделните CSV файлове групират одобрени, силни, рискови и нерешени позиции.\n",
+        "Отделните CSV файлове групират одобрени, силни, рискови и нерешени позиции.\n\n"
+        + "\n".join(disagreement_summary_lines(disagreements))
+        + f"\nПодробно: {disagreement_path.name}\n",
         encoding="utf-8",
     )
 
@@ -5903,6 +5919,28 @@ def _analysis_row(analysis: GeometryCandidateAnalysis, approved: dict | None) ->
         "recognition_laws": [warning for warning in analysis.warnings if warning.startswith("Закон ")],
         "alternative_candidates": [candidate.to_dict() for candidate in analysis.candidates[1:]],
     }
+
+
+def _write_disagreement_csv(path: Path, report: Mapping[str, Any]) -> None:
+    """Находките на „Разногласия“ — по един ред на находка.
+
+    Отделен файл, а не колона в общия CSV: една позиция може да се обади по
+    повече от една проверка, а общият отчет е един ред на позиция.
+    """
+
+    fieldnames = [
+        "check",
+        "kind",
+        "annotation_handle",
+        "annotation_text",
+        "batch_status",
+        "explanation",
+    ]
+    with path.open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+        for finding in report.get("findings") or ():
+            writer.writerow({key: finding.get(key, "") for key in fieldnames})
 
 
 def _write_csv(path: Path, rows: list[dict]) -> None:

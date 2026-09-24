@@ -32,7 +32,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -61,6 +60,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 # Разногласие е това, което програмата НЕ МОЖЕ да обясни. Затова тук се вика
 # нейният собствен ``segments_match_total``.
 from lion_rebar.engine.bend_allowance import segments_match_total  # noqa: E402
+from lion_rebar.dxf.disagreement_report import (  # noqa: E402
+    r2_printed_dimensions,
+    r3_total_vs_declared,
+    r4_geometry_dispute,
+    r5_segment_count,
+)
 
 
 def _число(value: Any) -> float | None:
@@ -69,21 +74,6 @@ def _число(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return число if math.isfinite(число) else None
-
-
-def _вектор(value: Any) -> list[float]:
-    изход: list[float] = []
-    for item in value or ():
-        число = _число(item)
-        if число is not None:
-            изход.append(число)
-    return изход
-
-
-# --- проверките ------------------------------------------------------------
-#
-# Всяка връща ``(ключ, обяснение)`` или ``None``. ``ключ`` е групата, по която
-# се мери съгласуваността; ``обяснение`` е текстът за отчета.
 
 
 def r1_nadpis_sreshtu_nachertano(row: Mapping[str, Any]) -> tuple[str, str] | None:
@@ -106,73 +96,6 @@ def r1_nadpis_sreshtu_nachertano(row: Mapping[str, Any]) -> tuple[str, str] | No
             f"начертаното е с {-разлика:.2f} cm по-малко, необяснено")
 
 
-def r2_koti_sreshtu_izmereno(row: Mapping[str, Any]) -> tuple[str, str] | None:
-    """Всеки производствен участък съвпада ли с НАДПИСАНА кота."""
-
-    сегменти = _вектор(row.get("production_segments_cm"))
-    коти = _вектор(row.get("nearby_dimensions_cm"))
-    if len(сегменти) < 2 or not коти:
-        return None
-    без_кота = 0
-    шум = 0
-    for стойност in сегменти:
-        най = min(коти, key=lambda k: abs(k - стойност))
-        разлика = abs(най - стойност)
-        if разлика <= 0.011:
-            continue
-        if разлика <= 0.5:
-            шум += 1
-        else:
-            без_кота += 1
-    if шум and not без_кота:
-        return ("ИЗМЕРЕНО_ВМЕСТО_НАДПИСАНО",
-                f"{шум} участъка се разминават с котата под 0,5 cm")
-    if без_кота:
-        return ("УЧАСТЪК_БЕЗ_КОТА", f"{без_кота} участъка нямат своя кота")
-    return None
-
-
-def r3_sbor_sreshtu_nadpis(row: Mapping[str, Any]) -> tuple[str, str] | None:
-    """Сборът на производствените участъци срещу надписаната дължина."""
-
-    сегменти = _вектор(row.get("production_segments_cm"))
-    обявена = _число(row.get("production_length_cm")) or _число(row.get("declared_length_cm"))
-    if len(сегменти) < 2 or обявена is None or обявена <= 0:
-        return None
-    код = str(row.get("master_shape_code") or "").strip().upper() or None
-    сбор = math.fsum(сегменти)
-    if segments_match_total(код, сбор, обявена):
-        return None
-    разлика = сбор - обявена
-    if разлика > 0:
-        return ("СБОРЪТ_НАДВИШАВА", f"сборът е с {разлика:.2f} cm повече")
-    return ("СБОРЪТ_НЕ_ЗАТВАРЯ", f"недостиг {-разлика:.2f} cm, необяснен")
-
-
-def r4_edna_geometriya_dva_nadpisa(row: Mapping[str, Any]) -> tuple[str, str] | None:
-    """Една и съща геометрия, поискана от няколко надписа."""
-
-    if not row.get("global_conflict"):
-        return None
-    брой = len(_вектор_текст(row.get("candidate_handles")))
-    return ("СПОР_ЗА_ГЕОМЕТРИЯ", f"глобален конфликт при {брой or 1} кандидата")
-
-
-def r5_broy_sreshtu_forma(row: Mapping[str, Any]) -> tuple[str, str] | None:
-    """Броят участъци срещу това, което MASTER формата очаква."""
-
-    код = str(row.get("master_shape_code") or "").strip().upper()
-    сегменти = _вектор(row.get("production_segments_cm"))
-    if not код or not сегменти:
-        return None
-    очаквани = {"F001": 1, "F004": 2, "F003": 3, "F005": 3, "F007": 3,
-                "F002": 3, "F008": 5, "F009": 5, "F010": 5, "F006": 6}
-    искан = очаквани.get(код)
-    if искан is None or len(сегменти) == искан:
-        return None
-    return ("БРОЙ_УЧАСТЪЦИ", f"{код} очаква {искан}, а са {len(сегменти)}")
-
-
 def r6_dulzhina_bez_geometriya(row: Mapping[str, Any]) -> tuple[str, str] | None:
     """Позиция с обявена дължина, но без нито един кандидат."""
 
@@ -186,16 +109,41 @@ def r6_dulzhina_bez_geometriya(row: Mapping[str, Any]) -> tuple[str, str] | None
     return ("НИТО_ЕДИН_КАНДИДАТ", "нито един обект не е разгледан")
 
 
-def _вектор_текст(value: Any) -> list[str]:
-    return [str(item) for item in (value or ()) if str(item)]
+def _формите_на_активния_engine() -> dict:
+    """Дефинициите, срещу които R5 мери броя участъци.
+
+    Дотук тук стоеше речник с десет кода и очакваните им участъци. Това е
+    знание, което програмата вече държи — и е по-малко от нейното: engine
+    0.3.21 описва двадесет и една форми, включително родените от случай.
+    Изброеното наум остаряваше при всяка нова форма.
+
+    Без регистър се връща празно и R5 мълчи. Отказът е по-добър от догадка.
+    """
+
+    try:
+        from lion_rebar.engine.repository import EngineRepository
+        from lion_rebar.utils.app_paths import AppPaths
+
+        engine = EngineRepository(AppPaths.default().engine_registry).load_current()
+    except Exception as exc:  # noqa: BLE001 — липсващ регистър не е грешка тук
+        print(f"ВНИМАНИЕ  няма активен engine ({exc}); R5 мълчи")
+        return {}
+    print(f"ФОРМИ   {len(engine.shapes)} от engine {engine.version} (за R5)")
+    return {str(форма.code).strip().upper(): форма for форма in engine.shapes}
 
 
+ФОРМИ = _формите_на_активния_engine()
+
+#: Шестте проверки. R2, R3, R4 и R5 идват от модула, който върви и в самия
+#: анализ (``lion_rebar/dxf/disagreement_report.py``) — една дефиниция, за да
+#: не се разминат двете места. R1 и R6 са още тук: разпределението им е
+#: разпиляно, тоест сочат дефекти, не правило, и не влизат в постоянния изход.
 ПРОВЕРКИ = {
     "R1 надпис↔начертано": r1_nadpis_sreshtu_nachertano,
-    "R2 коти↔измерено": r2_koti_sreshtu_izmereno,
-    "R3 сбор↔надпис": r3_sbor_sreshtu_nadpis,
-    "R4 спор за геометрия": r4_edna_geometriya_dva_nadpisa,
-    "R5 брой участъци": r5_broy_sreshtu_forma,
+    "R2 коти↔измерено": lambda ред: r2_printed_dimensions(ред, ФОРМИ),
+    "R3 сбор↔надпис": lambda ред: r3_total_vs_declared(ред, ФОРМИ),
+    "R4 спор за геометрия": lambda ред: r4_geometry_dispute(ред, ФОРМИ),
+    "R5 брой участъци": lambda ред: r5_segment_count(ред, ФОРМИ),
     "R6 без кандидат": r6_dulzhina_bez_geometriya,
 }
 
