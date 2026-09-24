@@ -119,11 +119,11 @@
 
 ## Команди
 
-Изпълняват се от `release/`. Статусът е към 2026-09-16.
+Изпълняват се от `release/`. Статусът е към 2026-09-24.
 
 | Команда | Статус |
 |---|---|
-| `QT_QPA_PLATFORM=offscreen .venv/Scripts/python.exe -m pytest tests` (Git Bash) | **ПРОВЕРЕНО** — 1596 passed, 12 skipped, ~3 мин (2026-09-19) |
+| `QT_QPA_PLATFORM=offscreen .venv/Scripts/python.exe -m pytest tests` (Git Bash) | **ПРОВЕРЕНО** — 1908 passed, 14 skipped, 141 s (2026-09-24). `addopts = -q` крие обобщението; за числа: `--junitxml` |
 | `RUN_TESTS.bat` | НАМЕРЕНО — `python -m pytest` без `offscreen`, спира на `pause`; не е пускано |
 | `.venv\Scripts\python.exe run_dev.py` (`START_LION_REBAR.bat` прави същото след `activate.bat`) | **ПРОВЕРЕНО** за `run_dev.py` — прозорец за 14–19 s с отделна папка с данни; самият `.bat` не е пускан. За Claude: умението `run-lion-rebar` |
 | `.venv/Scripts/python.exe .claude/skills/lion-rebar-full-path/full_path.py <проект>` | **ПРОВЕРЕНО** — целият път без интерфейс върху копие; s-9 повтаря Финалния контрол от прозореца (458 + 2 от 460). Базова линия: `baseline.py` до него |
@@ -131,9 +131,10 @@
 | `BUILD_EXE.bat` | НАМЕРЕНО — PyInstaller към `dist\LION_REBAR_DESKTOP\`, после `tests\test_dist_smoke.py` с `LION_REBAR_DIST`; не е пускано |
 | `ruff` | в `requirements-dev.txt`, но **не е инсталиран** във `.venv` и няма конфигурация |
 
-Пропуснатите 12 теста не са минали. Искат външни условия:
+Пропуснатите 14 теста не са минали. Искат външни условия:
 `LION_REBAR_DIST` (5, само през `BUILD_EXE.bat`), `LION_REBAR_RACHNO4_ROOT` (3),
-holdout ENGINE v0.3.4 (2), артефакт на rc37 acceptance oracle (1), symlinks (1).
+holdout ENGINE v0.3.4 (2), потвърдени proxy DXF в одитния пакет (2), symlinks (1),
+един пропуснат при събирането.
 
 Зависимости: Python `>=3.11,<3.14` (`.venv` е 3.12.10), PySide6, ezdxf,
 openpyxl, pytest.
