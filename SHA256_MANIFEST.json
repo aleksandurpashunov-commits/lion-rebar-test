@@ -1,7 +1,7 @@
 {
   "schema": "lion-rebar-manifest/v1",
   "version": "v0.1.44.21-rc44",
-  "commit": "e6dc7c667c3ac4d812018d627fc89b1b0710fe56",
+  "commit": "4baf0b32959aba2da736eb18996e0f778f08bf14",
   "files": {
     ".claude/settings.json": "aacc641a8fbc957f9fb9a9682996d18f8979316c165058233997193ddba90db1",
     ".claude/skills/lion-rebar-full-path/SKILL.md": "1a6d2d48e199a22daae172e23949233b452eec2f26cac64d8f03309c4522cd2f",
@@ -28,7 +28,7 @@
     "CHANGELOG.md": "1821fa34bdeb9404c8eb505071f212112063eb905f62c70f3a2fe8e95b628e15",
     "CLAUDE.md": "639462d852cd41a4a58cef32c631203cde1b68d943db0b6242bfdd4948967955",
     "INSTALL_LION_REBAR.bat": "0a47ff5182a4c2cfde53e5c9dadf59376828ce18219f3ee0741d609b972182a5",
-    "PROJECT_HANDOFF.md": "72ecdb37b8cc3f4763abc65cd0394445b62defe7423c204487222d48efe0d76f",
+    "PROJECT_HANDOFF.md": "dc3cf4763fa290eea09e138caca930e25696611009ea20a1101343f372a18980",
     "README_BG.md": "c7cd4679512a075a04d0b18008be66396becfc27a83736c264768501c26f0bbb",
     "RUN_TESTS.bat": "eb3c4ad785013dbed25795f3bcdd14e776cdba166e9c6fe29368a55e9acf6193",
     "START_LION_REBAR.bat": "d42278ab80b90c34c6239611d747684bcee7014879af9a43cfba63135330eb96",
@@ -569,7 +569,7 @@
     "failures": 0,
     "skipped": 14,
     "passed": 1941,
-    "timestamp": "2026-09-24T15:50:52.255986+03:00",
-    "seconds": 178.686
+    "timestamp": "2026-09-24T15:55:58.361122+03:00",
+    "seconds": 173.845
   }
 }
