@@ -2770,8 +2770,10 @@ def _apply_born_from_case_production_sizes(
         read_segment_values,
     )
 
+    from lion_rebar.export.auto_gate import validate_production_segment_evidence
+
     родени = {
-        str(shape.code or "").strip().upper()
+        str(shape.code or "").strip().upper(): shape
         for shape in (shape_definitions or ())
         if isinstance(getattr(shape, "recognition", None), dict)
         and bool(shape.recognition.get("born_from_case"))
@@ -2804,30 +2806,54 @@ def _apply_born_from_case_production_sizes(
         )
         if not стойности:
             continue
-        # ПРЕДЛОЖЕНИЕ, не производствена стойност.
-        #
-        # ``validate_production_segment_evidence`` приема само изброени
-        # източници, всеки със своя проверка за принадлежност, и минава през
-        # ``master_engine_v031.parameters_from_segments`` — който познава само
-        # F001..F010 и отказва „Неподдържан MASTER код: F020“. Тоест родена
-        # форма не може да мине автоматично одобрение, докато гейтът не научи
-        # формите от ДЕФИНИЦИЯ. Дотогава тук не се твърди доказан размер:
-        # операторът вижда готовите числа и ги потвърждава с един клик.
-        row["suggested_shape_code"] = код
-        row["suggested_segments_cm"] = [round(float(v), 3) for v in стойности]
-        row["suggested_evidence"] = {
+        прочит = [round(float(v), 3) for v in стойности]
+        доказателство = {
             "source": "BORN_FROM_CASE_PRINTED",
             "shape_code": код,
-            "segments": [round(float(v), 3) for v in стойности],
+            "segments": list(прочит),
         }
-        row["candidate_notes"] = [
-            *list(row.get("candidate_notes", [])),
-            (
-                f"{код}_BORN_FROM_CASE_SIZES: размерите са прочетени от "
-                "надписаните коти по същото правило, по което е родена "
-                "формата; остават предложение до одобрение от оператора"
-            ),
-        ]
+
+        # Доказан размер се твърди САМО ако независимият проверител се съгласи.
+        #
+        # Гейтът вече познава формите от ДЕФИНИЦИЯ (``auto_gate`` подава
+        # закотвената форма на ``engine_shape_parameters.parameters_for_shape``),
+        # затова тук не се преценява наум дали прочитът е годен: строи се
+        # пробен ред и се пита самият проверител. Той преизвежда прочита от
+        # котите наново и проверява дали уравнението затваря с обявената
+        # стъпка за закръгляне на формата.
+        #
+        # Защо не се пише направо: дотук измереното от чертежа изместваше
+        # надписаното. На „Тест-003“ трите кобилици влизаха в описа с
+        # ``50 · 16,9706 · 60 · 16,9706 · 50`` при надписани 50/17/60, защото
+        # предложението не се признаваше за доказателство и портата падаше на
+        # геометрията. Отказът остава отказ: случай, който не затваря, си
+        # остава предложение за оператора.
+        проба = dict(row)
+        проба["production_segments_cm"] = list(прочит)
+        проба["production_segment_evidence"] = dict(доказателство)
+        if validate_production_segment_evidence(проба, shape=родени[код]):
+            row["production_segments_cm"] = list(прочит)
+            row["production_segment_evidence"] = dict(доказателство)
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    f"{код}_BORN_FROM_CASE_SIZES: производствените размери са "
+                    "прочетени от надписаните коти по същото правило, по което "
+                    "е родена формата"
+                ),
+            ]
+        else:
+            row["suggested_shape_code"] = код
+            row["suggested_segments_cm"] = list(прочит)
+            row["suggested_evidence"] = dict(доказателство)
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    f"{код}_BORN_FROM_CASE_SIZES: размерите са прочетени от "
+                    "надписаните коти по същото правило, по което е родена "
+                    "формата; остават предложение до одобрение от оператора"
+                ),
+            ]
         попълнени += 1
     return попълнени
 

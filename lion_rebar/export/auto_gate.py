@@ -7,7 +7,21 @@ from typing import Any, Mapping
 from lion_rebar.dxf.local_detail_resolver import local_detail_shape_code
 from lion_rebar.engine.bend_allowance import segments_match_total
 from lion_rebar.dxf.proxy_adapter import three_leg_shape_from_directions
+from lion_rebar.engine.models import ShapeDefinition
+from lion_rebar.engine.shape_from_case import (
+    ShapeFromCaseError,
+    parse_signature,
+    read_segment_values,
+    symmetry_pattern,
+)
+from lion_rebar.engine.shape_index import APPROVED_SHAPE_STATES
+from lion_rebar.export.engine_shape_parameters import (
+    EngineShapeParameterError,
+    expected_segment_codes,
+    parameters_for_shape,
+)
 from lion_rebar.export.master_engine_v031 import (
+    SUPPORTED_SHAPE_CODES,
     MasterDimensionError,
     parameters_from_segments,
 )
@@ -60,6 +74,20 @@ _PRINTED_DECLARATION_SOURCES = frozenset(
     }
 )
 
+#: Форма, РОДЕНА ОТ СЛУЧАЙ, мерена с правилото, по което е родена.
+#:
+#: Собственик, 22.09.2026. Измерено на „Тест-003“ преди тази промяна: трите
+#: кобилици, които минават портата, влизат в описа с ИЗМЕРЕНИ от чертежа
+#: числа — ``50 · 16,9706 · 60 · 16,9706 · 50`` при надписани 50/17/60.
+#: Прочитът от котите вече е изчислен и стои в реда като предложение, но се
+#: подминава, защото гейтът не познава формите извън F001..F010 и пада на
+#: геометрията. Тоест дефектът не беше отказ, а тихо разминаване.
+#:
+#: Писателят е ``batch_geometry_report._apply_born_from_case_production_sizes``;
+#: проверителят по-долу преизвежда прочита от записания ред и не вярва нито на
+#: кода на източника, нито на писателя.
+_BORN_FROM_CASE_PRINTED_SOURCE = "BORN_FROM_CASE_PRINTED"
+
 _PRODUCTION_SEGMENT_EVIDENCE_SOURCES = frozenset(
     {
         "F007_CONTEXTUAL_MASTER_CANONICAL",
@@ -73,6 +101,7 @@ _PRODUCTION_SEGMENT_EVIDENCE_SOURCES = frozenset(
         _PRINTED_SPECIFICATION_DIMENSION_SOURCE,
         _PRINTED_REPEATED_LABEL_DIMENSION_SOURCE,
         _PROXY_ARC_VERIFIED_SOURCE,
+        _BORN_FROM_CASE_PRINTED_SOURCE,
     }
 )
 
@@ -109,7 +138,73 @@ _MATCHER_DIMENSION_STRATEGIES = frozenset(
 )
 
 
-def validate_production_segment_evidence(row: Mapping[str, Any]) -> bool:
+def _master_dimensions_hold(
+    code: str,
+    segments: tuple[float, ...],
+    total: float,
+    turns: tuple[float, ...],
+    shape: ShapeDefinition | None,
+) -> bool:
+    """Затварят ли размерите по формулата на формата.
+
+    Всичко, което ЗАКЛЮЧЕНИЯТ MASTER смята сам, си остава при него —
+    F001..F010 и верижните F011..F019 (``SUPPORTED_SHAPE_CODES``). Там
+    формулата и допускът ѝ са част от одобрения модул и не се извеждат от
+    данни. Ако тези кодове минеха през дефиницията, допускът им щеше да стане
+    0,51 вместо 0,11 — разхлабване, което никой не е искал.
+
+    Формата, която MASTER модулът НЕ познава, се мери по собствената си
+    дефиниция, точно както го прави и експортът
+    (``engine_shape_parameters.parameters_for_shape``, което проверява броя
+    сегменти, повторените параметри, relations, допуска и обявената от формата
+    стъпка за закръгляне).
+
+    Без подадена дефиниция непозната форма е ОТКАЗ, не догадка: този предикат
+    се вика и от места, които нямат engine в ръка (Финалният контрол), и там
+    поведението остава точно каквото беше.
+    """
+
+    if code in SUPPORTED_SHAPE_CODES:
+        try:
+            parameters_from_segments(
+                code,
+                segments,
+                production_length_cm=total,
+                turn_angles_deg=turns,
+            )
+        except (MasterDimensionError, TypeError, ValueError):
+            return False
+        return True
+
+    if shape is None:
+        return False
+    # Дефиницията трябва да е ТАЗИ форма и да е минала одобрение. Днес
+    # matcher-ът така или иначе индексира само ``APPROVED``/``LOCKED``
+    # (``engine.shape_index``), тоест ред с чернова форма не се ражда; тук
+    # проверката се прави наново, за да не стъпва гейтът върху чужд пазач.
+    if str(shape.code or "").strip().upper() != code:
+        return False
+    if not bool(shape.active):
+        return False
+    if str(shape.state or "").strip().upper() not in APPROVED_SHAPE_STATES:
+        return False
+    try:
+        parameters_for_shape(
+            shape,
+            segments,
+            production_length_cm=total,
+            turn_angles_deg=turns,
+        )
+    except (EngineShapeParameterError, TypeError, ValueError):
+        return False
+    return True
+
+
+def validate_production_segment_evidence(
+    row: Mapping[str, Any],
+    *,
+    shape: ShapeDefinition | None = None,
+) -> bool:
     """Validate the complete, persisted proof for production segments.
 
     The proof is deliberately self-contained because this predicate is used
@@ -117,6 +212,9 @@ def validate_production_segment_evidence(row: Mapping[str, Any]) -> bool:
     truthy mapping is never evidence on its own: its shape, segment vector,
     MASTER total and source-specific ownership chain must all agree with the
     effective report row.
+
+    ``shape`` е закотвената Engine дефиниция на реда, когато викащият я има.
+    Без нея важат само заключените F001..F010 — виж ``_master_dimensions_hold``.
     """
 
     evidence = row.get("production_segment_evidence")
@@ -160,14 +258,7 @@ def validate_production_segment_evidence(row: Mapping[str, Any]) -> bool:
     )
     if turns is None or (effective_shape == "F007" and len(turns) != 2):
         return False
-    try:
-        parameters_from_segments(
-            effective_shape,
-            segments,
-            production_length_cm=total,
-            turn_angles_deg=turns,
-        )
-    except (MasterDimensionError, TypeError, ValueError):
+    if not _master_dimensions_hold(effective_shape, segments, total, turns, shape):
         return False
 
     if source == "F007_CONTEXTUAL_MASTER_CANONICAL":
@@ -194,6 +285,8 @@ def validate_production_segment_evidence(row: Mapping[str, Any]) -> bool:
         )
     if source == _PROXY_ARC_VERIFIED_SOURCE:
         return _proxy_arc_verified_evidence_is_owned(row, evidence, segments, total)
+    if source == _BORN_FROM_CASE_PRINTED_SOURCE:
+        return _born_from_case_evidence_is_owned(row, evidence, segments, shape)
     return False
 
 
@@ -317,6 +410,83 @@ def _proxy_arc_verified_evidence_is_owned(
             return False
 
     return abs(math.fsum(segments) - total) <= _PROXY_AUTO_TOTAL_TOLERANCE_CM
+
+
+#: Писателят записва прочита закръглен до третия знак; тук се сверява срещу
+#: наново изчисления, затова допускът е само за това закръгляне.
+_BORN_FROM_CASE_READING_TOLERANCE_CM = 0.0015
+
+
+def _born_from_case_evidence_is_owned(
+    row: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    segments: tuple[float, ...],
+    shape: ShapeDefinition | None,
+) -> bool:
+    """Преизвежда прочита на форма, родена от случай, от записания ред.
+
+    Правилото, по което формата е родена, е и правилото, по което се мери:
+    отношенията от каноничната сигнатура посочват коя НАДПИСАНА кота е кой
+    участък (``engine.shape_from_case``). Тук нищо от това не се приема на
+    доверие — сигнатурата се разлага наново, прочитът се смята наново от
+    котите на реда и трябва да даде ТОЧНО записаните участъци.
+
+    Понеже ``read_segment_values`` избира всяка стойност измежду надписаните
+    коти и отказва при разминаване над ``DIMENSION_SNAP_CM``, успешният
+    прочит сам доказва, че всеки участък Е надписан в чертежа. Досмятане на
+    остатъка наум няма — участък без своя кота отказва целия ред.
+
+    Проверява се и че образецът на симетрия на сигнатурата съвпада с
+    параметрите на дефиницията: ``ABCBA`` трябва да падне върху
+    ``L1 L2 L3 L2 L1``, а не върху пет различни параметъра.
+    """
+
+    if shape is None:
+        return False
+    recognition = shape.recognition if isinstance(shape.recognition, dict) else {}
+    if not bool(recognition.get("born_from_case")):
+        return False
+    if list(evidence.get("segments") or ()) != list(segments):
+        return False
+
+    try:
+        _closed, ratios, _angles = parse_signature(
+            str(row.get("canonical_signature") or "")
+        )
+    except ShapeFromCaseError:
+        return False
+    if len(ratios) != len(segments):
+        return False
+
+    try:
+        pattern = symmetry_pattern(ratios)
+    except ShapeFromCaseError:
+        return False
+    expected = expected_segment_codes(shape)
+    if len(expected) != len(pattern):
+        return False
+    by_letter: dict[str, str] = {}
+    for letter, code in zip(pattern, expected):
+        if by_letter.setdefault(letter, code) != code:
+            return False
+    if len(set(by_letter.values())) != len(by_letter):
+        return False
+
+    raw = _finite_positive_scalar(row.get("geometry_length_raw"))
+    if raw is None:
+        return False
+    printed = [
+        float(value)
+        for value in (row.get("nearby_dimensions_cm") or ())
+        if isinstance(value, (int, float)) and math.isfinite(float(value))
+    ]
+    reading = read_segment_values(ratios, raw, printed)
+    if reading is None or len(reading) != len(segments):
+        return False
+    return all(
+        abs(float(a) - float(b)) <= _BORN_FROM_CASE_READING_TOLERANCE_CM
+        for a, b in zip(reading, segments)
+    )
 
 
 def _topology_snap(value: float) -> float:
@@ -924,7 +1094,11 @@ def _finite_nonnegative_scalar(value: Any) -> float | None:
     return parsed
 
 
-def is_deterministic_production_source(row: Mapping[str, Any]) -> bool:
+def is_deterministic_production_source(
+    row: Mapping[str, Any],
+    *,
+    shape: ShapeDefinition | None = None,
+) -> bool:
     """Return whether structured source data plus proven dimensions is
     deterministic.
 
@@ -944,7 +1118,7 @@ def is_deterministic_production_source(row: Mapping[str, Any]) -> bool:
 
     handle = str(row.get("annotation_handle") or "")
     if "::BJ-FI-L" in handle:
-        return validate_production_segment_evidence(row)
+        return validate_production_segment_evidence(row, shape=shape)
     if not handle.startswith("PXANN_"):
         return False
     # The proxy bypass is earned by the DECLARED breakdown, not by the handle.
@@ -957,7 +1131,7 @@ def is_deterministic_production_source(row: Mapping[str, Any]) -> bool:
         return False
     if str(evidence.get("source") or "") != _PROXY_ARC_VERIFIED_SOURCE:
         return False
-    return validate_production_segment_evidence(row)
+    return validate_production_segment_evidence(row, shape=shape)
 
 
 def auto_batch_status_passes(row: Mapping[str, Any]) -> bool:
