@@ -72,6 +72,75 @@ def test_променено_правило_НЕ_е_добавка():
     assert not compare_for_additive_upgrade(старо, ново).is_additive
 
 
+def test_нов_ключ_с_подразбираща_стойност_НЕ_спира_добавката():
+    """Речникът на разпознаването расте; старият пакет просто няма ключа.
+
+    Измерено 22.09.2026: „тест-001“ не можеше да мине от v0.3.15 към v0.3.20
+    заради ЕДИН добавен ключ — ``declared_rebar_geometry_layers: []``, празен
+    списък, който изключва собственото си правило. Двете нови форми не
+    стигаха до чертежа заради настройка, която не прави нищо.
+
+    ``RecognitionPolicy.from_settings`` попълва всеки липсващ ключ с неговото
+    подразбиране, тоест липсващият ключ Е подразбирането — а не „каквото и да
+    е“. Затова сравнението минава през политиката, не дума по дума.
+    """
+
+    старо = _engine("0.3.15", [_форма("F001", "ПРАВ")])
+    старо.settings = {"geometry_recognition": {"angle_match_tolerance_deg": 8.0}}
+    ново = _engine("0.3.20", [_форма("F001", "ПРАВ"), _форма("F020", "Кобилица")])
+    ново.settings = {
+        "geometry_recognition": {
+            "angle_match_tolerance_deg": 8.0,
+            "declared_rebar_geometry_layers": [],
+        }
+    }
+
+    изход = compare_for_additive_upgrade(старо, ново)
+
+    assert изход.is_additive
+    assert изход.added_shape_codes == ("F020",)
+
+
+def test_нов_ключ_с_РЕАЛНА_стойност_спира_добавката():
+    """Разхлабва се само празното. Стойност, различна от подразбирането,
+    мени разпознаването и проектът остава на своя snapshot."""
+
+    старо = _engine("0.3.15", [_форма("F001", "ПРАВ")])
+    старо.settings = {"geometry_recognition": {}}
+    ново = _engine("0.3.20", [_форма("F001", "ПРАВ"), _форма("F020", "Кобилица")])
+    ново.settings = {
+        "geometry_recognition": {"declared_rebar_geometry_layers": ["s-Reinf"]}
+    }
+
+    изход = compare_for_additive_upgrade(старо, ново)
+
+    assert not изход.is_additive
+    assert "settings" in изход.blocked_reason
+
+
+def test_променена_стойност_на_стар_ключ_спира_добавката():
+    старо = _engine("0.3.15", [_форма("F001", "ПРАВ")])
+    старо.settings = {"geometry_recognition": {"angle_match_tolerance_deg": 8.0}}
+    ново = _engine("0.3.20", [_форма("F001", "ПРАВ"), _форма("F020", "Кобилица")])
+    ново.settings = {"geometry_recognition": {"angle_match_tolerance_deg": 12.0}}
+
+    изход = compare_for_additive_upgrade(старо, ново)
+
+    assert not изход.is_additive
+    assert "settings" in изход.blocked_reason
+
+
+def test_настройка_извън_разпознаването_се_сравнява_дословно():
+    """Само ``geometry_recognition`` минава през политиката."""
+
+    старо = _engine("0.3.15", [_форма("F001", "ПРАВ")])
+    старо.settings = {"max_segments": 16}
+    ново = _engine("0.3.20", [_форма("F001", "ПРАВ"), _форма("F020", "Кобилица")])
+    ново.settings = {"max_segments": 24}
+
+    assert not compare_for_additive_upgrade(старо, ново).is_additive
+
+
 def test_само_нова_версия_без_форми_не_е_добавка():
     старо = _engine("0.3.20", [_форма("F001", "ПРАВ")])
     ново = _engine("0.3.21", [_форма("F001", "ПРАВ")])

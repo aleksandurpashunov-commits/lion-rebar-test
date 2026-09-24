@@ -68,6 +68,38 @@ def _shape_fingerprint(shape) -> dict[str, Any]:
     return data
 
 
+def _settings_fingerprint(package: EnginePackage) -> dict[str, Any]:
+    """Настройките така, както ги ЧЕТЕ разпознаването.
+
+    ЗАЩО. ``geometry_recognition`` е речник, който расте: нова версия добавя
+    ключ, а старият пакет просто го няма. Дословното сравнение обявяваше това
+    за промяна и спираше пренасянето, макар нищо да не се е сменило.
+
+    Измерено 22.09.2026: „тест-001“ не можеше да мине от v0.3.15 към v0.3.20
+    заради ЕДИН добавен ключ — ``declared_rebar_geometry_layers: []``, празен
+    списък, който изключва правилото си. Двете нови форми не стигаха до
+    чертежа заради настройка, която не прави нищо.
+
+    ``RecognitionPolicy`` е единственият четец на този речник (пише го само
+    Engine Studio, през ``policy.to_dict()``), а ``from_settings`` попълва
+    всеки липсващ ключ с подразбирането си. Затова сравнението минава през
+    него: два пакета са еднакви, когато разпознаването вижда едно и също.
+    Това не е разхлабване — липсващият ключ Е подразбирането, не „каквото и
+    да е“, а ключ с РАЗЛИЧНА от подразбирането стойност си остава промяна.
+
+    Останалите настройки се сравняват дословно.
+    """
+
+    from lion_rebar.dxf.recognition_policy import RecognitionPolicy
+
+    settings = dict(package.settings or {})
+    recognition = settings.get("geometry_recognition")
+    settings["geometry_recognition"] = RecognitionPolicy.from_settings(
+        recognition if isinstance(recognition, dict) else {}
+    ).to_dict()
+    return settings
+
+
 def compare_for_additive_upgrade(
     current: EnginePackage,
     candidate: EnginePackage,
@@ -91,10 +123,13 @@ def compare_for_additive_upgrade(
     if променени:
         return AdditiveUpgrade((), "променени форми: " + ", ".join(променени))
 
+    if _settings_fingerprint(current) != _settings_fingerprint(candidate):
+        return AdditiveUpgrade((), "променено поле на engine-а: settings")
+
     стар = current.to_dict()
     нов = candidate.to_dict()
     for ключ in sorted(set(стар) | set(нов)):
-        if ключ in _VOLATILE:
+        if ключ in _VOLATILE or ключ == "settings":
             continue
         if стар.get(ключ) != нов.get(ключ):
             return AdditiveUpgrade((), f"променено поле на engine-а: {ключ}")
