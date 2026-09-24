@@ -37,6 +37,10 @@ from lion_rebar.utils.files import (
 )
 
 
+#: Имена, които програмата пише сама. Не са хора и не подписват решение.
+MACHINE_APPROVERS = frozenset({"SYSTEM", "LION REBAR MANAGED RELEASE"})
+
+
 class EngineRepositoryError(RuntimeError):
     pass
 
@@ -114,6 +118,44 @@ class EngineRepository:
     def current_path(self) -> Path:
         pointer = self.current_pointer()
         return self.root / str(pointer["relative_path"])
+
+    def last_approver(self) -> str:
+        """Кой ЧОВЕК е одобрявал последно — за да не се пише наново всеки път.
+
+        Собственик, 22.09.2026: „трябва ли да пиша всеки път тези текстове“.
+        Името се иска на ВСЕКИ диалог — по веднъж за всяка одобрена форма и
+        пак при публикуването — а регистърът вече го знае.
+
+        МАШИННИТЕ имена се пропускат нарочно. Първоначалният bootstrap пише
+        ``SYSTEM``, а пакетираният engine — ``LION REBAR MANAGED RELEASE``.
+        Полето „Одобрил“ е запис КОЙ е решил; предложи ли се машинно име,
+        едно натискане на Enter би подписало решение с него.
+
+        Връща празно, когато няма човешко име. Това е предложение за полето,
+        не запис: диалогът си остава задължителен и стойността е редактируема.
+        """
+
+        try:
+            pointer = self.current_pointer()
+        except Exception:  # noqa: BLE001 — липсващ регистър не е грешка тук
+            pointer = None
+        if isinstance(pointer, dict):
+            by = str(pointer.get("activated_by") or "").strip()
+            if by and by.upper() not in MACHINE_APPROVERS:
+                return by
+        try:
+            редове = self.audit_file.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return ""
+        for ред in reversed(редове):
+            try:
+                запис = json.loads(ред)
+            except (TypeError, ValueError):
+                continue
+            by = str((запис or {}).get("by") or "").strip()
+            if by and by.upper() not in MACHINE_APPROVERS:
+                return by
+        return ""
 
     def save_draft(self, engine: EnginePackage) -> Path:
         engine.state = "DRAFT"

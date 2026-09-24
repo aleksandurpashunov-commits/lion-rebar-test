@@ -74,6 +74,36 @@ from lion_rebar.ui.approval_dialogs import ApprovalDialog
 from lion_rebar.ui.shape_preview import ShapePreview
 
 
+def _shape_approval_note(shape: ShapeDefinition) -> str:
+    """Предложена бележка при одобрение на форма — факт, не преценка.
+
+    Собственик, 22.09.2026: „трябва ли да пиша всеки път тези текстове“.
+    Полето по код НЕ е задължително (``repository.approve_shape``), но остава
+    в ``notes`` като част от записа, затова празното е загуба.
+
+    Тук се казва само измеримото: колко контролни теста носи формата и дали е
+    родена от случай в чертежа. НЕ се твърди, че тестовете минават, и НЕ се
+    пише вместо оператора защо я одобрява — това остава негово.
+    """
+
+    брой = len(shape.tests or ())
+    тестове = (
+        "" if not брой
+        else ("един контролен тест" if брой == 1 else f"{брой} контролни теста")
+    )
+    родена = bool(
+        isinstance(shape.recognition, dict)
+        and shape.recognition.get("born_from_case")
+    )
+    if родена and тестове:
+        return f"Родена от случай в чертежа; носи {тестове} от самите случаи."
+    if родена:
+        return "Родена от случай в чертежа."
+    if тестове:
+        return f"Носи {тестове}."
+    return ""
+
+
 class _ChoiceDelegate(QStyledItemDelegate):
     """Клетка с избор от затворен списък вместо свободен текст.
 
@@ -351,7 +381,13 @@ class EngineStudio(QDialog):
             return
         if not self._commit_all_tabs():
             return
-        dialog = ApprovalDialog("Публикуване на engine", APPROVAL_PHRASE, parent=self)
+        dialog = ApprovalDialog(
+            "Публикуване на engine",
+            APPROVAL_PHRASE,
+            parent=self,
+            default_by=self._last_approver(),
+            default_note=self._draft_change_summary(),
+        )
         if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.data()
@@ -370,12 +406,54 @@ class EngineStudio(QDialog):
         except EngineRepositoryError as exc:
             self._error(str(exc))
 
+    def _last_approver(self) -> str:
+        """Последният одобрил, за да не се пише наново на всеки диалог."""
+
+        try:
+            return self.repository.last_approver()
+        except Exception:  # noqa: BLE001 — предложението не бива да чупи диалога
+            return ""
+
+    def _draft_change_summary(self) -> str:
+        """Какво добавя черновата — казано от сравнението, не от паметта.
+
+        Предлага се само когато промяната е ПРОВЕРИМО добавка: тогава изречението
+        е вярно по построение. Всяка друга промяна оставя полето празно, защото
+        програмата не може да я характеризира вместо оператора.
+        """
+
+        if self.draft is None:
+            return ""
+        try:
+            from lion_rebar.engine.additive_upgrade import compare_for_additive_upgrade
+
+            изход = compare_for_additive_upgrade(self.repository.load_current(), self.draft)
+        except Exception:  # noqa: BLE001
+            return ""
+        if not изход.is_additive:
+            return ""
+        имена = []
+        for код in изход.added_shape_codes:
+            форма = self.draft.find_shape(код)
+            имена.append(f"{код} {форма.name}" if форма is not None else код)
+        брой = len(имена)
+        return (
+            "Добавени %s: %s.\n"
+            "Нито една съществуваща форма, правило или настройка не е променяна."
+            % ("форма" if брой == 1 else "форми", ", ".join(имена))
+        )
+
     def activate_selected_version(self) -> None:
         selected = self._selected_version()
         if not selected or selected["kind"] != "PUBLISHED":
             self._info("Избери публикувана версия.")
             return
-        dialog = ApprovalDialog("Активиране / връщане на версия", ACTIVATION_PHRASE, parent=self)
+        dialog = ApprovalDialog(
+            "Активиране / връщане на версия",
+            ACTIVATION_PHRASE,
+            parent=self,
+            default_by=self._last_approver(),
+        )
         if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.data()
@@ -932,10 +1010,17 @@ class EngineStudio(QDialog):
         shape = self._selected_shape()
         if shape is None:
             return
-        by, ok = QInputDialog.getText(self, "Одобрение", "Одобрил:")
+        by, ok = QInputDialog.getText(
+            self, "Одобрение", "Одобрил:", text=self._last_approver()
+        )
         if not ok:
             return
-        note, ok = QInputDialog.getMultiLineText(self, "Одобрение", "Бележка / основание:")
+        note, ok = QInputDialog.getMultiLineText(
+            self,
+            "Одобрение",
+            "Бележка / основание:",
+            text=_shape_approval_note(shape),
+        )
         if not ok:
             return
         try:
