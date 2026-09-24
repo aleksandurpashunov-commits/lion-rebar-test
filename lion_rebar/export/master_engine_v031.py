@@ -80,11 +80,20 @@ SUPPORTED_SHAPE_CODES = frozenset(
     {f"F{index:03d}" for index in range(1, 11)} | set(_CHAIN_FORMS)
 )
 
-def _chain_points(code: str, lengths: Sequence[float]) -> list[tuple[float, float]]:
-    """Върховете на верижна форма, започвайки от началото на координатите."""
 
-    start, turns = _CHAIN_FORMS[code]
-    heading = math.radians(start)
+def chain_points(
+    start_deg: float,
+    turns: Sequence[tuple[str, float]],
+    lengths: Sequence[float],
+) -> list[tuple[float, float]]:
+    """Върховете на верига от прави участъци, от началото на координатите.
+
+    ``turns`` е ``(страна, градуси)`` след всеки участък освен последния;
+    „L“ завърта наляво. Отделена е от ``_chain_points``, за да се вижда
+    къде свършва търсенето по код и къде започва самата геометрия.
+    """
+
+    heading = math.radians(float(start_deg))
     points: list[tuple[float, float]] = [(0.0, 0.0)]
     for index, length in enumerate(lengths):
         x, y = points[-1]
@@ -93,8 +102,39 @@ def _chain_points(code: str, lengths: Sequence[float]) -> list[tuple[float, floa
         )
         if index < len(turns):
             side, angle = turns[index]
-            heading += math.radians(angle if side == "L" else -angle)
+            heading += math.radians(angle if str(side).upper().startswith("L") else -angle)
     return points
+
+
+def _chain_points(code: str, lengths: Sequence[float]) -> list[tuple[float, float]]:
+    """Върховете на верижна форма от таблицата ``_CHAIN_FORMS``."""
+
+    start, turns = _CHAIN_FORMS[code]
+    return chain_points(start, turns, lengths)
+
+
+def _chain_dimensions(points: Sequence[tuple[float, float]], lengths: Sequence[float]):
+    """По една размерна верига на участък, изнесена от страната на въздуха.
+
+    Отстъпът расте при всеки следващ размер от същата страна. Без това два
+    къси съседни участъка (при F012 — 12,75 и 70) слагат надписите си на
+    практически едно място и се четат един върху друг.
+    """
+
+    dims = []
+    заети: dict[str, int] = {}
+    for index, length in enumerate(lengths):
+        a, b = points[index], points[index + 1]
+        вертикален = abs(b[1] - a[1]) > abs(b[0] - a[0])
+        kind = "v" if вертикален else "h"
+        if вертикален:
+            страна = "right" if b[0] >= a[0] else "left"
+        else:
+            страна = "below" if b[1] <= a[1] else "above"
+        ред = заети.get(страна, 0)
+        заети[страна] = ред + 1
+        dims.append((kind, a, b, length, страна, 7.0 + 5.5 * ред))
+    return dims
 
 #: Максимална добавка за огъване при F006. Измерена в реален чертеж:
 #: при 43 от 60 стремета точно 5 cm, единични 4 и 6.
@@ -383,6 +423,12 @@ def render_master_svg(
         body = _f009_svg(values, include_safe_zone=include_safe_zone)
     else:
         body = _generic_svg(code, values, include_safe_zone=include_safe_zone)
+    return _wrap_master_svg(body)
+
+
+def _wrap_master_svg(body: str) -> str:
+    """Рамката на всяка MASTER рисунка — един и същ изглед за всички форми."""
+
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -10 124 120" '
         'preserveAspectRatio="xMidYMid meet" role="img">'
@@ -655,14 +701,7 @@ def _generic_svg(code: str, values: dict[str, float], *, include_safe_zone: bool
         chain = [values.get(f"L{index}", 0.0) for index in range(1, count + 1)]
         p = _chain_points(code, chain)
         lines = [p]
-        dims = []
-        for index, length in enumerate(chain):
-            a, b = p[index], p[index + 1]
-            вертикален = abs(b[1] - a[1]) > abs(b[0] - a[0])
-            if вертикален:
-                dims.append(("v", a, b, length, "right" if b[0] >= a[0] else "left"))
-            else:
-                dims.append(("h", a, b, length, "below" if b[1] <= a[1] else "above"))
+        dims = _chain_dimensions(p, chain)
     else:
         raise MasterDimensionError(f"MASTER renderer няма дефиниция за {code}.")
 

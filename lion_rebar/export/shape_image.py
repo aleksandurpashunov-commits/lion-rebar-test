@@ -3,17 +3,15 @@ from __future__ import annotations
 import html
 import os
 import sys
-import math
 import re
 from dataclasses import dataclass
-from xml.sax.saxutils import escape
 from pathlib import Path
 from typing import Sequence
 
 from lion_rebar.engine.models import ShapeDefinition
 from lion_rebar.export.engine_shape_parameters import parameters_for_shape
+from lion_rebar.export.engine_draft_render import render_shape_draft_svg
 from lion_rebar.export.master_engine_v031 import (
-    MASTER_FORM_CODES,
     MasterDimensionError,
     master_engine_preflight,
     parameters_from_segments,
@@ -160,108 +158,59 @@ def render_shape_png(
 
     master_engine_preflight()
     code = str(shape.code or "").strip().upper()
-    if code in MASTER_FORM_CODES:
+    if code in LOCKED_MASTER_DRAWN_CODES:
         parameters = parameters_from_segments(
             code,
-            segment_lengths_cm,
+            _canonical_drawing_order(code, segment_lengths_cm),
             production_length_cm=production_length_cm,
             turn_angles_deg=turn_angles_deg,
         )
         svg = render_master_svg(code, parameters.values, include_safe_zone=False)
     else:
+        # От F010 нагоре рисува ОБЩИЯТ рисувач на редактора, пренесен в
+        # ``engine_draft_render``. Собственик, 23.09.2026: „много добре ги
+        # рисува и много лесно“ — и преди това, за стълбищните рамена: „имаш
+        # мастър форма и тя не е такава, намери я в Енджина“.
+        #
+        # Границата не е избрана тук: заключеният HTML описва сам F001..F008
+        # в ``geometry()`` плюс отделните рисунки на F006 и F009. Всичко над
+        # тях е чернова и в редактора минава през общия рисувач.
         parameters = parameters_for_shape(
             shape,
             segment_lengths_cm,
             production_length_cm=production_length_cm,
             turn_angles_deg=turn_angles_deg,
         )
-        svg = render_engine_shape_svg(shape, parameters.expanded_segments_cm)
+        svg = render_shape_draft_svg(shape, parameters.expanded_segments_cm)
     return _rasterize_svg(svg, path, shape_code=code)
 
 
-def render_engine_shape_svg(shape: ShapeDefinition, segment_lengths_cm: Sequence[float]) -> str:
-    """Render a deterministic schematic SVG for active Engine shapes > F009.
+#: Формите със СОБСТВЕНА рисунка в заключения MASTER: F001..F008 от
+#: ``geometry()``, плюс F006 и F009 с отделните си рисувачи.
+LOCKED_MASTER_DRAWN_CODES = frozenset(f"F{index:03d}" for index in range(1, 10))
 
-    The geometry follows the same declarative directions/bends as MASTER Studio.
-    It is an export view, not a recognition algorithm; no dimensions are inferred.
+def _canonical_drawing_order(code: str, lengths: Sequence[float]) -> tuple[float, ...]:
+    """Редът, в който заключената форма иска да бъде НАРИСУВАНА.
+
+    ЗАЩО. Собственик, 23.09.2026, за „3N14x555“ [10, 545]: „завърти я наляво
+    един път да е хоризонтална“. Обхождането на DXF беше дало късото рамо
+    първо, а ``_generic_svg`` рисува L1 водоравно — значи прътът излизаше
+    отвесен, 10 cm широк и 545 висок.
+
+    Самата ENGINE дефиниция на F004 казва обратното: „Основният сегмент стои
+    хоризонтално отдолу; винкелът се изчертава нагоре в десния край.“ Тук се
+    спазва тя. Същото правило вече стои и в
+    ``excel_export._canonicalize_for_master`` за другия път.
+
+    Пипа се САМО редът за рисуване. Производствените стойности не се менят —
+    те са същите две числа и се записват другаде.
     """
 
-    definitions = sorted(shape.segments, key=lambda item: item.index)
-    lengths = tuple(float(value) for value in segment_lengths_cm)
-    if len(definitions) != len(lengths):
-        raise MasterDimensionError(
-            f"{shape.code}: renderer очаква {len(definitions)} сегмента, получени са {len(lengths)}."
-        )
-    heading = _initial_heading(shape.initial_direction)
-    x = y = 0.0
-    points: list[tuple[float, float]] = [(x, y)]
-    labels: list[tuple[float, float, str]] = []
-    for definition, length in zip(definitions, lengths):
-        absolute = _drawing_heading(definition.drawing_direction)
-        if absolute is not None:
-            heading = absolute
-        radians = math.radians(heading)
-        nx = x + length * math.cos(radians)
-        ny = y - length * math.sin(radians)
-        labels.append(((x + nx) / 2.0, (y + ny) / 2.0, f"{definition.length_code}={_fmt(length)} cm"))
-        points.append((nx, ny))
-        x, y = nx, ny
-        if definition.bend_after_deg is not None:
-            direction = str(definition.bend_direction or "RIGHT").upper()
-            sign = 1.0 if direction in {"LEFT", "НАЛЯВО"} else -1.0
-            heading += sign * float(definition.bend_after_deg)
-
-    xs = [point[0] for point in points]
-    ys = [point[1] for point in points]
-    min_x, max_x = min(xs), max(xs)
-    min_y, max_y = min(ys), max(ys)
-    extent = max(max_x - min_x, max_y - min_y, 1.0)
-    pad = max(12.0, extent * 0.16)
-    view_x, view_y = min_x - pad, min_y - pad
-    view_w, view_h = max_x - min_x + 2 * pad, max_y - min_y + 2 * pad
-    polyline = " ".join(f"{px:g},{py:g}" for px, py in points)
-    label_svg = "".join(
-        f'<text x="{lx:g}" y="{ly - max(3.0, extent * 0.025):g}" '
-        'text-anchor="middle" font-family="Arial,sans-serif" '
-        f'font-size="{max(4.0, extent * 0.035):g}" fill="#1f4e79">{escape(text)}</text>'
-        for lx, ly, text in labels
-    )
-    title_y = view_y + max(7.0, extent * 0.055)
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{view_x:g} {view_y:g} {view_w:g} {view_h:g}" '
-        'preserveAspectRatio="xMidYMid meet">'
-        '<rect x="-100000" y="-100000" width="200000" height="200000" fill="white"/>'
-        f'<polyline points="{polyline}" fill="none" stroke="#111827" stroke-width="{max(1.2, extent * 0.012):g}" '
-        'stroke-linecap="round" stroke-linejoin="round"/>'
-        f'{label_svg}'
-        f'<text x="{(min_x + max_x) / 2:g}" y="{title_y:g}" text-anchor="middle" '
-        'font-family="Arial,sans-serif" font-weight="700" '
-        f'font-size="{max(4.5, extent * 0.04):g}" fill="#111827">{escape(shape.code)} — {escape(shape.name)}</text>'
-        '</svg>'
-    )
-
-
-def _initial_heading(value: str | None) -> float:
-    return {
-        "RIGHT": 0.0, "НАДЯСНО": 0.0, "UP": 90.0, "НАГОРЕ": 90.0,
-        "LEFT": 180.0, "НАЛЯВО": 180.0, "DOWN": -90.0, "НАДОЛУ": -90.0,
-    }.get(str(value or "RIGHT").upper(), 0.0)
-
-
-def _drawing_heading(value: str | None) -> float | None:
-    if not value:
-        return None
-    normalized = str(value).upper().replace("-", "_").replace(" ", "_")
-    return {
-        "RIGHT": 0.0, "НАДЯСНО": 0.0, "UP_RIGHT": 45.0, "НАГОРЕ_НАДЯСНО": 45.0,
-        "UP": 90.0, "НАГОРЕ": 90.0, "UP_LEFT": 135.0, "НАГОРЕ_НАЛЯВО": 135.0,
-        "LEFT": 180.0, "НАЛЯВО": 180.0, "DOWN_LEFT": -135.0, "НАДОЛУ_НАЛЯВО": -135.0,
-        "DOWN": -90.0, "НАДОЛУ": -90.0, "DOWN_RIGHT": -45.0, "НАДОЛУ_НАДЯСНО": -45.0,
-    }.get(normalized)
-
-
-def _fmt(value: float) -> str:
-    return str(int(round(value))) if abs(value - round(value)) < 1e-8 else f"{value:.2f}".rstrip("0").rstrip(".")
+    values = tuple(float(value) for value in lengths)
+    if str(code).strip().upper() == "F004" and len(values) == 2:
+        основен = 0 if values[0] >= values[1] else 1
+        return (values[основен], values[1 - основен])
+    return values
 
 
 def _visible_alpha_bounds(image, qrect_type):
