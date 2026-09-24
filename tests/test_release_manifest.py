@@ -120,6 +120,28 @@ def test_neprosledenite_papki_ne_pravyat_durvoto_mrusno(monkeypatch) -> None:
     assert чисто and мръсни == ""
 
 
+def test_samiyat_manifest_ne_blokira_zapisa_si(monkeypatch) -> None:
+    """Вторият запис отказваше заради първия — манифестът Е изходът тук."""
+
+    модул = _инструмент()
+    monkeypatch.setattr(
+        модул, "_git",
+        lambda *args: " M SHA256_MANIFEST.json\n" if args[0] == "status" else "",
+    )
+    чисто, мръсни = модул.дървото_е_чисто()
+    assert чисто and мръсни == ""
+
+
+def test_promenen_kod_vse_pak_blokira(monkeypatch) -> None:
+    модул = _инструмент()
+    monkeypatch.setattr(
+        модул, "_git",
+        lambda *args: " M lion_rebar/app.py\n" if args[0] == "status" else "",
+    )
+    чисто, _ = модул.дървото_е_чисто()
+    assert not чисто
+
+
 def test_spisukut_izklyuchva_samiya_manifest(monkeypatch) -> None:
     модул = _инструмент()
     monkeypatch.setattr(
