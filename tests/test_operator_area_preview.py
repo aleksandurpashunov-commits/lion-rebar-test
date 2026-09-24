@@ -18,7 +18,10 @@
 """
 from __future__ import annotations
 
+import ast
+import functools
 import os
+import pathlib
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -159,3 +162,58 @@ def test_bez_text_mtext_v_politikata_ostavat_samo_atributite() -> None:
     )
     assert с_текст == 2
     assert без_текст == 1
+
+
+# --- кога изобщо се пита -----------------------------------------------------
+#
+# Проверките са на ИЗВОРА, както в ``test_operator_paths_wired.py``: диалогът
+# иска прозорец и човек, а правилото кога се показва е точно това, което
+# дразнеше собственика — 31 греди значеха 62 натискания.
+
+
+@functools.lru_cache(maxsize=None)
+def _тялото(име: str) -> str:
+    """Тялото на един метод от ``main_window.py``.
+
+    Файлът е 287 KB; разбира се веднъж за целия модул, а не на всеки тест.
+    """
+
+    извор = pathlib.Path("lion_rebar/ui/main_window.py").read_text(encoding="utf-8")
+    дърво = ast.parse(извор)
+    for възел in ast.walk(дърво):
+        if isinstance(възел, ast.FunctionDef) and възел.name == име:
+            return ast.get_source_segment(извор, възел) or ""
+    raise AssertionError(f"няма функция {име}")
+
+
+def test_motivut_se_iska_samo_pri_premestvane() -> None:
+    тяло = _тялото("_operator_box_drawn")
+    assert "if премествани:" in тяло
+    assert "QInputDialog.getText" in тяло
+    # мотивът е в клона за преместване, не другаде
+    преди_мотива = тяло.split("QInputDialog.getText")[0]
+    assert преди_мотива.rstrip().endswith("note, accepted =")
+
+
+def test_vaprosat_s_da_ne_ostava_samo_za_prazna_ramka() -> None:
+    тяло = _тялото("_operator_box_drawn")
+    assert "elif not обхванати:" in тяло
+    assert "Рамката не хвана НИТО ЕДНА позиция." in тяло
+
+
+def test_rutinnata_ramka_ne_pita_nishto() -> None:
+    """Обхваща позиции, не мести нищо -> записва се без нито един диалог."""
+
+    тяло = _тялото("_operator_box_drawn")
+    клон = тяло.split("elif not обхванати:", 1)[1].split("        else:", 1)[1]
+    клон = клон.split("try:", 1)[0]
+    assert "QMessageBox" not in клон, клон[:200]
+    assert "QInputDialog" not in клон, клон[:200]
+
+
+def test_zapisanoto_ne_e_dialog() -> None:
+    """Кутията „Записано" беше второто натискане на всяка рамка."""
+
+    тяло = _тялото("_operator_box_drawn")
+    assert "QMessageBox.information(" not in тяло
+    assert "statusBar().showMessage(" in тяло
