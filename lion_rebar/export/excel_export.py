@@ -3037,7 +3037,22 @@ def _validate_vertical_assignments(
 def _detect_beam_labels(entities: Sequence[DxfEntityRecord], frames: Sequence[DrawingFrame]) -> list[BeamLabel]:
     result: list[BeamLabel] = []
     frame_map = {frame.index: frame for frame in frames}
-    pattern = re.compile(r"^\s*ГР\.?\s*[A-ZА-Я]+\.\s*\d+", flags=re.IGNORECASE)
+    # Буквената група е ПО ИЗБОР.
+    #
+    # Измерено 2026-09-24 върху „prev_s-11_v1" — лист „АРМИРОВКА ГРЕДИ НА
+    # КОТА +3.50" от същия проектант: всичките му 59 заглавия са от вида
+    # „Гр.1 25/80", без буква. Старият образец искаше група („Гр. B.8 25/55",
+    # както пише s-9) и затова не разпознаваше НИТО ЕДНО от тях — 196 от 290
+    # позиции излизаха MISSING_BEAM, тоест две трети от листа.
+    #
+    # Разширяването е мерено и на трите чертежа, където образецът работи:
+    # s-9 остава 32 от 32, s-11 и s-8 остават 0 — нула нови попадения.
+    # Сечението след името („25/80") е втората улика, че е греда, но НЕ се
+    # изисква: s-9 пише и „Гр. B.5 25/55R".
+    pattern = re.compile(
+        r"^\s*ГР\.?\s*(?:[A-ZА-Я]+\.\s*)?\d+",
+        flags=re.IGNORECASE,
+    )
     for record in entities:
         text = re.sub(r"\s+", " ", str(record.text or "")).strip()
         if not pattern.search(text):

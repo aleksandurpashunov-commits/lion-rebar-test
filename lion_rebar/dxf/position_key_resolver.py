@@ -970,7 +970,27 @@ def _legend_analysis_is_exact(
         return False
     if not top.handles or not str(top.master_shape_code or "").strip():
         return False
-    if top.master_ambiguous_shape_codes or top.review_reason_codes:
+    # Прекъсването на равенство ПО КОТИ е доказателство, не съмнение.
+    #
+    # Собственик, 24.09.2026, одобрено след измерване. „тест-004": ключовете
+    # 4A (42 кръгчета) и 4B (28) падаха само заради този признак, при разлика
+    # в дължината ТОЧНО нула и геометрия на 7,14 при допустими 15. Причината
+    # е в чертежа: прътите 410 и 420 са начертани един до друг и всеки е
+    # втори кандидат на другия.
+    #
+    # Какво точно значи признакът (``_dimension_evidence_candidate_advantage``):
+    # печелившият има пълно уравнение на надписаните размери A–E към общата L,
+    # а съперникът му НЯМА такова, при същата MASTER форма и същия брой
+    # участъци. Тоест избрал го е чертежът със собствените си коти, а не
+    # близостта. Точно това правило си платихме миналата седмица.
+    #
+    # Всяка ДРУГА причина за преглед си остава отказ.
+    остатъчни = tuple(
+        код
+        for код in (top.review_reason_codes or ())
+        if код != "DIMENSION_CANDIDATE_TIEBREAK"
+    )
+    if top.master_ambiguous_shape_codes or остатъчни:
         return False
     if abs(float(top.numeric_difference)) > float(
         policy.position_key_legend_length_tolerance_cm
