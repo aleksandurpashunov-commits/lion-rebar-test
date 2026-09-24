@@ -97,6 +97,42 @@ class BatchAutoOutputResult:
 _PROXY_ANNOTATION_PREFIX = "PXANN_"
 _OWN_PROXY_GEOMETRY_RE = re.compile(r"^PXG_([^_]+)_\d+_\d+$")
 
+#: Точност на производствения размер: два знака в сантиметри, тоест 0,1 mm.
+PRODUCTION_SEGMENT_DECIMALS = 2
+
+
+def production_segment_precision(values: Sequence[float]) -> tuple[float, ...]:
+    """Реже шума от обхождането, без да пипа истинските размери.
+
+    ЗАЩО. Собственик, 23.09.2026, при одита на „Тест-003“: „тук трябва да ги
+    оправим да са точен размер, както е записано в енджина“.
+
+    В описа влизаха четиринайсет позиции с числа като ``374.999942 + 17``
+    (`109N14x395`), ``99.999942 + 13`` (`34N8x115`) и ``440.000022 + 13``
+    (`28N12x455`). Това е шум с порядък 0,0006 mm от обхождането на DXF
+    полилинията, а не мярка — арматуристът получаваше режещ лист с шест знака.
+
+    0,1 mm е далеч под всякакъв допуск за арматура: там, където проектантът е
+    начертал кръгло, числото става кръгло, а където НЕ е — остава.
+    ``22N12x390`` с начертани ``374.931063`` си остава 374,93, защото тези
+    0,7 mm са в чертежа, не в сметката.
+
+    Реже се тук, защото оттук минават и двата пътя — доказаните сегменти и
+    изведените от геометрията — преди ``ExportPosition`` да стигне до
+    одобрената връзка, ledger-а и Excel.
+    """
+
+    изход: list[float] = []
+    for value in values or ():
+        try:
+            число = float(value)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(число):
+            continue
+        изход.append(round(число, PRODUCTION_SEGMENT_DECIMALS))
+    return tuple(изход)
+
 
 def _own_proxy_geometry_handles(row: Mapping[str, Any]) -> tuple[str, ...]:
     """Геометрията на СОБСТВЕНОТО proxy на надписа, когато тя може да замени
@@ -380,8 +416,13 @@ def build_batch_export_context(
                 derived_segments = parsed_derived_segments
         # Доказаните сегменти важат и за отворените форми (F003/F004/F007),
         # не само за стремената.
+        #
+        # Формата се подава, защото извън заключените F001..F010 размерите се
+        # мерят по СОБСТВЕНАТА дефиниция на формата. Без нея родена форма не
+        # може да докаже размерите си и пада на геометрията — което вкарваше
+        # измереното ``16,9706`` в описа вместо надписаните ``17``.
         production_segment_evidence_valid = (
-            validate_production_segment_evidence(row)
+            validate_production_segment_evidence(row, shape=shape)
         )
         segments_proven = (
             len(derived_segments) >= 2
@@ -499,7 +540,7 @@ def build_batch_export_context(
                 shape_revision=int(shape.revision),
                 geometry_handles=geometry_handles,
                 frame_index=frame.index,
-                segment_lengths_cm=segment_lengths_cm,
+                segment_lengths_cm=production_segment_precision(segment_lengths_cm),
                 turn_angles_deg=turn_angles_deg,
                 # Заглавието на групата колони ("К23, К24 (35/35) - 2бр.").
                 # Без него листът с колоните не се подрежда група по група,
