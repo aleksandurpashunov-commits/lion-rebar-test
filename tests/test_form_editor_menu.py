@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -113,30 +114,146 @@ def test_the_master_menu_really_carries_the_action(app) -> None:
         window.deleteLater()
 
 
-def test_opening_reports_a_missing_editor_instead_of_crashing(monkeypatch) -> None:
-    """Липсващ файл е съобщение, не авария — и нищо не се отваря."""
+def _прозорец(съобщения: list[str]):
+    """Най-малкото, което ``open_form_editor`` докосва."""
 
     from lion_rebar.ui import main_window as module
 
-    отворени: list[str] = []
-    съобщения: list[str] = []
+    class _Bar:
+        def __init__(self) -> None:
+            self.messages: list[str] = []
+
+        def showMessage(self, message: str, _timeout: int = 0) -> None:  # noqa: N802
+            self.messages.append(message)
 
     class _Window:
         open_form_editor = module.MainWindow.open_form_editor
 
+        def __init__(self) -> None:
+            self.bar = _Bar()
+
+        def statusBar(self):  # noqa: N802 — Qt име
+            return self.bar
+
         def _error(self, message: str) -> None:
             съобщения.append(message)
 
+        def _info(self, message: str) -> None:
+            съобщения.append(message)
+
+    return _Window()
+
+
+def test_opening_reports_a_missing_editor_instead_of_crashing(monkeypatch) -> None:
+    """Липсващ файл е съобщение, не авария — и нищо не се отваря."""
+
+    съобщения: list[str] = []
     monkeypatch.setattr(
         "lion_rebar.engine.draft_import.form_editor_path",
         lambda: Path("няма-такъв-файл.html"),
     )
+
+    _прозорец(съобщения).open_form_editor()
+
+    assert съобщения and "Липсва редакторът на форми" in съобщения[0]
+
+
+def test_the_editor_goes_through_the_browser_not_the_file_association(
+    monkeypatch,
+) -> None:
+    """Регресията от 25.09: асоциацията за .html отвори редактора в Notepad.
+
+    Собственик, 25.09.2026, със снимка на 207 571 знака суров HTML. Тук се
+    пази, че прозорецът вика браузърния път, а не общото отваряне на файл.
+    """
+
+    import lion_rebar.utils.open_in_browser as browser
+
+    поискани: list[Path] = []
     monkeypatch.setattr(
-        "PySide6.QtGui.QDesktopServices.openUrl",
-        lambda *args, **kwargs: отворени.append(str(args)) or True,
+        browser,
+        "open_html_in_browser",
+        lambda path: поискани.append(Path(path)) or None,
     )
 
-    _Window().open_form_editor()
+    съобщения: list[str] = []
+    прозорец = _прозорец(съобщения)
+    прозорец.open_form_editor()
 
-    assert отворени == []
-    assert съобщения and "Липсва редакторът на форми" in съобщения[0]
+    assert поискани == [form_editor_path()]
+    assert съобщения == []
+    # Операторът научава откъде се внася свалената .json.
+    assert прозорец.bar.messages and "Внеси форми от" in прозорец.bar.messages[0]
+
+
+def test_a_browser_that_will_not_start_is_reported_with_the_path(
+    monkeypatch,
+) -> None:
+    import lion_rebar.utils.open_in_browser as browser
+
+    monkeypatch.setattr(
+        browser, "open_html_in_browser", lambda path: "Браузърът не тръгна."
+    )
+
+    съобщения: list[str] = []
+    _прозорец(съобщения).open_form_editor()
+
+    assert съобщения
+    assert "Браузърът не тръгна." in съобщения[0]
+    assert str(form_editor_path()) in съобщения[0]
+
+
+class TestBrowserResolution:
+    """``utils.open_in_browser`` — асоциацията на ПРОТОКОЛА, не на файла."""
+
+    def test_the_url_takes_the_place_of_the_percent_one(self) -> None:
+        from lion_rebar.utils.open_in_browser import browser_argv
+
+        argv = browser_argv(
+            r'"C:\Program Files\App\browser.exe" --single-argument %1',
+            "file:///C:/x.html",
+        )
+
+        assert argv == [
+            r"C:\Program Files\App\browser.exe",
+            "--single-argument",
+            "file:///C:/x.html",
+        ]
+
+    def test_a_command_without_a_placeholder_still_gets_the_url(self) -> None:
+        from lion_rebar.utils.open_in_browser import browser_argv
+
+        argv = browser_argv(r'"C:\App\browser.exe"', "file:///C:/x.html")
+
+        assert argv == [r"C:\App\browser.exe", "file:///C:/x.html"]
+
+    def test_an_empty_command_gives_no_argv(self) -> None:
+        from lion_rebar.utils.open_in_browser import browser_argv
+
+        assert browser_argv("", "file:///C:/x.html") == []
+
+    @pytest.mark.skipif(
+        sys.platform != "win32", reason="Изборът на протокол е на Windows."
+    )
+    def test_windows_resolves_a_real_browser(self) -> None:
+        """Командата идва от избора за http, затова е браузър, не Notepad."""
+
+        from lion_rebar.utils.open_in_browser import (
+            browser_argv,
+            default_browser_command,
+        )
+
+        command = default_browser_command()
+        if command is None:
+            pytest.skip("Няма избран браузър за http на тази машина.")
+        argv = browser_argv(command, "file:///C:/x.html")
+
+        assert argv and Path(argv[0]).is_file()
+        assert argv[-1] == "file:///C:/x.html"
+
+    def test_a_missing_file_is_reported_before_any_launch(self, tmp_path) -> None:
+        from lion_rebar.utils.open_in_browser import open_html_in_browser
+
+        проблем = open_html_in_browser(tmp_path / "няма.html")
+
+        assert проблем and "Липсва файлът" in проблем

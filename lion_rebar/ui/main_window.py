@@ -6103,23 +6103,25 @@ class MainWindow(QMainWindow):
         редактора“) работи, но дотук нищо не го отваряше: операторът трябваше
         да знае къде на диска стои един HTML файл. Отварянето е само
         показване — нищо не се записва и нито един engine не се пипа.
+
+        Пуска се през браузъра по избор на оператора, не през асоциацията за
+        ``.html``: на машината на собственика тя сочи Notepad и редакторът се
+        отвори като 207 571 знака суров текст (``utils.open_in_browser``).
         """
 
-        from PySide6.QtCore import QUrl
-        from PySide6.QtGui import QDesktopServices
-
         from lion_rebar.engine.draft_import import form_editor_path
+        from lion_rebar.utils.open_in_browser import open_html_in_browser
 
         path = form_editor_path()
         if not path.is_file():
             self._error(f"Липсва редакторът на форми: {path}")
             return
-        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
-            # Отказът на системата не е авария: пътят се казва, за да може
-            # операторът да го отвори сам.
+        проблем = open_html_in_browser(path)
+        if проблем:
+            # Отказът не е авария: пътят се казва, за да може операторът да
+            # отвори файла сам.
             self._info(
-                "Редакторът не можа да се отвори автоматично.\n"
-                f"Отвори този файл в браузър:\n{path}"
+                f"{проблем}\nОтвори този файл в браузър:\n{path}"
             )
             return
         self.statusBar().showMessage(
