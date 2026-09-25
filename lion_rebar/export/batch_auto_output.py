@@ -436,6 +436,10 @@ def build_batch_export_context(
             and production_length_cm is not None
         ):
             candidate_segments = tuple(derived_segments)
+            # Подразбираните 90° важат за формите, които НАИСТИНА завиват под
+            # прав ъгъл. При F002 завоят е производствен размер (MASTER смята
+            # ``DY2 = редукция * sin(ъгъл)``) и редукция без доказани завои не
+            # стига дотук: ``validate_production_segment_evidence`` я отказва.
             candidate_turns = tuple(
                 float(value)
                 for value in (row.get("canonical_turn_angles_deg") or

@@ -251,11 +251,17 @@ def validate_production_segment_evidence(
         return False
     if not math.isfinite(total) or total <= 0:
         return False
-    turns = _finite_vector(
-        evidence.get("turn_angles_deg")
-        or row.get("canonical_turn_angles_deg")
-        or (90.0, 90.0)
+    proven_turns = (
+        evidence.get("turn_angles_deg") or row.get("canonical_turn_angles_deg")
     )
+    # F002 е единствената форма, при която завоят носи производствен размер:
+    # MASTER смята ``DY2 = редукция * sin(ъгъл)``. Подразбираните 90/90 там не
+    # са безобидни — обявяват отместване, равно на цялата редукция, и после
+    # Excel експортът правилно отказва позицията (собственик, 2026-09-25).
+    # Останалите форми завиват под прав ъгъл и запазват държането си.
+    if effective_shape == "F002" and not proven_turns:
+        return False
+    turns = _finite_vector(proven_turns or (90.0, 90.0))
     if turns is None or (effective_shape == "F007" and len(turns) != 2):
         return False
     if not _master_dimensions_hold(effective_shape, segments, total, turns, shape):

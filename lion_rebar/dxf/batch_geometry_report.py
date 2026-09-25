@@ -66,6 +66,12 @@ from lion_rebar.dxf.proxy_adapter import (
 from lion_rebar.dxf.proxy_adapter import (
     _THREE_LEG_PARALLEL_TOLERANCE_DEG,
     _angle_between_deg,
+    _perpendicular_offset,
+    reduction_offset_angle_deg,
+)
+from lion_rebar.manual_assignment import (
+    ManualGeometryError,
+    summarize_selected_geometry,
 )
 from lion_rebar.dxf.recognition_policy import RecognitionPolicy
 from lion_rebar.dxf.stirrup_group_resolver import (
@@ -2253,6 +2259,97 @@ def _install_authoritative_production_segments(
     return True
 
 
+#: Начертаното отместване на редукцията се закръгля до цял сантиметър само
+#: когато разликата е чертожен шум. Реалният случай (собственик, 2026-09-25,
+#: „т-1"): начертани 4.0061 cm при надписана редукция 40 — 0.06 mm разлика, а
+#: проектантът е чертал 4. По-голяма разлика е ДРУГО число и се пази каквото е.
+_F002_OFFSET_ROUNDING_TOLERANCE_CM = 0.1
+
+#: Изведеният ъгъл трябва да описва СЪЩИЯ завой, който е начертан. Разминаване
+#: над този праг значи, че надписът и чертежът не говорят за един и същ прът,
+#: и тогава нищо не се извежда.
+_F002_TURN_AGREEMENT_TOLERANCE_DEG = 1.0
+
+
+def _f002_reduction_turn_angles_deg(
+    row: Mapping[str, Any],
+    canonical: Sequence[float],
+    *,
+    entity_map: Mapping[str, DxfEntityRecord],
+) -> tuple[float, float] | None:
+    """Двата завоя на редукцията, изведени от НАЧЕРТАНОТО отместване.
+
+    Редукцията завива ВЪРХУ наклона и после обратно ОТ него: двата завоя са
+    противоположни по знак и равни по големина (``excel_export.
+    _validate_f002_turn_consistency`` иска точно това). Наум сложени 90/90 не
+    са формален проблем — заключеният MASTER смята ``DY2 = редукция *
+    sin(ъгъл)`` и при 90° обявява отместване, равно на цялата редукция, тоест
+    Z вместо редукция.
+
+    Големината идва от двете числа, които са точни: перпендикулярното
+    разстояние между двете успоредни рамена и НАДПИСАНАТА дължина на
+    редукцията — същото правило като при proxy пътя от 13.09
+    (``reduction_offset_angle_deg``). Знакът следва начертаната посока.
+
+    Отказва при всичко недоказано: друга форма, липсваща или разклонена
+    геометрия, прът, чиито завои не са противоположни (значи не е редукция),
+    и ъгъл, който не описва начертания завой.
+    """
+
+    if str(row.get("master_shape_code") or "").strip().upper() != "F002":
+        return None
+    if len(canonical) != 3:
+        return None
+    try:
+        declared_reduction = float(canonical[1])
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(declared_reduction) or declared_reduction <= 0:
+        return None
+
+    handles = [str(value) for value in (row.get("candidate_handles") or []) if str(value)]
+    if not handles or any(handle not in entity_map for handle in handles):
+        return None
+    try:
+        summary = summarize_selected_geometry([entity_map[handle] for handle in handles])
+    except ManualGeometryError:
+        return None
+    if (
+        not summary.connected
+        or summary.closed
+        or summary.branched
+        or summary.segment_count != 3
+        or len(summary.points) != 4
+        or len(summary.turn_angles_deg) != 2
+    ):
+        return None
+
+    drawn_first, drawn_second = (float(value) for value in summary.turn_angles_deg)
+    # Начертаният прът трябва САМ да е редукция. Два завоя в една посока са
+    # Z или U и не стават редукция, защото надписът твърди F002.
+    if drawn_first * drawn_second >= 0:
+        return None
+
+    offset = _perpendicular_offset(
+        (summary.points[0], summary.points[1]), summary.points[-1]
+    )
+    if offset is None or not math.isfinite(offset) or offset <= 0:
+        return None
+    rounded = round(offset)
+    if rounded > 0 and abs(offset - rounded) <= _F002_OFFSET_ROUNDING_TOLERANCE_CM:
+        offset = float(rounded)
+
+    angle = reduction_offset_angle_deg(offset, declared_reduction)
+    if angle is None or not math.isfinite(angle) or angle <= 0:
+        return None
+    if (
+        abs(angle - abs(drawn_first)) > _F002_TURN_AGREEMENT_TOLERANCE_DEG
+        or abs(angle - abs(drawn_second)) > _F002_TURN_AGREEMENT_TOLERANCE_DEG
+    ):
+        return None
+    return (angle, -angle) if drawn_first > 0 else (-angle, angle)
+
+
 def _promote_authoritative_matcher_or_f006_segments(
     row: dict,
     *,
@@ -2294,6 +2391,16 @@ def _promote_authoritative_matcher_or_f006_segments(
                 row, "MATCHER_DIMENSION_EVIDENCE_INVALID"
             )
             return True, False
+        # Редукцията носи производствен смисъл в ЗНАКА на завоите си, а редът,
+        # изведен от отпечатаните коти, няма пренесен вектор. Извежда се от
+        # начертаното отместване; при отказ полето остава празно и нататък
+        # никой не слага 90/90 наум.
+        if not row.get("canonical_turn_angles_deg"):
+            reduction_turns = _f002_reduction_turn_angles_deg(
+                row, canonical, entity_map=entity_map
+            )
+            if reduction_turns is not None:
+                row["canonical_turn_angles_deg"] = list(reduction_turns)
         promoted = _install_authoritative_production_segments(
             row,
             canonical,
