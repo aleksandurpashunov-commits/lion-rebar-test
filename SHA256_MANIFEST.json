@@ -1,7 +1,7 @@
 {
   "schema": "lion-rebar-manifest/v1",
   "version": "v0.1.44.21-rc44",
-  "commit": "cbf3f38cb4292460ec4191cd33e2a4948ebc3c3a",
+  "commit": "e37749bdf155e91cb9ceaa28c29f6e87e07e676c",
   "files": {
     ".claude/settings.json": "aacc641a8fbc957f9fb9a9682996d18f8979316c165058233997193ddba90db1",
     ".claude/skills/lion-rebar-full-path/SKILL.md": "1a6d2d48e199a22daae172e23949233b452eec2f26cac64d8f03309c4522cd2f",
@@ -26,7 +26,7 @@
     ".claude/skills/run-lion-rebar/start_app.ps1": "7977d600b3bd9b9d0987810beac4c26c79960254df55238f42390e2b19f8a08a",
     ".gitignore": "4aeab05dd3a06bbce1e891097f9e95365a61369384940d364655337b9487bd9d",
     "BUILD_EXE.bat": "48708844ee8c6dcfbadc1afeeb840be887e302e35cbe03bcb24b832b5b3feb9a",
-    "CHANGELOG.md": "97911a547345742aaade1040f2f73b066682d5c02f09d91cada3d48301fcb380",
+    "CHANGELOG.md": "42cc828d3a940a1fc83d4121f909cc0e4407b4194c07b9b3c895c6a532441cca",
     "CLAUDE.md": "639462d852cd41a4a58cef32c631203cde1b68d943db0b6242bfdd4948967955",
     "INSTALL_LION_REBAR.bat": "0a47ff5182a4c2cfde53e5c9dadf59376828ce18219f3ee0741d609b972182a5",
     "PROJECT_HANDOFF.md": "a6be8ea192dc1d9742cabb68443b5c5d1a33decdd3750848563171120c3efe69",
@@ -301,7 +301,7 @@
     "lion_rebar/ui/geometry_candidates_dialog.py": "d7e97672ab6114d5167ab291c7a36b61b44ba5172c918a901392d52fe920ac04",
     "lion_rebar/ui/import_report.py": "bfeea85170a7ab400a2535a8572961a01994da6afeb5b1841d0d295d97d5267a",
     "lion_rebar/ui/layer_panel.py": "f53748e6495acf61dbc993f910a970949f941a311a16a9acb5bc9c97ff7388f6",
-    "lion_rebar/ui/main_window.py": "46c9626f20f3fcdacc6a58b1f45391ffd6c782d291947989ece7379354070998",
+    "lion_rebar/ui/main_window.py": "ef967729f1a3d873d1c5cdc53010f64ca4028f4cf35fccc15298925eecf59669",
     "lion_rebar/ui/manual_form_assignment_dialog.py": "18098be93df72c88ecc7dc5b6308f2c8fe5601487206a233545f1395435c56df",
     "lion_rebar/ui/new_shapes_dialog.py": "75f5856e6a5197fd04ad2f72389408879b0cf1ee6807625722c2106f3c2d745e",
     "lion_rebar/ui/rebar_inventory_dialog.py": "15c9ba1512f4e02107adda9f25f56bcea56f58eeb2e8486e7406f0a9484d9a6b",
@@ -314,6 +314,7 @@
     "lion_rebar/utils/app_paths.py": "c3db6a3bd9f0e5c735ec6acb777e87a78eda4f082fe84ff6408710859aef30d3",
     "lion_rebar/utils/files.py": "46c88787e87e82539b347619d39930943001620ad9038e0786c14380d04e1546",
     "lion_rebar/utils/logging_setup.py": "f2db4b2e3cb3caf73f431f633c01cfd49032d930d060a877fb8c825a1f0330d7",
+    "lion_rebar/utils/open_in_browser.py": "1973844473acb677187ce45942898ec28d3369eaa17d9d8d5f43ede38a939f07",
     "pyproject.toml": "f0e8d573e2649c82775dcc59b9f14cadfb77a2b28a2fb2605dda4da5ff5f7298",
     "pytest.ini": "efcce6f55356a0fdaf6f9631b9d9a9a92fd1caba8ddce5809b8a77bb998cc3ba",
     "requirements-dev.txt": "868d0089dda84555a71aa89f0e22091d62e203eedd6ec83e04159625cddfa217",
@@ -414,7 +415,7 @@
     "tests/test_final_control_status_gate.py": "9a7998ddbb58001e24ef7d953bdc9d9ec10a022b834ea6b42877a43a3e2e81de",
     "tests/test_final_user_confirmation.py": "071bc85f03ca6bd798bf17f519aa70457fa16e6b2c5d1b361e3ba19488502eac",
     "tests/test_foreign_artifacts_warning_rc43.py": "bfd8d850139b249e85616d40f677192831a7a3d1e466643dca3d2276eb50ef81",
-    "tests/test_form_editor_menu.py": "2ad3bb536f4dfa91e113dfd50f7eb19acb0a0908b1a268c2f7d7653af9462719",
+    "tests/test_form_editor_menu.py": "96e07fbcf80424b5830f9880ef26283669af86064eb8483d38eec863c52c470d",
     "tests/test_frame_bands.py": "b3ddb89ad8882fc7325f3f9a3dd1a3b7f9fe40258f6bbdbb36f61502b34977ec",
     "tests/test_frame_detection_columns_walls.py": "47d662b13b4e1a4d486f350d0c5804b8e2815b548104216f32b704416da6fd1e",
     "tests/test_frame_detection_title_paths.py": "bb153eae1d4ada42324b6682718c03d93e6c1164fcfb3deb8b1b7c5b9a0f727c",
@@ -569,12 +570,12 @@
     ".claude/skills/lion-rebar-full-path/baselines/2026-09-24_9d8e2f7.json"
   ],
   "tests": {
-    "tests": 1993,
+    "tests": 2000,
     "errors": 0,
     "failures": 0,
     "skipped": 14,
-    "passed": 1979,
-    "timestamp": "2026-09-25T14:25:02.519346+03:00",
-    "seconds": 228.083
+    "passed": 1986,
+    "timestamp": "2026-09-25T15:00:33.121139+03:00",
+    "seconds": 214.969
   }
 }
