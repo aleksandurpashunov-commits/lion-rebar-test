@@ -664,6 +664,9 @@ class MainWindow(QMainWindow):
         self.action_shape_builder = QAction("Конструктор форми", self)
         self.action_shape_builder.triggered.connect(self.open_shape_builder)
 
+        self.action_form_editor = QAction("Редактор на форми…", self)
+        self.action_form_editor.triggered.connect(self.open_form_editor)
+
         self.action_exit = QAction("Изход", self)
         self.action_exit.triggered.connect(self.close)
 
@@ -766,6 +769,7 @@ class MainWindow(QMainWindow):
         session_menu.addAction(self.action_end_session)
         master_menu = self.menuBar().addMenu("MASTER")
         master_menu.addAction(self.action_shape_builder)
+        master_menu.addAction(self.action_form_editor)
         master_menu.addAction(self.action_engine_studio)
 
     def new_project(self) -> None:
@@ -6091,6 +6095,39 @@ class MainWindow(QMainWindow):
         self._invalidate_manual_geometry_guard_cache()
         self._refresh_engine_label()
         self._check_project_engine_pin()
+
+    def open_form_editor(self) -> None:
+        """Отваря доставения редактор на форми в браузъра.
+
+        Редакторът е в пакета от 23.09.2026 и вносителят му („Внеси форми от
+        редактора“) работи, но дотук нищо не го отваряше: операторът трябваше
+        да знае къде на диска стои един HTML файл. Отварянето е само
+        показване — нищо не се записва и нито един engine не се пипа.
+        """
+
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        from lion_rebar.engine.draft_import import form_editor_path
+
+        path = form_editor_path()
+        if not path.is_file():
+            self._error(f"Липсва редакторът на форми: {path}")
+            return
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
+            # Отказът на системата не е авария: пътят се казва, за да може
+            # операторът да го отвори сам.
+            self._info(
+                "Редакторът не можа да се отвори автоматично.\n"
+                f"Отвори този файл в браузър:\n{path}"
+            )
+            return
+        self.statusBar().showMessage(
+            "Редакторът на форми е отворен в браузъра. Свалената .json се "
+            "внася от MASTER → Engine Studio → Версии → „Внеси форми от "
+            "редактора“.",
+            15000,
+        )
 
     def open_engine_studio(self) -> None:
         EngineStudio(self.engine_repository, self).exec()

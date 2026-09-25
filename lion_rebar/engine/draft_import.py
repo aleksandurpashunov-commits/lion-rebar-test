@@ -31,12 +31,29 @@ from __future__ import annotations
 
 import math
 import re
+from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from lion_rebar.engine.models import SegmentDefinition, ShapeDefinition
 
 #: Схемата, която редакторът пише в пакета си (``packageFor``).
 DRAFT_SCHEMA = "lion-rebar-shape-draft/v1"
+
+#: Редакторът, с който се чертаят формите. Доставя се с продукта и влиза в
+#: EXE сборката (``BUILD_EXE.bat``, ``--add-data lion_rebar\resources``).
+FORM_EDITOR_FILENAME = "OPEN_ENGINE_v0.3.3_FORM_EDITOR_RADIUS.html"
+
+
+def form_editor_path() -> Path:
+    """Пътят до доставения редактор на форми.
+
+    Досега файлът се доставяше, но нищо не го отваряше — операторът трябваше
+    сам да го намери на диска. Пътят се смята като при заключения MASTER
+    (``master_engine_v031.master_engine_path``), за да важи и в EXE сборката.
+    """
+
+    return Path(__file__).resolve().parent.parent / "resources" / FORM_EDITOR_FILENAME
+
 
 #: Заключените форми на MASTER v0.3.1 — редакторът ги изброява в ``locked_forms``
 #: и сам не ги пипа. Внасяне върху тях е отказ.
