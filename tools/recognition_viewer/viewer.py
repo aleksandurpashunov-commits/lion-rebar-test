@@ -274,9 +274,11 @@ def построй(
         if not ако:
             continue
         цвят = ВИДОВЕ[вид][1]
+        # Без дебелина в единици на чертежа: ``vector-effect`` в CSS държи
+        # линията постоянна на ЕКРАНА, затова при приближаване тя не надебелява
+        # и картината не се размазва.
         части.append(
-            f'<g class="{вид}" fill="none" stroke="{цвят}" '
-            f'stroke-width="{дебелина * дебелина_дял:.5f}" '
+            f'<g class="сл {вид}" fill="none" stroke="{цвят}" '
             f'stroke-linecap="round" stroke-linejoin="round">'
             + "".join(ако)
             + "</g>"
@@ -293,19 +295,13 @@ def построй(
         цвят = ВИДОВЕ[позиция.вид][1]
         текст = html.escape(позиция.text[:18])
         x, y = т[0], т[1] - размер * 0.6
-        общо = (
-            f'x="{x:.2f}" y="{y:.2f}" font-family="Arial" '
-            f'font-size="{размер:.3f}" text-anchor="middle"'
-        )
-        # Ореолът е ОТДЕЛЕН надпис под цветния: Qt не поддържа ``paint-order``
-        # и при един надпис белият контур застава ОТГОРЕ, тоест текстът изчезва.
-        етикети.append(
-            f'<text {общо} fill="none" stroke="#ffffff" '
-            f'stroke-width="{размер * 0.28:.3f}" stroke-linejoin="round">{текст}</text>'
-        )
+        общо = f'x="{x:.2f}" y="{y:.2f}" text-anchor="middle" data-h="{html.escape(позиция.handle)}"'
+        # Ореолът е ОТДЕЛЕН надпис под цветния: ``paint-order`` не се поддържа
+        # навсякъде и при един надпис белият контур застава ОТГОРЕ.
+        етикети.append(f'<text {общо} class="ореол">{текст}</text>')
         етикети.append(f'<text {общо} fill="{цвят}">{текст}</text>')
     if етикети:
-        части.append('<g class="етикети">' + "".join(етикети) + "</g>")
+        части.append('<g id="етикети">' + "".join(етикети) + "</g>")
     части.append("</g></svg>")
 
     инфо = {п.handle: п.to_dict() for п in позиции}
