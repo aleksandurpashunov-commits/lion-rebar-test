@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
 
@@ -34,6 +35,28 @@ class Нарисуван:
     bbox: tuple[float, float, float, float]
     is_text: bool = False
     text: str = ""
+    #: Къде и колко голям е надписът — в координатите на SVG (с обърнат Y).
+    insert: tuple[float, float] | None = None
+    size: float = 0.0
+    rotation: float = 0.0
+
+
+
+
+B = chr(92)
+
+#: Кодовете на MTEXT, които не са част от съдържанието.
+_MTEXT_КОДОВЕ = re.compile(B * 2 + "[A-Za-z][^;" + B * 2 + "]*;|[{}]")
+
+
+def изчисти_надпис(стойност: Any) -> str:
+    """Съдържанието на надписа без форматиращите кодове на MTEXT."""
+
+    B = chr(92)
+    текст = str(стойност or "")
+    текст = текст.replace(B + "P", " ").replace(B + "~", " ")
+    текст = _MTEXT_КОДОВЕ.sub("", текст)
+    return " ".join(текст.split())
 
 
 def _точка(стойност: Any) -> tuple[float, float] | None:
@@ -187,16 +210,23 @@ def нарисувай(record: Any, *, мащаб: float = 1.0) -> list[Нари
             височина = float(geometry.get("char_height") or geometry.get("height") or 0.0)
         except (TypeError, ValueError):
             височина = 0.0
-        размер = (височина or мащаб) * 0.5
-        рамена = _кръстче(в, max(размер, мащаб * 0.5))
-        път = "".join(_d(рамо) for рамо in рамена)
-        xs = [x for рамо in рамена for x, _y in рамо]
-        ys = [-y for рамо in рамена for _x, y in рамо]
+        if височина <= 0:
+            височина = float(geometry.get("estimated_text_height") or 0.0) or мащаб * 2.0
+        try:
+            завъртане = float(geometry.get("rotation") or 0.0)
+        except (TypeError, ValueError):
+            завъртане = 0.0
+        чист = изчисти_надпис(текст)
+        ширина = max(len(чист), 1) * височина * 0.6
+        # Надписът се рисува КАТО НАДПИС — числата по желязото трябва да се
+        # четат, както са на чертежа. Кръстче вместо текст крие точно това,
+        # което операторът сверява.
         return [
             Нарисуван(
-                handle=handle, entity_type=вид, layer=слой, path=път,
-                bbox=(min(xs), min(ys), max(xs), max(ys)),
-                is_text=True, text=str(текст or ""),
+                handle=handle, entity_type=вид, layer=слой, path="",
+                bbox=(в[0], -в[1] - височина, в[0] + ширина, -в[1] + височина),
+                is_text=True, text=чист,
+                insert=(в[0], -в[1]), size=височина, rotation=завъртане,
             )
         ]
 

@@ -247,11 +247,32 @@ def построй(
 
     слоеве: dict[str, list[str]] = {к: [] for к in ВИДОВЕ}
     броене = {к: 0 for к in ВИДОВЕ}
+    чертежни_надписи: list[str] = []
     for н in нарисувани:
         вид = цвят_на_handle.get(н.handle, "несвързано")
-        слоеве[вид].append(
-            f'<path d="{н.path}" data-h="{html.escape(инфо_на_handle.get(н.handle, ""))}"/>'
-        )
+        ключ = html.escape(инфо_на_handle.get(н.handle, ""))
+        if н.is_text:
+            # Надписите по чертежа се рисуват КАТО НАДПИСИ: размерите, изписани
+            # върху желязото, са това, което операторът сверява. Кръстче на
+            # тяхно място крие точно проверяваното.
+            if not н.text or н.insert is None or н.size <= 0:
+                continue
+            x, y = н.insert
+            завъртане = (
+                f' transform="rotate({-н.rotation:.3f} {x:.3f} {y:.3f})"'
+                if abs(н.rotation) > 0.01
+                else ""
+            )
+            цвят = ВИДОВЕ[вид][1] if вид != "несвързано" else "#475569"
+            чертежни_надписи.append(
+                f'<text x="{x:.3f}" y="{y:.3f}" font-size="{н.size:.3f}" '
+                f'fill="{цвят}" data-h="{ключ}"{завъртане}>'
+                f"{html.escape(н.text[:60])}</text>"
+            )
+            continue
+        if not н.path:
+            continue
+        слоеве[вид].append(f'<path d="{н.path}" data-h="{ключ}"/>')
     for позиция in позиции:
         броене[позиция.вид] += 1
     броене["несвързано"] = sum(
@@ -283,6 +304,13 @@ def построй(
             + "".join(ако)
             + "</g>"
         )
+    if чертежни_надписи:
+        части.append(
+            '<g id="чертеж-текст" font-family="Arial,sans-serif">'
+            + "".join(чертежни_надписи)
+            + "</g>"
+        )
+
     # Етикети САМО върху проблемните позиции: иначе картината става нечетима.
     етикети = []
     размер = max(w, h) / 110.0

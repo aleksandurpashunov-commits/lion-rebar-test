@@ -36,6 +36,7 @@ from __future__ import annotations
  .червено { stroke-width:3.4px; }
  .скрито { display:none; }
  #етикети text { font-family:Arial,sans-serif; pointer-events:none; }
+ #чертеж-текст text { cursor:pointer; }
  #етикети .ореол { fill:none; stroke:#fff; stroke-linejoin:round;
    vector-effect:non-scaling-stroke; stroke-width:3.5px; }
  #панел { position:fixed; right:14px; top:58px; width:340px; max-height:calc(100% - 76px);
@@ -58,7 +59,8 @@ from __future__ import annotations
   <span class="значка" data-к="червено"><i class="точка" style="background:#dc2626"></i>червени {червено}</span>
   <span class="значка" data-к="не-позиция"><i class="точка" style="background:#0284c7"></i>не са позиции {не_позиция}</span>
   <span class="значка" data-к="несвързано"><i class="точка" style="background:#c7cbd1"></i>несвързани {несвързано}</span>
-  <span class="значка" data-к="етикети">надписи</span>
+  <span class="значка" data-к="чертеж-текст">размери по чертежа</span>
+  <span class="значка" data-к="етикети">етикети на позициите</span>
   <input id="търсене" placeholder="търси надпис…">
   <span id="часовник">{време}</span>
 </div>
@@ -106,7 +108,7 @@ document.querySelectorAll('.значка[data-к]').forEach(function (з) {
   з.addEventListener('click', function () {
     const к = з.dataset.к;
     з.classList.toggle('скрит');
-    const цел = (к === 'етикети') ? етикети : свг.querySelector('.' + к);
+    const цел = document.getElementById(к) || свг.querySelector('.' + к);
     if (цел) цел.classList.toggle('скрито');
   });
 });
