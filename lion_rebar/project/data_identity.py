@@ -19,6 +19,7 @@ from uuid import uuid4
 
 from lion_rebar.project.models import ProjectModel
 from lion_rebar.utils.files import sha256_file
+from lion_rebar.utils.process_lock import LOCK_SUFFIX
 
 IDENTITY_KEY = "data_identity"
 IDENTITY_SCHEMA = "lion-rebar-data-identity/v1"
@@ -201,6 +202,10 @@ def archive_derived_working_state(project_root: Path, *, generation_id: str | No
         for child in working.iterdir()
         if child.name not in {"project.json", "source_generations"}
         and not child.name.endswith(".tmp")
+        # Файловете-ключалки не са производно състояние, а средство за
+        # заключване между процеси. Преместването им в архива при нов импорт е
+        # безсмислено, а в Windows и невъзможно, докато някой ги държи.
+        and not child.name.endswith(LOCK_SUFFIX)
     ]
     if not movable:
         return None

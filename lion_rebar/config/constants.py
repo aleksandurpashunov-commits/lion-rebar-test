@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 APP_NAME = "LION REBAR DESKTOP"
-APP_VERSION = "0.1.44.21-rc44"
+APP_VERSION = "0.1.44.23-rc46"
+# Тестовата линия (C:\lr_exp, клон experiment) се различава от основната
+# програма (rc44 на драйва) с ОТДЕЛНИ данни и видим знак в прозореца.
+# Собственик, 08.10.2026: „да го виждам и различавам ясно от основната“.
+# Причината за отделната папка: и двете версии пазят engine-а и сесиите си на
+# лаптопа, под едно и също име — тестовата, пусната без START_TEST.bat,
+# би писала в работната сесия и engine registry-то на основната. При преминаване в основната
+# програма двете стойности се връщат СЪЗНАТЕЛНО: "" и "LionRebarDesktop".
+APP_EDITION = "ТЕСТОВА ВЕРСИЯ (автоматизация)"
+APP_DATA_FOLDER = "LionRebarDesktop_TEST"
 RECOGNITION_MATCHER_SHA256 = (
-    "05210e71ba6dc68c4d98665194cece4a11b3ce15ea684680e070e1f9ac2f024b"
+    "dc3a660cd906a8167b38bf595e9b5d9d86095181e68203b0ae1c029d96766065"
 )
 ORGANIZATION = "Lion Build Ltd."
 ENGINE_SCHEMA = "lion-rebar-engine/v1"

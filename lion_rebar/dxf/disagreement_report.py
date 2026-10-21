@@ -87,6 +87,26 @@ def _вектор(value: Any) -> list[float]:
     return изход
 
 
+def _производствени_участъци(row: Mapping[str, Any]) -> list[float]:
+    """Участъците, които НАИСТИНА отиват в спецификацията.
+
+    При вече одобрена позиция анализът се пропуска („ПРОПУСНАТО — ВЕЧЕ Е
+    ОДОБРЕНО В ПРОЕКТА"), а ``production_segments_cm`` остава с частичния прочит
+    на геометрията. Одобреното решение е в ``production_segment_lengths_cm`` и
+    точно него чете ``excel_export`` — затова то има предимство.
+
+    Измерено на 27.09.2026 в `s-10`: девет позиции `N18x410` (F002) носят
+    едновременно одобреното ``[260, 40, 110]`` и частичното ``[15, 395]``.
+    Проверено в `s-10_СПЕЦИФИКАЦИЯ_TRACEABILITY.json`: в спецификацията влиза
+    ``[260, 40, 110]``. Без това предимство проверките се обаждаха за девет
+    ВЕРНИ позиции, а проверка, която вика напразно, учи оператора да я
+    подминава.
+    """
+
+    одобрени = _вектор(row.get("production_segment_lengths_cm"))
+    return одобрени if одобрени else _вектор(row.get("production_segments_cm"))
+
+
 def r2_printed_dimensions(
     row: Mapping[str, Any],
     shapes: Mapping[str, ShapeDefinition],
@@ -99,7 +119,7 @@ def r2_printed_dimensions(
     50/17/60. Когато участъкът няма никаква своя кота, източникът е един.
     """
 
-    сегменти = _вектор(row.get("production_segments_cm"))
+    сегменти = _производствени_участъци(row)
     коти = _вектор(row.get("nearby_dimensions_cm"))
     if len(сегменти) < 2 or not коти:
         return None
@@ -152,7 +172,7 @@ def r5_segment_count(
     """
 
     код = str(row.get("master_shape_code") or "").strip().upper()
-    сегменти = _вектор(row.get("production_segments_cm"))
+    сегменти = _производствени_участъци(row)
     if not код or not сегменти:
         return None
     форма = shapes.get(код)
@@ -176,7 +196,7 @@ def r3_total_vs_declared(
     включва само когато викащият изрично я поиска.
     """
 
-    сегменти = _вектор(row.get("production_segments_cm"))
+    сегменти = _производствени_участъци(row)
     обявена = _число(row.get("production_length_cm")) or _число(
         row.get("declared_length_cm")
     )

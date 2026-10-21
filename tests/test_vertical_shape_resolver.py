@@ -287,7 +287,7 @@ def test_resolver_is_wired_into_the_batch_report():
     # Извиква се в тялото на build_batch_geometry_report, не само дефинирана.
     start = source.index("def build_batch_geometry_report")
     body = source[start:start + 20000]
-    assert "_apply_dimension_derived_production_sizes(rows, entities)" in body
+    assert "_apply_dimension_derived_production_sizes(rows, entities" in body
 
 
 def test_dimension_step_runs_after_the_proven_path():
@@ -297,7 +297,7 @@ def test_dimension_step_runs_after_the_proven_path():
 
     source = Path("lion_rebar/dxf/batch_geometry_report.py").read_text(encoding="utf-8")
     printed = source.index("_apply_f006_printed_production_dimensions(\n        rows,")
-    derived = source.index("_apply_dimension_derived_production_sizes(rows, entities)")
+    derived = source.index("_apply_dimension_derived_production_sizes(rows, entities")
     assert printed < derived
 
 

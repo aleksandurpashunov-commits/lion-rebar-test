@@ -171,6 +171,52 @@ def allowance_for(shape_code: str | None) -> float:
     return BEND_ALLOWANCE_LIMITS_CM.get(code, 0.0)
 
 
+def declared_allowance_closes(
+    segments_total: float,
+    production_total: float,
+    declared_allowance_cm: float | None,
+    *,
+    tolerance: float = 0.51,
+) -> bool:
+    """Затваря ли ЗАЯВЕНОТО от инженера число уравнението.
+
+    ЗАЩО СЪЩЕСТВУВА. Правилата по-горе са изведени от измерени популации и
+    важат за цели групи форми. Има обаче отделни начертани детайли, при които
+    нито плоският таван, нито закръглянето до 5 обясняват разликата. Измереният
+    случай е F007 „S за продънване“: отпечатаните коти дават 10 + 21 + 13 = 44
+    при надписана дължина 47, тоест точно 3 cm. ``segments_match_total`` отказва
+    и е ПРАВ да отказва — закръглянето сочи 45, не 47, а да се въведе ново общо
+    правило по един детайл би било догадка (виж и обратните 21 от 334 подменени
+    коти в ``PROJECT_HANDOFF.md``, § 6н).
+
+    Затова числото не се ПОГАЖДА, а се ЗАЯВЯВА: инженерът пише 3 и програмата
+    проверява, че точно това число затваря уравнението. Не е таван („до 3“), а
+    равенство: сбор + заявено = надписана дължина, в рамките на същия допуск.
+    Сгрешено число не минава — 30 вместо 3 не затваря нищо.
+
+    Това НЕ е ново общо правило и не се прилага никъде само по себе си: вика се
+    единствено когато обикновените правила вече са отказали, и само там, където
+    има записано решение на инженер с автор, време и самоличност на данните.
+    Закръглянето до 5 остава правилото за всички останали.
+
+    Само в посока НЕДОСТИГ: добавката за огъване е дължина, която изчезва в
+    огъвките. Отрицателно или нулево заявено число не означава нищо и се
+    отказва, както и надвишаването.
+    """
+
+    try:
+        declared = float(declared_allowance_cm)
+    except (TypeError, ValueError):
+        return False
+    if not math.isfinite(declared) or declared <= 0:
+        return False
+    try:
+        difference = float(production_total) - float(segments_total)
+    except (TypeError, ValueError):
+        return False
+    return abs(difference - declared) <= abs(float(tolerance))
+
+
 def segments_match_total(
     shape_code: str | None,
     segments_total: float,
@@ -178,6 +224,7 @@ def segments_match_total(
     *,
     tolerance: float = 0.51,
     rounding_step: float | None = None,
+    declared_allowance_cm: float | None = None,
 ) -> bool:
     """Приемлив ли е сборът на сегментите спрямо производствената дължина.
 
@@ -187,6 +234,11 @@ def segments_match_total(
     ``rounding_step`` е за форма, родена от случай: тя обявява стъпката си в
     дефиницията си (данни, не код) и я подава оттам. Асиметрията не се мени --
     надвишаването остава отказ.
+
+    ``declared_allowance_cm`` е число, ЗАЯВЕНО от инженера за ТАЗИ позиция.
+    Пита се ПОСЛЕДНО — след таваните и след закръглянето — тоест не отслабва
+    нито едно от измерените правила и не мени нищо, когато не е подадено.
+    Виж ``declared_allowance_closes``.
     """
 
     try:
@@ -200,9 +252,14 @@ def segments_match_total(
     target = rounded_production_total(shape_code, segments_total,
                                       tolerance=tolerance,
                                       rounding_step=rounding_step)
-    if target is None:
-        return False
-    return abs(target - float(production_total)) <= tolerance
+    if target is not None and abs(target - float(production_total)) <= tolerance:
+        return True
+    return declared_allowance_closes(
+        segments_total,
+        production_total,
+        declared_allowance_cm,
+        tolerance=tolerance,
+    )
 
 
 def explain_mismatch(
@@ -211,11 +268,13 @@ def explain_mismatch(
     production_total: float,
     *,
     tolerance: float = 0.51,
+    declared_allowance_cm: float | None = None,
 ) -> str:
     """Човешко обяснение защо сборът не е приемлив. Празно = приемлив е."""
 
     if segments_match_total(shape_code, segments_total, production_total,
-                            tolerance=tolerance):
+                            tolerance=tolerance,
+                            declared_allowance_cm=declared_allowance_cm):
         return ""
     difference = float(segments_total) - float(production_total)
     if difference > tolerance:
@@ -246,6 +305,20 @@ def explain_mismatch(
             f"закръгляне нагоре до кратно на {BEND_ROUNDING_STEP_CM:g} cm сочи "
             f"{target:g} cm, а надписаната дължина е "
             f"{float(production_total):g} cm"
+        )
+    # Казва се и кое число БИ затворило уравнението, ако разликата наистина е
+    # добавка за огъване. Не я прилага — само показва какво трябва да се заяви,
+    # за да не гадае операторът. Сгрешено заявено число се назовава изрично.
+    липсващо = float(production_total) - float(segments_total)
+    if declared_allowance_cm is not None:
+        части.append(
+            f"заявената добавка {float(declared_allowance_cm):g} cm не затваря "
+            f"уравнението — разликата е {липсващо:g} cm"
+        )
+    elif липсващо > 0:
+        части.append(
+            f"ако това е добавка за огъване по този детайл, заявеното число "
+            f"трябва да е {липсващо:g} cm"
         )
     if части:
         return начало + " — " + "; ".join(части) + "."

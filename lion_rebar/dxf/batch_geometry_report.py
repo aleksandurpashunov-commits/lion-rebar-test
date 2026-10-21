@@ -27,6 +27,7 @@ from lion_rebar.dxf.disagreement_report import (
     disagreement_summary_lines,
 )
 from lion_rebar.export.frame_detection import assign_point_to_frame, detect_drawing_frames
+from lion_rebar.export.ownership_decisions import ВИД_СПОДЕЛЕНА
 from lion_rebar.export.excel_export import (
     ExcelExportError,
     F006AsymmetricHookError,
@@ -179,6 +180,9 @@ def build_batch_geometry_report(
     skip_approved: bool = True,
     operator_areas: Sequence[Any] = (),
     checkpoint_parent: Path | None = None,
+    decision_memory: Any | None = None,
+    decision_reuse: Any | None = None,
+    ownership_decisions: Mapping[tuple[str, ...], Any] | None = None,
 ) -> BatchGeometryReportResult:
     """Analyze all valid annotations without blocking the Qt user interface.
 
@@ -440,7 +444,7 @@ def build_batch_geometry_report(
             context=context,
             selected_handles=tuple(row.get("candidate_handles", ())),
         )
-    _apply_global_geometry_conflicts(rows)
+    _apply_global_geometry_conflicts(rows, ownership_decisions)
     _apply_stirrup_length_group_references(
         rows,
         annotations_by_handle=annotations_by_handle,
@@ -477,7 +481,25 @@ def build_batch_geometry_report(
         policy=resolved_policy,
         shape_index=shape_index,
     )
+    # Преди всичко, което чете каноничния вектор: кандидатът може да е само
+    # ЧАСТ от начертания прът. Когато цялата свързана верига носи по един
+    # собствен отпечатан размер на рамо и сборът им е точно обявената дължина,
+    # каноничният вектор се допълва от чертежа. Измерено: без този проход
+    # инженерното правило за гредите вижда два участъка вместо три и отказва
+    # (BEAM_STAIR_SHAPE_FORBIDDEN), а F007 „S“-куките остават без вектор.
+    _apply_chain_printed_production_segments(
+        rows, entities,
+        {
+            str(т[0]): {"dimension_layer": str(т[1]),
+                        **({} if float(т[2]) < 0 else {"parallel_deg": float(т[2])})}
+            for т in (getattr(resolved_policy, "learned_segment_dimension_styles", ())
+                      or ())
+        },
+    )
     # Beam staircase subtypes must be normalized to their approved
+    # ЗАБЕЛЕЖКА: присъдата за производствената форма (``_apply_proven_form_verdict``)
+    # се пише СЛЕД инженерното правило и след инсталаторите на вектора, защото
+    # чете каноничните ъгли, които те поставят.
     # production identity before strict segment validation. Otherwise a valid
     # F013 -> F004 row is tested against the unsupported source subtype and is
     # terminally blocked before this engineering law can run.
@@ -496,8 +518,28 @@ def build_batch_geometry_report(
     # Втори източник за производствените размери на F006: DIMENSION
     # котировките. Прилага се САМО върху позиции, останали в production
     # review след доказания път по-горе, и само при точно уравнение.
-    _apply_dimension_derived_production_sizes(rows, entities)
+    _apply_dimension_derived_production_sizes(rows, entities, shape_definitions)
+    # Кой е производственият източник на ЪГЛИТЕ: доказаното от проекта или
+    # съвместимата MASTER форма. Продуктово решение от 28.09.2026 —
+    # ``export/proven_form.py``. Стои тук, защото каноничните ъгли вече са
+    # поставени от инсталаторите по-горе.
+    _apply_proven_form_verdict(rows, policy=resolved_policy,
+                               shape_definitions=shape_definitions)
+    # Второ доказателство за стремената с куки: котите на проектанта върху
+    # самия контур. Само записва присъда; числата не се менят. Трябва да е
+    # ПРЕДИ `_apply_matcher_decisions`, който я чете.
+    _confirm_f006_hooked_closure_dimensions(rows, entities)
+    # Размерите на формите, РОДЕНИ ОТ СЛУЧАЙ, идват от НАДПИСАНИТЕ коти —
+    # доказателство. Затова стоят ПРЕД закръгляването към мрежа, което е
+    # догадка с добра базова вероятност. Обратният ред (до 29.09.2026) даваше на
+    # догадката пръв достъп до реда, а `_apply_born_from_case_production_sizes`
+    # пропуска всеки ред, който вече носи вектор — тоест доказателството не
+    # получаваше ред. Измерено при `Тест-003/6A04B7`: начертано 18,38, котата
+    # казва 18, а мрежата предлагаше 20.
     _apply_born_from_case_production_sizes(rows, shape_definitions)
+    # ПОСЛЕДЕН доказател: производственият вектор от самата геометрия,
+    # закръглена към мрежата на проектанта. Попълва само липсващото.
+    _apply_grid_rounded_production_segments(rows, entities)
     # Owner-requested 2026-09-11 ("много позиции има за ръчно решение, това
     # не ми харесва"): surface the arm_koloni/arm_shaibi declared-shape
     # evidence as the operator's on-screen SUGGESTION, replacing whatever
@@ -572,6 +614,43 @@ def build_batch_geometry_report(
         policy=resolved_policy,
     )
     _apply_unanimous_family_consensus(rows)
+    # ПАМЕТТА участва в НОРМАЛНИЯ анализ, преди случаят да отиде за ръчна работа.
+    #
+    # Собственик, 30.09.2026: „Паметта трябва да участва в нормалния анализ, преди
+    # случаят да бъде изпратен за ръчна работа." Дотогава
+    # `DecisionSuggestionIndex` се питаше САМО когато операторът отвори редактора
+    # (`main_window._decision_suggestion_for_row`) — тоест паметта влизаше в игра
+    # след като ръчната работа вече е започнала.
+    #
+    # Тук е НИВО Б по определението на собственика: намира релевантния пример,
+    # казва какво съвпада и какво липсва, и предлага. НЕ прилага и не мени нито
+    # един производствен размер — приемането е изрично и минава през редактора.
+    _apply_decision_memory_suggestions(
+        rows,
+        memory=decision_memory,
+        data_identity=data_identity,
+        engine_metadata=engine_metadata,
+    )
+    # ПРЕИЗПОЛЗВАНЕ с РАЗДЕЛЕНИ етапи (``review/decision_reuse``).
+    #
+    # Старият указател отгоре търси по 22 полета, повечето изход на самото
+    # разпознаване, затова не можеше да даде нищо там, където кандидат няма.
+    # Този проход търси само по ВХОДНИТЕ доказателства и после проверява
+    # всяко производствено поле срещу данните на ТАЗИ позиция. Пак НЕ прилага:
+    # редът получава само показваеми полета.
+    _apply_decision_reuse_proposals(
+        rows,
+        reuse=decision_reuse,
+        data_identity=data_identity,
+        shape_definitions=shape_definitions,
+    )
+    # СЛЕД всички доказатели: изхвърля ли крайният вектор отпечатан размер.
+    # Тук присъдата е само ВИДИМА — за да я види операторът в Review Center,
+    # преди да стигне до експорта. Решението какво влиза в производството се
+    # взима в `batch_auto_output.build_batch_export_context`, където минава
+    # всичко и нищо не може да го заобиколи. Двете места ползват едно и също
+    # правило (`export/printed_dimension_guard`), за да не се разминават.
+    _apply_printed_dimension_guard(rows)
     _apply_matcher_decisions(
         rows,
         shape_definitions=shape_definitions,
@@ -1848,11 +1927,68 @@ def _nearby_dimension_values(point, dimensions, limit: int = 10) -> list[float]:
     return values
 
 
+def _master_turn_angles_deg(
+    shape_code: str,
+    shape_definitions: Sequence[ShapeDefinition] | None,
+) -> tuple[float, ...]:
+    """Огъвките така, както ги определя MASTER формата.
+
+    Заключената форма е инженерната власт. Твърдо записана двойка ъгли в кода
+    може да ѝ противоречи, без това да личи — точно това се случи с F007
+    („S / C-ОБРАЗНА ФОРМА": 90° и 135°, а записът слагаше 90/90).
+    """
+
+    код = str(shape_code or "").strip().upper()
+    if not код or not shape_definitions:
+        return ()
+    for форма in shape_definitions:
+        if str(форма.code or "").strip().upper() != код:
+            continue
+        подредени = sorted(форма.segments, key=lambda с: с.index)
+        ъгли = tuple(
+            float(с.bend_after_deg)
+            for с in подредени[:-1]
+            if с.bend_after_deg is not None
+        )
+        return ъгли if len(ъгли) == len(подредени) - 1 else ()
+    return ()
+
+
+def _signed_master_turns(
+    row: Mapping[str, Any],
+    shape_code: str,
+    shape_definitions: Sequence[ShapeDefinition] | None,
+) -> list[float]:
+    """Ъглите на MASTER формата, със знака от НАЧЕРТАНОТО.
+
+    Огледалността е производствено значима: същите големини с обратен знак са
+    друг прът за машината. Знакът идва от правилото за разпознаване, което го е
+    измерило от чертежа; без него се ползват големините без знак.
+    """
+
+    големини = _master_turn_angles_deg(shape_code, shape_definitions)
+    if not големини:
+        return []
+    # Знакът е вече в реда: правилото за разпознаване записва своите
+    # (90, 135) със знак от начертаното, а този инсталатор ги трие. Четат се
+    # ПРЕДИ записа.
+    наблюдавани = row.get("canonical_turn_angles_deg") or ()
+    try:
+        знаци = [1.0 if float(с) >= 0 else -1.0 for с in наблюдавани]
+    except (TypeError, ValueError):
+        знаци = []
+    if len(знаци) != len(големини):
+        return [float(г) for г in големини]
+    return [знак * abs(float(г)) for знак, г in zip(знаци, големини)]
+
+
 def _apply_proven_f007_canonical_segments(
     row: dict,
     declared_length_cm: float,
     *,
     owned_dimension_records: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+    shape_definitions: Sequence[ShapeDefinition] | None = None,
+    entity_map: Mapping[str, DxfEntityRecord] | None = None,
 ) -> bool:
     """Promote F007 canonical sizes without consulting unowned nearby dims."""
 
@@ -1896,35 +2032,123 @@ def _apply_proven_f007_canonical_segments(
     ):
         return False
 
+    # Верижното доказателство стои НАД контекстуалното: всяко число идва от
+    # отделен отпечатан размер на своето рамо, а не от обявената обща дължина.
+    # Когато то потвърждава каноничния вектор, проверката за топология долу е
+    # безпредметна — тя пази точно от изведено-от-дължината разпределение.
+    from lion_rebar.dxf import chain_printed_dimensions as _верига
+
+    верижно = row.get(_верига.ПОЛЕ)
+    верижно_потвърждава = (
+        isinstance(верижно, Mapping)
+        and str(верижно.get("status") or "") == _верига.ПОТВЪРДЕНО
+        and len(верижно.get("segments_cm") or ()) == len(canonical)
+        and all(
+            abs(float(ляво) - float(дясно)) <= _верига.ДОПУСК_СБОР_CM
+            for ляво, дясно in zip(верижно.get("segments_cm") or (), canonical)
+        )
+    )
+
     source = (
-        "STRICT_LOCAL_DIMENSIONS"
+        "CHAIN_PRINTED_DIMENSIONS"
+        if верижно_потвърждава
+        else "STRICT_LOCAL_DIMENSIONS"
         if strict_evidence is not None
         else "F007_CONTEXTUAL_MASTER_CANONICAL"
     )
+    if source == "F007_CONTEXTUAL_MASTER_CANONICAL":
+        # Контекстуалното правило извежда участъците от ОБЯВЕНАТА ОБЩА ДЪЛЖИНА
+        # (`l1 = declared / 4`). Геометричната му проверка класифицира формата,
+        # но НЕ измерва участъците. Затова разпределението се налага само
+        # когато начертаното изобщо може да го носи: производствената топология
+        # (участъци след сгъване на допирателните дъги) трябва да съвпада по
+        # брой с MASTER формата.
+        #
+        # Измерено: всичките 86 засегнати позиции са прът с ДВА прави участъка
+        # и една огъвка (семантично [27,9; 13,5]), а F007 иска ТРИ участъка и
+        # две огъвки. Векторът [10; 20; 10] не отговаря на нито един прочит.
+        # Топологията се мери от САМИЯ обект. Полето `segment_count` на реда
+        # не става: при контекстуалното правило то е изходът на правилото
+        # (точките за разпознаване са каноничната верига, която то построи),
+        # тоест проверката би сравнявала правилото със самото него.
+        измерени = (_semantic_segment_lengths_cm(row, entity_map)
+                    if entity_map else [])
+        топология = len(измерени) if измерени else None
+        if топология is not None and топология != len(canonical):
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    "F007_CONTEXTUAL_SPLIT_UNCONFIRMED: разпределението "
+                    f"{canonical[0]:g} + {canonical[1]:g} + {canonical[2]:g} cm идва "
+                    "от обявената обща дължина, а начертаното дава "
+                    f"{топология} производствени участъка "
+                    f"({[round(float(с), 2) for с in измерени]}) — остава непотвърдено"
+                ),
+            ]
+            return False
+    # Ъглите идват от ЗАКЛЮЧЕНАТА MASTER форма, не от твърда двойка в кода.
+    # F007 „S / C-ОБРАЗНА ФОРМА" определя 90° и 135°; записаните тук 90/90
+    # ѝ противоречаха при 86 одобрени позиции. Когато формата не е налична,
+    # полето остава празно — по-добре без ъгли, отколкото с измислени.
+    турни = _signed_master_turns(row, "F007", shape_definitions)
     row["production_segments_cm"] = list(canonical)
-    row["canonical_turn_angles_deg"] = [90.0, 90.0]
+    if турни:
+        row["canonical_turn_angles_deg"] = list(турни)
+    else:
+        row.pop("canonical_turn_angles_deg", None)
     row["production_segment_evidence"] = {
         "shape_code": "F007",
         "segments": list(canonical),
-        "turn_angles_deg": [90.0, 90.0],
+        "turn_angles_deg": list(турни),
+        "turn_angles_source": ("MASTER_SHAPE" if турни else "НЯМА"),
         "source": source,
         "confidence": "HIGH",
+        # Кодът на контекстуалното правило описва КАК е разпозната позицията,
+        # а `source` — откъде идват ЧИСЛАТА. Портата сверява двете полета на
+        # реда и на доказателството (`auto_gate._contextual_f007_evidence_is_owned`),
+        # затова кодът се пренася от реда независимо кой доказател е дал
+        # участъците. Изпразването му тук отнемаше притежанието на позиции,
+        # чиито участъци са доказани ПО-СИЛНО — от отпечатаните размери.
         "contextual_rule_code": (
-            "F007_ESOVE_CURVED_CENTERLINE"
-            if source == "F007_CONTEXTUAL_MASTER_CANONICAL"
+            str(row.get("contextual_rule_code") or "")
+            if source in ("F007_CONTEXTUAL_MASTER_CANONICAL",
+                          "CHAIN_PRINTED_DIMENSIONS")
             else ""
+        ),
+        **(
+            {
+                "chain_dimension_text_handles":
+                    list(верижно.get("dimension_text_handles") or ()),
+                "chain_geometry_handles":
+                    list(верижно.get("geometry_handles") or ()),
+                # Измереният завой се пази ДО ъглите от MASTER, а не вместо тях.
+                # Символът на куката е схематичен (MASTER F007: „кривината е
+                # схематична“), затова начертаният ъгъл не отменя заключената
+                # форма — но разминаването трябва да се вижда.
+                "chain_measured_turn_angles_deg":
+                    list(верижно.get("turn_angles_deg") or ()),
+            }
+            if верижно_потвърждава and isinstance(верижно, Mapping)
+            else {}
         ),
         **(strict_evidence or {}),
     }
-    row["candidate_notes"] = [
-        *list(row.get("candidate_notes", [])),
-        (
+    if верижно_потвърждава and isinstance(верижно, Mapping):
+        надписи = ", ".join(str(з) for з in (верижно.get("dimension_text_handles") or ()))
+        бележка = (
+            "F007_PRODUCTION_FROM_CHAIN_PRINTED: "
+            f"{canonical[0]:g} + {canonical[1]:g} + {canonical[2]:g} cm; "
+            f"всяко рамо носи СВОЙ отпечатан размер (надписи {надписи}) и "
+            f"сборът е точно обявената дължина {declared_length_cm:g} cm"
+        )
+    else:
+        бележка = (
             "F007_PRODUCTION_FROM_CANONICAL_MASTER: "
             f"{canonical[0]:g} + {canonical[1]:g} + "
             f"{canonical[2]:g} cm; nearby коти не заменят "
             "притежаваното MASTER доказателство"
-        ),
-    ]
+        )
+    row["candidate_notes"] = [*list(row.get("candidate_notes", [])), бележка]
     return True
 
 
@@ -2036,6 +2260,8 @@ def _owned_dimension_records_by_contour(
 def _apply_contextual_f007_without_dimensions(
     rows: Sequence[dict],
     owned_dimension_records: Mapping[str, Sequence[Mapping[str, Any]]],
+    shape_definitions: Sequence[ShapeDefinition] | None = None,
+    entity_map: Mapping[str, DxfEntityRecord] | None = None,
 ) -> int:
     """Apply complete contextual F007 proofs when the DXF has no DIMENSION."""
 
@@ -2048,6 +2274,8 @@ def _apply_contextual_f007_without_dimensions(
             row,
             declared,
             owned_dimension_records=owned_dimension_records,
+            shape_definitions=shape_definitions,
+            entity_map=entity_map,
         ):
             resolved += 1
     return resolved
@@ -2141,6 +2369,64 @@ def _numeric_evidence_records(
             return None
         records.append({"handle": str(handle), "measurement_cm": value})
     return records
+
+
+def необходимият_ъгъл_е_недоказан(row: Mapping[str, Any]) -> str:
+    """Позицията носи ли необходим ъгъл, който нищо не доказва.
+
+    Условията, всички наведнъж:
+
+    * има производствен вектор — значи е огъната и ъгълът ѝ е необходим;
+    * ``proven_form`` е ``UNRESOLVED`` — чертежът не го установява;
+    * няма одобрено правило в обхват, което да го наложи;
+    * има начертан завой — тоест изображението ще нарисува ъгъл.
+
+    Тогава изходът показва ъгъл, който записът не поддържа. Бележка не стига.
+
+    Връща обяснението, или празен низ, ако не е такъв случай.
+    """
+
+    from lion_rebar.export import proven_form as форма
+
+    присъда = row.get(форма.ПОЛЕ)
+    if not isinstance(присъда, Mapping) or присъда.get("state") != форма.НЕРАЗРЕШЕН:
+        return ""
+    if not row.get("production_segments_cm"):
+        return ""
+    if str(row.get("contextual_rule_code") or "").strip():
+        return ""
+    завои = [о.get("drawn_turn_deg") for о in (присъда.get("bends") or ())
+             if isinstance(о, Mapping) and о.get("drawn_turn_deg") is not None]
+    if not завои:
+        return ""
+    return ("необходимият производствен ъгъл не е доказан от чертежа и няма "
+            "одобрено правило в обхват: форма %s, начертани завои %s, рамена в "
+            "мащаб %s" % (row.get("master_shape_code"),
+                          [round(float(а), 1) for а in завои],
+                          list(присъда.get("legs_to_scale") or ())))
+
+
+def носи_предполагаем_ъгъл(row: Mapping[str, Any]) -> bool:
+    """Редът носи ли ъгъл, който нищо не доказва.
+
+    Условието е тясно и нарочно: ъгъл ИМА, а доказан производствен вектор —
+    НЯМА. Тогава ъгълът може да идва само от шаблона на MASTER формата, тоест е
+    предположение, а не измерване.
+
+    Ползва се там, където изведените участъци вече са ОТКАЗАНИ като
+    непотвърдени от чертежа. Щом участъците не се доказват, ъглите до тях също
+    не се доказват — един и същ отказ.
+
+    Измерено на `s-11/92F7` („36N6x40"): седем еднакви позиции излизат с
+    начертаните −135°/135°, а осмата — с 90°/135° на C-шаблона, автоматично
+    одобрена. Вж. ``tests/test_predpolagaem_agal.py``.
+    """
+
+    ъгли = [
+        с for с in (row.get("canonical_turn_angles_deg") or ())
+        if isinstance(с, (int, float)) and not isinstance(с, bool)
+    ]
+    return bool(ъгли) and not row.get("production_segments_cm")
 
 
 def _block_authoritative_segment_evidence(row: dict, reason: str) -> None:
@@ -2865,6 +3151,251 @@ def _explicit_square_stirrup(
 _SUGGESTION_PRINTED_TOLERANCE_CM = 1.2
 
 
+def _apply_decision_memory_suggestions(
+    rows: Sequence[dict],
+    *,
+    memory: Any | None,
+    data_identity: Any | None,
+    engine_metadata: Mapping[str, Any] | None,
+) -> dict[str, int]:
+    """Предложения от вече потвърдени човешки решения — НИВО Б, без прилагане.
+
+    ``memory`` е готов указател с метод
+    ``lookup(row, *, identity, engine_version)`` — на практика
+    ``review.decision_suggestions.DecisionSuggestionIndex``. Подава се от
+    викащия, за да не влиза проектен вход/изход в този модул: анализът остава
+    проверим без проект и без сесийна база.
+
+    Какво се записва на реда (и нищо повече):
+
+    * ``status`` — ``READY`` / ``CONFLICT`` / ``NO_MATCH`` / ``INELIGIBLE``;
+    * ``explanation`` — човешкото основание от указателя;
+    * ``proposal`` — ПРЕДЛОЖЕНИЕТО (размери/форма), само за показване;
+    * ``provenance`` — от кое решение идва, за да е проследимо;
+    * ``missing_context`` — какво липсва, когато предложение не може да се даде.
+
+    Производствените полета НЕ се пипат. Приемането е изрично действие на
+    оператора през редактора (``accepted_prefill(explicitly_accepted=True)``),
+    защото „подобен случай" не е доказателство за еднакво решение.
+    """
+
+    сметка: dict[str, int] = {}
+    if memory is None or data_identity is None:
+        return сметка
+    # КЛЮЧЪТ Е ``engine_version``, не ``version``.
+    #
+    # Намерено от приемателния опит по § 8 на 02.10.2026. И двата
+    # производствени пътя — ``ui/main_window`` и безинтерфейсният
+    # ``full_path.py`` — подават {"engine_id", "engine_version",
+    # "content_sha256"}. Тук се четеше ``version``, тоест версията беше
+    # ПРАЗНА при всяко истинско извикване и указателят отказваше ВСЕКИ ред
+    # с ``INELIGIBLE: липсва engine_version``. Измерено: 296 от 296 реда в
+    # `s-8` и 179 от 179 в `d-2`.
+    #
+    # Защо тестовете не го хванаха: ``tests/test_pamet_v_analiza.py``
+    # подаваше {"version": ...} — ключ, който производственият път НИКОГА
+    # не праща. Шестте теста бяха зелени, а механизмът беше мъртъв.
+    #
+    # ``version`` се чете и занапред: по-стар викащ не бива да спре.
+    версия = str(
+        (engine_metadata or {}).get("engine_version")
+        or (engine_metadata or {}).get("version")
+        or ""
+    )
+    for row in rows:
+        try:
+            предложение = memory.lookup(
+                dict(row), identity=data_identity, engine_version=версия)
+        except Exception:                                  # noqa: BLE001
+            # Паметта никога не спира анализа: непрочетено хранилище или
+            # неочакван запис остава без предложение, но редът минава.
+            сметка["ГРЕШКА"] = сметка.get("ГРЕШКА", 0) + 1
+            continue
+        състояние = str(getattr(предложение, "status", "") or "")
+        сметка[състояние] = сметка.get(състояние, 0) + 1
+        if състояние in ("", "NO_MATCH"):
+            continue
+        предложено = getattr(предложение, "proposal", None)
+        запис: dict[str, Any] = {
+            "schema": "lion-rebar-decision-memory-suggestion/v1",
+            "status": състояние,
+            "explanation": str(getattr(предложение, "explanation", "") or ""),
+            "can_accept": bool(getattr(предложение, "can_accept", False)),
+            "missing_context": list(getattr(предложение, "missing_context", ()) or ()),
+            "alternatives": len(getattr(предложение, "alternatives", ()) or ()),
+        }
+        произход = getattr(предложение, "provenance", ()) or ()
+        запис["provenance"] = [
+            {к: v for к, v in vars(п).items() if isinstance(v, (str, int, float, bool))}
+            if hasattr(п, "__dict__") else str(п)
+            for п in произход
+        ][:4]
+        if предложено is not None:
+            за_показване = getattr(предложено, "prefill", None)
+            try:
+                запис["proposal"] = за_показване() if callable(за_показване) else None
+            except Exception:                              # noqa: BLE001
+                запис["proposal"] = None
+            подпис = getattr(предложено, "signature", None)
+            if подпис is not None:
+                запис["proposal_signature"] = str(подпис)
+        row["decision_memory"] = запис
+        if състояние == "READY":
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                ("ПРЕДЛОЖЕНО ОТ ПРЕДИШЕН СЛУЧАЙ: %s — предложението не е приложено; "
+                 "приема се изрично" % запис["explanation"]),
+            ]
+    return сметка
+
+
+def _активни_форми(
+    shape_definitions: Iterable[Any] | None,
+) -> dict[str, int] | None:
+    """Кодът на всяка активна форма срещу РЕВИЗИЯТА ѝ в заключения Engine.
+
+    Нужно е, за да не се пренесе решение, взето при друга семантика на същия
+    код: сменена ревизия значи друга форма, макар кодът да е същият.
+    """
+
+    if shape_definitions is None:
+        return None
+    резултат: dict[str, int] = {}
+    for форма in shape_definitions:
+        код = str(getattr(форма, "code", "") or "").strip().upper()
+        if not код or not bool(getattr(форма, "active", True)):
+            continue
+        try:
+            резултат[код] = int(getattr(форма, "revision", 1) or 1)
+        except (TypeError, ValueError):
+            continue
+    return резултат
+
+
+def _apply_decision_reuse_proposals(
+    rows: Sequence[dict],
+    *,
+    reuse: Any | None,
+    data_identity: Any | None,
+    shape_definitions: Iterable[Any] | None = None,
+) -> dict[str, int]:
+    """Преизползване с РАЗДЕЛЕНИ етапи — намиране, предложение, проверка.
+
+    ``reuse`` е готов указател с метод
+    ``предложи(ред, *, самоличност, активни_форми)`` — на практика
+    ``review.decision_reuse.Указател``. Подава се от викащия, за да не влиза
+    проектен вход/изход в този модул.
+
+    Какво се записва на реда (и нищо повече):
+
+    * ``decision_reuse`` — целият запис на предложението: състояние, обяснение,
+      ПОЛЕ ПО ПОЛЕ присъда и източник, произход, какво остава за оператора и
+      защо случаят е намерен за сходен;
+    * бележка за оператора при ПРИЛОЖИМО и при САМО_ФОРМА.
+
+    Производствените полета НЕ се пипат. Приемането е изрично действие през
+    редактора (``Предложение.за_приемане(изрично_прието=True)``).
+
+    Защо и състоянието САМО_ФОРМА се записва, макар да НЕ може да се приеме:
+    операторът трябва да вижда, че за този надпис ИМА предишно решение и защо
+    то не стига — иначе би го търсил сам. Полето ``може_да_се_приеме`` е
+    ``False`` и редакторът не показва бутон за приемане, тоест видимо
+    предложение, което не може да се ползва, не се предлага за приемане.
+    """
+
+    сметка: dict[str, int] = {}
+    if reuse is None or data_identity is None:
+        return сметка
+    активни = _активни_форми(shape_definitions)
+    for row in rows:
+        try:
+            предложение = reuse.предложи(
+                dict(row), самоличност=data_identity, активни_форми=активни
+            )
+        except Exception:                                      # noqa: BLE001
+            # Преизползването никога не спира анализа.
+            сметка["ГРЕШКА"] = сметка.get("ГРЕШКА", 0) + 1
+            continue
+        състояние = str(getattr(предложение, "състояние", "") or "")
+        сметка[състояние] = сметка.get(състояние, 0) + 1
+        if състояние in ("", "НЕНАМЕРЕНО", "БЕЗ_ВХОДНИ_ДАННИ"):
+            continue
+        try:
+            запис = предложение.речник()
+        except Exception:                                      # noqa: BLE001
+            сметка["ГРЕШКА"] = сметка.get("ГРЕШКА", 0) + 1
+            continue
+        row["decision_reuse"] = запис
+        if състояние == "ПРИЛОЖИМО":
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                ("ПРЕИЗПОЛЗВАНЕ: приложимо предложение от предишно решение — "
+                 "всяко поле е подкрепено от данните на тази позиция; "
+                 "приема се ИЗРИЧНО и нищо не е приложено"),
+            ]
+        elif състояние == "САМО_ФОРМА":
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                ("ПРЕИЗПОЛЗВАНЕ: има предишно решение за този надпис, но "
+                 "размерите не се пренасят от донора — %s"
+                 % str(getattr(предложение, "обяснение", ""))),
+            ]
+    return сметка
+
+
+def _apply_printed_dimension_guard(rows: Sequence[dict]) -> dict[str, int]:
+    """Крайният вектор срещу отпечатаните размери — само присъда, без решение.
+
+    Вж. докстринга на ``lion_rebar/export/printed_dimension_guard.py``. Тук
+    присъдата се записва на реда и влиза в бележките за оператора, за да е видима
+    в Review Center. Производственото решение се взима в
+    ``batch_auto_output.build_batch_export_context`` със СЪЩОТО правило.
+
+    Защо и на двете места: анализът показва, експортът решава. Ако само анализът
+    решаваше, заредена сесия или старо одобрение биха минали покрай него; ако само
+    експортът решаваше, операторът щеше да види проблема чак накрая.
+    """
+
+    from lion_rebar.export import printed_dimension_guard as пазач
+
+    сметка: dict[str, int] = {}
+    for row in rows:
+        присъда = пазач.присъда_за_реда(row)
+        if присъда is None:
+            continue
+        # Присъдата ТУК е информативна: тя гледа `production_segments_cm` на
+        # реда, а изнася се векторът, сглобен в `build_batch_export_context`.
+        # Измерено на 30.09.2026 (`B7_RED_SRESHTU_IZNESEN.json`): при **11 от
+        # 982** сравними позиции двете се различават, и при всичките 11 редът
+        # НЯМА записан източник на доказателството — точно класът, в който
+        # полето му не е авторитетно. При петте в `Тест-003` редът носи
+        # `[600, 20]`, а излиза `[600, 17]`, тоест отпечатаното. Затова:
+        присъда = {
+            **присъда,
+            "advisory": True,
+            "row_vector_authoritative": bool(
+                (row.get("production_segment_evidence") or {}).get("source")),
+        }
+        row[пазач.ПОЛЕ] = присъда
+        състояние = str(присъда.get("status") or "")
+        сметка[състояние] = сметка.get(състояние, 0) + 1
+        if състояние != пазач.ПРОТИВОРЕЧИ:
+            continue
+        изхвърлени = присъда.get("discarded_printed") or ()
+        row["candidate_notes"] = [
+            *list(row.get("candidate_notes", [])),
+            (
+                "PRODUCTION_CONTRADICTS_PRINTED: в производството влиза %s, а "
+                "чертежът отпечатва %s за начертаното %s — обявената обща дължина "
+                "не е основание да се смени отпечатан размер; за конкретен преглед"
+                % (присъда.get("production_segments_cm"),
+                   [и.get("printed_cm") for и in изхвърлени],
+                   [и.get("drawn_cm") for и in изхвърлени])
+            ),
+        ]
+    return сметка
+
+
 def _apply_born_from_case_production_sizes(
     rows: list[dict],
     shape_definitions: Sequence[Any],
@@ -3010,9 +3541,644 @@ def _every_segment_is_printed(segments, printed) -> bool:
     return True
 
 
+def _grid_vector_contradicts_printed_text(
+    row: Mapping[str, Any],
+    участъци: Sequence[float],
+    вектор: Sequence[float],
+    указател: Any,
+) -> dict[str, Any] | None:
+    """Вето: закръгленото число трябва да е сред написаните до същото рамо.
+
+    Числата идват от ``chain_printed_dimensions.отпечатани_до_рамената`` —
+    най-близкото рамо, в обхвата и УСПОРЕДНО на него. Брои се само число на
+    не повече от ``МАКС_ОТМЕСТВАНЕ_CM`` от начертаното рамо: в h01-1001 до
+    473-сантиметровото рамо стои „82“, което не е негов размер. Рамо без
+    нито едно такова число не се проверява — там закръглянето остава
+    единственият свидетел, както досега.
+
+    Само отказва. Никога не дава число: ``None`` значи „няма противоречие“.
+    """
+
+    from lion_rebar.dxf import chain_printed_dimensions as верига
+    from lion_rebar.dxf.grid_rounded_segments import ДОПУСК_ОБЯВЕН_CM, МАКС_ОТМЕСТВАНЕ_CM
+
+    handles = [str(h) for h in (row.get("candidate_handles") or ())]
+    if not handles or len(участъци) != len(вектор):
+        return None
+    собствен = str(row.get("annotation_handle") or "").split("::")[0]
+    до_рамената = верига.отпечатани_до_рамената(
+        handles, указател, изключени=[собствен])
+    if not до_рамената or len(до_рамената) != len(участъци):
+        return None
+    # Посоката на обхождане може да е обърната спрямо семантичните участъци.
+    начертани = [дължина for дължина, _ in до_рамената]
+    право = sum(abs(a - b) for a, b in zip(начертани, участъци))
+    обратно = sum(abs(a - b) for a, b in zip(reversed(начертани), участъци))
+    if обратно < право:
+        до_рамената = list(reversed(до_рамената))
+    по_рамо: list[list[float]] = []
+    for (_дължина, написани), измерено, избрано in zip(до_рамената, участъци, вектор):
+        годни = [ч for ч in написани if abs(ч - float(измерено)) <= МАКС_ОТМЕСТВАНЕ_CM]
+        по_рамо.append(годни)
+        if годни and not any(abs(ч - float(избрано)) <= ДОПУСК_ОБЯВЕН_CM for ч in годни):
+            return {"рамо": round(float(измерено), 2), "написани": годни,
+                    "по_рамо": по_рамо}
+    return None
+
+
+def _semantic_segment_lengths_cm(
+    row: Mapping[str, Any],
+    entity_map: Mapping[str, DxfEntityRecord],
+) -> list[float]:
+    """Семантичните участъци на кандидата — дъгите на огъвките са сгънати.
+
+    Суровите върхове НЕ вършат работа: стреме с 6 участъка се чете като 11,
+    защото всяка дъга е отделна двойка върхове.
+    """
+
+    import math as _math
+
+    from lion_rebar.dxf.geometry_core_v2 import (
+        polyline_path_from_geometry,
+        semantic_path_from_polyline,
+    )
+    from lion_rebar.dxf.recognition_policy import RecognitionPolicy
+    from lion_rebar.dxf.shape_recognition import collapse_fillets, simplify_polyline
+
+    изход: list[float] = []
+    for handle in (row.get("candidate_handles") or ()):
+        запис = entity_map.get(str(handle))
+        if запис is None:
+            return []
+        вид = str(запис.entity_type or "").upper()
+        geometry = запис.geometry or {}
+        if вид == "LINE":
+            начало, край = geometry.get("start"), geometry.get("end")
+            if not (начало and край):
+                return []
+            изход.append(_math.dist((float(начало[0]), float(начало[1])),
+                                    (float(край[0]), float(край[1]))))
+            continue
+        if вид not in {"LWPOLYLINE", "POLYLINE"}:
+            return []
+        path = polyline_path_from_geometry(geometry)
+        if path is None:
+            return []
+        semantic = semantic_path_from_polyline(path)
+        if not semantic.safe_for_linear_matching:
+            # Има неразрешени дъги — геометрията не е сведена до прави
+            # участъци и закръгляването няма към какво да се приложи.
+            return []
+        точки = list(semantic.points)
+        # Огъвка, начертана като поредица къси ХОРДИ (не като дъга), се свива
+        # тук както в разпознаването (``collapse_fillets``). Иначе F004 с
+        # огъвка от 8 хорди дава 10 участъка и мрежата няма какво да закръгли.
+        # Само когато свиването маха върхове — без заобление нищо не се мени.
+        опростени = simplify_polyline(точки, RecognitionPolicy().collinear_merge_tolerance_deg)
+        свити = collapse_fillets(опростени)
+        if len(свити) < len(опростени):
+            точки = list(свити)
+        изход.extend(_math.dist(точки[и], точки[и + 1])
+                     for и in range(len(точки) - 1))
+    return изход
+
+
+def _apply_proven_form_verdict(
+    rows: Sequence[dict],
+    *,
+    policy: RecognitionPolicy | None = None,
+    shape_definitions: Sequence[ShapeDefinition] | None = None,
+) -> dict[str, int]:
+    """Кой източник дава ЪГЛИТЕ на всяка позиция — проектът или MASTER.
+
+    Стандартният режим възпроизвежда доказаната форма от проекта; MASTER служи
+    за преизползване на съвместими форми. Вж. ``export/proven_form.py``.
+
+    Проходът **не мени участъци и не блокира позиция**. Той записва присъда и
+    подменя ъглите САМО когато чертежът ги доказва — тоест когато всички рамена
+    са начертани в мащаб. При схематичен символ ъглите остават тези на MASTER,
+    но разминаването вече се вижда.
+    """
+
+    from lion_rebar.export import proven_form as форма
+
+    режим = форма.режим_от_настройките(policy)
+    сметка: dict[str, int] = {}
+    for row in rows:
+        присъда = форма.за_реда(row, режим=режим, форми=shape_definitions)
+        if присъда is None:
+            continue
+        row[форма.ПОЛЕ] = присъда.as_dict()
+        сметка[присъда.състояние] = сметка.get(присъда.състояние, 0) + 1
+        if присъда.доказана and присъда.ъгли_deg:
+            row["canonical_turn_angles_deg"] = list(присъда.ъгли_deg)
+            доказателство = row.get("production_segment_evidence")
+            if isinstance(доказателство, dict):
+                доказателство["turn_angles_deg"] = list(присъда.ъгли_deg)
+                доказателство["turn_angles_source"] = присъда.състояние
+        row["candidate_notes"] = [
+            *list(row.get("candidate_notes", [])), *присъда.бележки,
+        ]
+        # Бележката обяснява липсата, но не спира нищо. Изискването е по-строго:
+        # необходим параметър без доказателство и без одобрено правило не бива
+        # да стига до окончателно производствено одобрение.
+        обяснение = необходимият_ъгъл_е_недоказан(row)
+        if обяснение:
+            _block_authoritative_segment_evidence(row, "PRODUCTION_ANGLE_UNPROVEN")
+            row["production_angle_unproven_reason"] = обяснение
+            сметка["PRODUCTION_ANGLE_UNPROVEN"] = сметка.get(
+                "PRODUCTION_ANGLE_UNPROVEN", 0) + 1
+    return сметка
+
+
+def _apply_chain_printed_production_vector(
+    row: dict,
+    declared_length_cm: float,
+    *,
+    shape_definitions: Sequence[ShapeDefinition] | None = None,
+) -> bool:
+    """Производственият вектор направо от отпечатаните размери на веригата.
+
+    Прилага се само когато MASTER формата на реда иска точно толкова участъка,
+    колкото носи веригата. Ъглите идват от вече записаните канонични завои
+    (инженерното правило за гредите ги е сложило на 90°) или от заключената
+    MASTER форма — НИКОГА от начертания символ: куката е схематична, измереният
+    ѝ завой е 27°/153° при истински 90°.
+    """
+
+    from lion_rebar.dxf import chain_printed_dimensions as верига
+
+    доказателство = row.get(верига.ПОЛЕ)
+    if not isinstance(доказателство, Mapping):
+        return False
+    if str(доказателство.get("status") or "") != верига.ПОТВЪРДЕНО:
+        return False
+    участъци = [float(с) for с in (доказателство.get("segments_cm") or ())]
+    if len(участъци) < 2:
+        return False
+    if abs(sum(участъци) - float(declared_length_cm)) > верига.ДОПУСК_СБОР_CM:
+        return False
+
+    код = str(row.get("master_shape_code") or "").strip().upper()
+    форма = None
+    for кандидат in (shape_definitions or ()):  # заключената форма решава броя
+        if str(кандидат.code).strip().upper() == код and кандидат.active:
+            форма = кандидат
+            break
+    if форма is None or len(форма.segments) != len(участъци):
+        return False
+
+    завои = [
+        float(стойност)
+        for стойност in (row.get("canonical_turn_angles_deg") or ())
+        if isinstance(стойност, (int, float))
+    ]
+    if len(завои) != len(участъци) - 1:
+        завои = _signed_master_turns(row, код, shape_definitions)
+    row["production_segments_cm"] = list(участъци)
+    if завои:
+        row["canonical_turn_angles_deg"] = list(завои)
+    row["production_segment_evidence"] = {
+        "shape_code": код,
+        "segments": list(участъци),
+        "turn_angles_deg": list(завои),
+        "turn_angles_source": "MASTER_SHAPE_OR_BEAM_LAW",
+        "source": "CHAIN_PRINTED_DIMENSIONS",
+        "confidence": "HIGH",
+        "chain_dimension_text_handles":
+            list(доказателство.get("dimension_text_handles") or ()),
+        "chain_geometry_handles": list(доказателство.get("geometry_handles") or ()),
+        "chain_measured_turn_angles_deg":
+            list(доказателство.get("turn_angles_deg") or ()),
+    }
+    надписи = ", ".join(str(з) for з in (доказателство.get("dimension_text_handles") or ()))
+    row["candidate_notes"] = [
+        *list(row.get("candidate_notes", [])),
+        (
+            f"{код}_PRODUCTION_FROM_CHAIN_PRINTED: "
+            f"{' + '.join(f'{с:g}' for с in участъци)} = {sum(участъци):g} cm; "
+            f"всяко рамо носи СВОЙ отпечатан размер (надписи {надписи}); "
+            "нищо не е досметнато от разликата"
+        ),
+    ]
+    return True
+
+
+def _apply_chain_printed_production_segments(
+    rows: Sequence[dict],
+    entities: Sequence[DxfEntityRecord],
+    learned_styles: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, int]:
+    """Каноничният вектор от ЦЯЛАТА начертана верига и собствените ѝ коти.
+
+    Вж. докстринга на ``lion_rebar/dxf/chain_printed_dimensions.py``. Проходът е
+    ПРЕДИ инженерното правило за гредите и преди изведените по близост размери,
+    защото поправя точно техния вход: кандидатът, взет от matcher-а, съдържа
+    само ЧАСТ от пръта, а останалите участъци носят собствените си надписани
+    размери.
+
+    Каноничният вектор се пипа само когато веригата е **доказано по-пълна** от
+    кандидата (добавя обект, който matcher-ът не е видял). Когато веригата
+    съвпада с кандидата, тук се записва само доказателство — числата остават
+    чужда работа. При разминаване без добавена геометрия правилото НЕ избира
+    победител.
+    """
+
+    from lion_rebar.dxf import chain_printed_dimensions as верига
+
+    указател = верига.ВериженУказател(entities)
+    присъди: dict[str, верига.ВерижноДоказателство] = {}
+    for индекс, row in enumerate(rows):
+        if row.get("annotation_class") != "ACTIONABLE":
+            continue
+        handles = [str(стойност) for стойност in (row.get("candidate_handles") or ())]
+        обявена = _positive_float(row.get("declared_length_cm"))
+        if not handles or обявена is None:
+            continue
+        # Надписът на самата позиция не е размерна кота.
+        собствен = str(row.get("annotation_handle") or "").split("::")[0]
+        дневник: list = []
+        присъда = верига.присъда(
+            handles, указател, обявена, изключени_надписи=[собствен],
+            научени_стилове=learned_styles or None, дневник=дневник,
+        )
+        if присъда is not None:
+            присъди[str(индекс)] = присъда
+        elif дневник:
+            # ПЪРВАТА причина е единствената смислена: щом сглобяването е
+            # спряло на разклонение, безсмислено е да се отчита и че сборът не
+            # затваря. Записва се, за да не е отказът мълчалив — регистърът на
+            # отпаданията чете точно това поле.
+            row["chain_printed_refusal"] = dict(дневник[0])
+
+    падат = верига.уникално_притежание(присъди)
+    сметка: dict[str, int] = {}
+    for ключ, присъда in присъди.items():
+        row = rows[int(ключ)]
+        if ключ in падат:
+            сметка["OWNERSHIP_CONFLICT"] = сметка.get("OWNERSHIP_CONFLICT", 0) + 1
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    "CHAIN_PRINTED_OWNERSHIP_CONFLICT: същият отпечатан размер "
+                    "или същата отсечка се търсят от още една позиция — "
+                    "близостта не решава кой е собственикът"
+                ),
+            ]
+            continue
+        row[верига.ПОЛЕ] = присъда.as_dict()
+        каноничен = [
+            стойност
+            for стойност in (row.get("canonical_segment_lengths_cm") or ())
+            if isinstance(стойност, (int, float))
+        ]
+        ако_съвпада = len(каноничен) == len(присъда.участъци_cm) and all(
+            abs(float(a) - float(b)) <= верига.ДОПУСК_СБОР_CM
+            for a, b in zip(каноничен, присъда.участъци_cm)
+        )
+        if ако_съвпада:
+            сметка["CONFIRMS"] = сметка.get("CONFIRMS", 0) + 1
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    "CHAIN_PRINTED_CONFIRMS: отпечатаните размери на веригата "
+                    f"({' + '.join(f'{с:g}' for с in присъда.участъци_cm)} = "
+                    f"{sum(присъда.участъци_cm):g} cm) повтарят вече доказания "
+                    "вектор"
+                ),
+            ]
+            continue
+        if not присъда.добавени_handles:
+            # Веригата е същата геометрия, а числата се разминават. Тук НЕ се
+            # избира победител: това е случай за оператора.
+            сметка["DISAGREES"] = сметка.get("DISAGREES", 0) + 1
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    "CHAIN_PRINTED_DISAGREES: отпечатаните размери дават "
+                    f"{[round(float(с), 2) for с in присъда.участъци_cm]}, а "
+                    f"досегашният каноничен вектор е {каноничен} — за оператора"
+                ),
+            ]
+            continue
+        сметка["CANONICAL_COMPLETED"] = сметка.get("CANONICAL_COMPLETED", 0) + 1
+        row["chain_original_canonical_segment_lengths_cm"] = list(каноничен)
+        row["canonical_segment_lengths_cm"] = list(присъда.участъци_cm)
+        row["chain_geometry_handles"] = list(присъда.геометрия_handles)
+        row["candidate_notes"] = [
+            *list(row.get("candidate_notes", [])),
+            (
+                "CHAIN_GEOMETRY_INCOMPLETE: кандидатът съдържаше "
+                f"{len(handles)} обекта, а начертаната верига е "
+                f"{len(присъда.геометрия_handles)} "
+                f"(добавени {', '.join(присъда.добавени_handles)}). Всяко рамо "
+                "носи СВОЙ отпечатан размер: "
+                f"{' + '.join(f'{с:g}' for с in присъда.участъци_cm)} = "
+                f"{sum(присъда.участъци_cm):g} cm = обявената дължина "
+                f"(надписи {', '.join(присъда.надписи_handles)})"
+            ),
+        ]
+    return сметка
+
+
+def _apply_grid_rounded_production_segments(
+    rows: Sequence[dict],
+    entities: Sequence[DxfEntityRecord],
+) -> dict[str, int]:
+    """Производственият вектор от самата геометрия, закръглена към мрежата.
+
+    Вж. докстринга на ``lion_rebar/dxf/grid_rounded_segments.py``. Проходът е
+    ПОСЛЕДЕН: попълва вектор само където никой друг доказател не е успял, и
+    никога не презаписва вече доказан.
+    """
+
+    from lion_rebar.dxf import chain_printed_dimensions as верига
+    from lion_rebar.dxf import grid_rounded_segments as мрежа
+
+    entity_map = {str(entity.handle): entity for entity in entities}
+    указател = верига.ВериженУказател(entities)
+    сметка: dict[str, int] = {}
+    for row in rows:
+        участъци = _semantic_segment_lengths_cm(row, entity_map)
+        if len(участъци) < 2:
+            continue
+        присъда = мрежа.verdict_for_row(row, участъци)
+        if присъда is None:
+            continue
+        row[мрежа.ПОЛЕ] = присъда
+        състояние = str(присъда.get("status") or "")
+        сметка[състояние] = сметка.get(състояние, 0) + 1
+        if състояние == мрежа.РАЗМИНАВАНЕ:
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    "GRID_ROUNDED_DISAGREES: закръглената геометрия дава %s, а "
+                    "доказаното е %s — за решение на оператора"
+                    % (присъда.get("segments_cm"),
+                       присъда.get("existing_segments_cm"))
+                ),
+            ]
+            continue
+        if състояние == мрежа.ПРОТИВОРЕЧИ_НА_ОТПЕЧАТАН:
+            # Сборът затваря само за сметка на отпечатан размер. Нито тих отказ,
+            # нито произволен избор: и двата варианта остават в реда, причината
+            # отива при оператора, а производственото одобрение се блокира.
+            изхвърлени = [
+                и for решение in (присъда.get("rejected_solutions") or ())
+                for и in (решение.get("discards_printed") or ())
+            ]
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    "GRID_ROUNDED_CONTRADICTS_PRINTED: мрежата %s дава %s, но "
+                    "начертаното %s съвпада с отпечатан размер %s — обявеният "
+                    "размер има предимство; за решение на оператора"
+                    % (присъда.get("grid_cm"), присъда.get("segments_cm"),
+                       [и.get("drawn_cm") for и in изхвърлени],
+                       [и.get("printed_cm") for и in изхвърлени])
+                ),
+            ]
+            if not row.get("production_segments_cm"):
+                # Няма доказан вектор от друг доказател: позицията не може да
+                # мине на автоматично производствено одобрение.
+                row["production_export_blocked"] = True
+                row["production_export_block_reason"] = (
+                    "GRID_ROUNDED_CONTRADICTS_PRINTED"
+                )
+            continue
+        if състояние != мрежа.ПРИЕТО or присъда.get("confirms_existing"):
+            continue
+        if row.get("production_segments_cm"):
+            continue
+        if bool(row.get("production_export_blocked")):
+            continue
+        вектор = tuple(float(с) for с in присъда.get("segments_cm") or ())
+        противоречие = _grid_vector_contradicts_printed_text(
+            row, участъци, вектор, указател)
+        if противоречие:
+            # Закръгленото от линиите число не е сред числата, които
+            # проектантът е написал до същото рамо. Измерено на h01-1001
+            # (07.10.2026): „16N12x167“ — мрежата дава 14/124/29, до рамената
+            # пише 15/125/30. Без това вето изборът между два противоречащи
+            # свидетеля ставаше тихо, в полза на линиите.
+            row[мрежа.ПОЛЕ] = {**присъда, "status": мрежа.ПРОТИВОРЕЧИ_НА_ОТПЕЧАТАН,
+                              "printed_text_by_segment_cm": противоречие["по_рамо"]}
+            сметка[мрежа.ПРОТИВОРЕЧИ_НА_ОТПЕЧАТАН] = (
+                сметка.get(мрежа.ПРОТИВОРЕЧИ_НА_ОТПЕЧАТАН, 0) + 1)
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    "GRID_ROUNDED_CONTRADICTS_PRINTED: мрежата %s дава %s, но до "
+                    "рамото %s проектантът е написал %s — отпечатаното има "
+                    "предимство; за решение на оператора"
+                    % (присъда.get("grid_cm"), list(вектор),
+                       противоречие["рамо"], list(противоречие["написани"]))
+                ),
+            ]
+            row["production_export_blocked"] = True
+            row["production_export_block_reason"] = "GRID_ROUNDED_CONTRADICTS_PRINTED"
+            continue
+        # Този доказател е ДОПЪЛНИТЕЛЕН: при неуспех редът трябва да остане
+        # какъвто е бил. `_install_authoritative_production_segments` при отказ
+        # БЛОКИРА реда — правилно за основните доказатели, но не и тук.
+        # Измерено: без това `Тест-003/6A04B7` (F020) губеше одобрението си с
+        # причина AUTHORITATIVE_DIMENSION_SHAPE_INVALID.
+        _снимка = {
+            поле: row.get(поле)
+            for поле in (
+                "canonical_segment_lengths_cm",
+                "production_segments_cm",
+                "production_export_blocked",
+                "production_export_block_reason",
+                "production_segment_evidence",
+                "canonical_turn_angles_deg",
+            )
+        }
+        row["canonical_segment_lengths_cm"] = list(вектор)
+        if _install_authoritative_production_segments(
+            row,
+            вектор,
+            source="GEOMETRY_GRID_ROUNDED",
+            evidence_details={
+                "semantic_segments_cm": присъда.get("semantic_segments_cm"),
+                "grid_cm": присъда.get("grid_cm"),
+                "total_shift_cm": присъда.get("total_shift_cm"),
+                "drawn_total_cm": присъда.get("drawn_total_cm"),
+                "candidate_handles": list(row.get("candidate_handles") or ()),
+            },
+        ):
+            сметка["INSTALLED"] = сметка.get("INSTALLED", 0) + 1
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    "GRID_ROUNDED: участъците %s са закръглени поотделно към "
+                    "мрежа %g cm от НАЧЕРТАНОТО %s. Основанието е измерването: "
+                    "начертаният сбор се разминава с обявените %g cm само с "
+                    "%.2f %%. Точният сбор е критерият, по който мрежата е "
+                    "избрана, и НЕ е независимо потвърждение."
+                    % (присъда.get("segments_cm"), присъда.get("grid_cm"),
+                       присъда.get("semantic_segments_cm"),
+                       присъда.get("declared_length_cm"),
+                       присъда.get("drawn_vs_declared_pct") or 0.0)
+                ),
+            ]
+        else:
+            # Връщаме реда точно както беше: допълнителният доказател не
+            # отнема вече постигнатото.
+            for поле, стойност in _снимка.items():
+                if стойност is None:
+                    row.pop(поле, None)
+                else:
+                    row[поле] = стойност
+            сметка["INSTALL_REFUSED"] = сметка.get("INSTALL_REFUSED", 0) + 1
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    "GRID_ROUNDED_NOT_INSTALLED: %s не мина проверката на "
+                    "производствения инсталатор; редът остава непроменен"
+                    % (присъда.get("segments_cm"),)
+                ),
+            ]
+    return сметка
+
+
+def _confirm_f006_hooked_closure_dimensions(
+    rows: Sequence[dict],
+    entities: Sequence[DxfEntityRecord],
+) -> dict[str, int]:
+    """Второ, независимо доказателство за стремената с куки.
+
+    ``HOOKED_CLOSURE`` иска ръчно потвърждение, защото затворената MASTER форма
+    е сравнена при РАЗШИРЕН допуск на отношенията. Когато проектантът сам е
+    надписал котите върху същия контур и те дават същия производствен вектор,
+    решението вече не стъпва на разширения допуск.
+
+    Проходът НЕ мени нито едно число: само записва присъда. Вж. докстринга на
+    ``lion_rebar/dxf/f006_owned_dimension_confirmation.py``.
+    """
+
+    from lion_rebar.dxf import f006_owned_dimension_confirmation as потвърждение
+    from lion_rebar.dxf.vertical_shape_resolver import (
+        dimensions_owned_by_contours,
+        infer_preferred_hook,
+        read_owned_stirrup,
+    )
+    from lion_rebar.engine.bend_allowance import segments_match_total
+
+    измервания = [
+        float(entity.geometry["measurement"])
+        for entity in entities
+        if entity.entity_type == "DIMENSION" and entity.geometry.get("measurement")
+    ]
+    preferred_hook = infer_preferred_hook(измервания) if измервания else None
+    owned_values = dimensions_owned_by_contours(entities)
+    owned_records = _owned_dimension_records_by_contour(
+        entities,
+        dimensions_owned_by_contours,
+    )
+
+    сметка: dict[str, int] = {}
+    for row in rows:
+        присъда = потвърждение.confirm_row(
+            row,
+            owned_values_by_contour=owned_values,
+            owned_records_by_contour=owned_records,
+            preferred_hook=preferred_hook,
+            read_owned_stirrup=read_owned_stirrup,
+            segments_match_total=segments_match_total,
+        )
+        if присъда is None:
+            continue
+        # Инвариант: проходът добавя доказателство, не мени производството.
+        преди = list(row.get("production_segments_cm") or ())
+        row[потвърждение.ПОЛЕ] = присъда
+        assert list(row.get("production_segments_cm") or ()) == преди
+        състояние = str(присъда.get("status") or "")
+        сметка[състояние] = сметка.get(състояние, 0) + 1
+        if състояние == потвърждение.ПОТВЪРДЕНО:
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    "F006_OWNED_DIMENSIONS_CONFIRM: котите %s на контур %s "
+                    "потвърждават вече доказания вектор; ръчното потвърждение "
+                    "за отворените куки не е нужно"
+                    % (", ".join(str(з.get("handle")) for з
+                                 in присъда.get("dimension_measurements_cm") or ()),
+                       присъда.get("owner_geometry_handle"))
+                ),
+            ]
+        elif състояние == потвърждение.РАЗМИНАВАНЕ:
+            row["candidate_notes"] = [
+                *list(row.get("candidate_notes", [])),
+                (
+                    "F006_OWNED_DIMENSIONS_DISAGREE: котите на проектанта дават "
+                    "%s, а измерената геометрия %s — за решение на оператора"
+                    % (присъда.get("segments_from_owned_dimensions_cm"),
+                       присъда.get("segments_in_row_cm"))
+                ),
+            ]
+    return сметка
+
+
+def _drawn_segment_lengths_cm(
+    row: Mapping[str, Any],
+    entity_map: Mapping[str, DxfEntityRecord],
+) -> list[float]:
+    """Дължините на начертаните участъци на кандидатите, в реда на обхождане."""
+
+    import math as _math
+
+    изход: list[float] = []
+    for handle in (row.get("candidate_handles") or ()):
+        запис = entity_map.get(str(handle))
+        if запис is None:
+            return []
+        geometry = запис.geometry or {}
+        точки = geometry.get("points")
+        if точки:
+            върхове = [(float(т[0]), float(т[1])) for т in точки]
+        else:
+            начало, край = geometry.get("start"), geometry.get("end")
+            if not (начало and край):
+                return []
+            върхове = [(float(начало[0]), float(начало[1])),
+                       (float(край[0]), float(край[1]))]
+        изход.extend(
+            _math.dist(върхове[и], върхове[и + 1])
+            for и in range(len(върхове) - 1)
+        )
+    return изход
+
+
+def _derived_segments_match_drawing(
+    segments: Sequence[float],
+    drawn: Sequence[float],
+    *,
+    tolerance_cm: float = 6.0,
+) -> bool:
+    """Потвърждава ли начертаното изведените участъци.
+
+    Сравнява се като МНОЖЕСТВО: посоката на обхождане не е инженерна
+    самоличност. Допускът е същият като в ``dimension_resolver`` и е абсолютен —
+    разширяването през радиуса на огъване е от порядъка на самия радиус.
+
+    Празно начертано значи „няма с какво да се сравни" и НЕ е потвърждение:
+    изведените участъци остават непотвърдени.
+    """
+
+    if not segments or not drawn or len(segments) != len(drawn):
+        return False
+    return all(
+        abs(float(а) - float(б)) <= tolerance_cm
+        for а, б in zip(sorted(float(с) for с in segments),
+                        sorted(float(с) for с in drawn))
+    )
+
+
 def _apply_dimension_derived_production_sizes(
     rows: list[dict],
     entities: Sequence[DxfEntityRecord],
+    shape_definitions: Sequence[ShapeDefinition] | None = None,
 ) -> int:
     """Извежда производствени размери само от доказан източник.
 
@@ -3070,6 +4236,8 @@ def _apply_dimension_derived_production_sizes(
         return resolved + _apply_contextual_f007_without_dimensions(
             rows,
             owned_dimension_records,
+            shape_definitions=shape_definitions,
+            entity_map=entity_map,
         )
 
     # Обичайната кука на ТОЗИ проектант, изведена от самия чертеж.
@@ -3172,6 +4340,17 @@ def _apply_dimension_derived_production_sizes(
                 row,
                 declared,
                 owned_dimension_records=owned_dimension_records,
+                shape_definitions=shape_definitions,
+                entity_map=entity_map,
+            ):
+                resolved += 1
+                continue
+            # Верижното доказателство стои НАД изведените по близост размери:
+            # всяко число е отделен отпечатан размер на своето рамо, нищо не се
+            # досмята от разликата. Условието е MASTER формата да иска точно
+            # толкова участъка, колкото има начертаната верига.
+            if _apply_chain_printed_production_vector(
+                row, declared, shape_definitions=shape_definitions,
             ):
                 resolved += 1
                 continue
@@ -3183,6 +4362,33 @@ def _apply_dimension_derived_production_sizes(
             if evidence is None:
                 continue
             if evidence.confidence not in ("HIGH", "MEDIUM"):
+                continue
+            # Сборът е конструиран да се затваря с обявената дължина, затова той
+            # НЕ е доказателство за участъците. Изведените стойности трябва да
+            # са потвърдени от начертаната геометрия на кандидата. Измерено на
+            # d-2: без това поз. 24 получава [50; 310] при начертани 349,5 + 9,6.
+            if not _derived_segments_match_drawing(
+                evidence.segments,
+                _drawn_segment_lengths_cm(row, entity_map),
+            ):
+                row["candidate_notes"] = [
+                    *list(row.get("candidate_notes", [])),
+                    (
+                        "DERIVED_SEGMENTS_UNCONFIRMED: изведените по близост "
+                        f"{[round(float(с), 1) for с in evidence.segments]} не се "
+                        "потвърждават от начертаната геометрия — остава за оператора"
+                    ),
+                ]
+                # „Остава за оператора" трябва и НАИСТИНА да го остави. Щом
+                # участъците са отказани, а редът пак носи ъгли без доказан
+                # производствен вектор, тези ъгли идват от шаблона — тоест са
+                # предполагаеми. Измерено на `s-11/92F7` („36N6x40"): седем
+                # еднакви позиции излизат с начертаните −135°/135°, а осмата — с
+                # 90°/135° на C-шаблона, автоматично одобрена и без нито един
+                # въпрос. Отказът за участъците вече покрива и ъгъла.
+                if носи_предполагаем_ъгъл(row):
+                    _block_authoritative_segment_evidence(
+                        row, "DERIVED_SEGMENTS_UNCONFIRMED")
                 continue
             row["production_segments_cm"] = list(evidence.segments)
             row["canonical_turn_angles_deg"] = [90.0] * (len(evidence.segments) - 1)
@@ -5024,7 +6230,10 @@ def _context_row(
     }
 
 
-def _apply_global_geometry_conflicts(rows: Sequence[dict]) -> None:
+def _apply_global_geometry_conflicts(
+    rows: Sequence[dict],
+    ownership_decisions: Mapping[tuple[str, ...], Any] | None = None,
+) -> None:
     # ownership_reference_only is set only for geometry identified through a
     # shared legend/position-key reference (resolve_position_key_annotation)
     # or a proxy-block reference. Many distinct annotations legitimately
@@ -5063,6 +6272,12 @@ def _apply_global_geometry_conflicts(rows: Sequence[dict]) -> None:
             conflicts[right_key][2].add(left_key)
 
     conflict_rows = {key: value[0] for key, value in conflicts.items()}
+    # КЛЪСТЕРИТЕ на спора: свързаните компоненти на графа. Операторът решава
+    # ЕДИН спор наведнъж — „тази геометрия, тези надписи" — затова ключът и
+    # членовете се записват на реда и идват от ЕДНО място (§ 6.2).
+    components = _ownership_components(conflicts)
+    decisions = dict(ownership_decisions or {})
+
     for row, handles, linked_keys in conflicts.values():
         linked_rows = [conflict_rows[key] for key in linked_keys if key in conflict_rows]
         unique_annotations = {
@@ -5071,14 +6286,75 @@ def _apply_global_geometry_conflicts(rows: Sequence[dict]) -> None:
         texts = sorted(
             {str(value.get("annotation_text") or "") for value in (row, *linked_rows)}
         )
+        component_key, component_members = components.get(
+            id(row), (tuple(sorted(handles)), tuple(sorted(unique_annotations)))
+        )
+        row["ownership_conflict_key"] = list(component_key)
+        row["ownership_conflict_members"] = list(component_members)
         note = (
             "ГЛОБАЛЕН КОНФЛИКТ: припокриваща се DXF геометрия "
             f"({', '.join(sorted(handles))}) участва в първия кандидат на "
             f"{len(unique_annotations)} надписа: "
             + "; ".join(texts)
         )
+
+        # ОПЕРАТОРСКОТО РЕШЕНИЕ ЗА ВЛАДЕНИЕ (§ 6.2). Приема се само когато
+        # покрива ТОЧНО членовете на този спор: решение, взето върху друг
+        # състав, не решава този.
+        decision = decisions.get(component_key)
+        handle = str(row.get("annotation_handle") or "")
+        if decision is not None and tuple(decision.member_handles) == tuple(
+            component_members
+        ):
+            row["ownership_decision_kind"] = decision.kind
+            row["ownership_decision_owner"] = decision.owner_annotation_handle or None
+            if decision.owns(handle):
+                # Спорът е решен в полза на този надпис: той НЕ остава за
+                # ръчен преглед заради владение. Останалите проверки важат
+                # непроменени — решението казва чия е геометрията, не че е
+                # вярна.
+                row["global_conflict"] = False
+                row["geometry_owner_conflict"] = False
+                row["ownership_assigned_elsewhere"] = False
+                решено = (
+                    "ВЛАДЕНИЕТО Е РЕШЕНО: операторът е определил тази геометрия "
+                    "за %s"
+                    % (
+                        "обща между %d надписа" % len(component_members)
+                        if decision.kind == ВИД_СПОДЕЛЕНА
+                        else "този надпис"
+                    )
+                )
+                notes = list(row.get("candidate_notes", []))
+                if решено not in notes:
+                    notes.append(решено)
+                row["candidate_notes"] = notes
+                continue
+            # Присъдена на друг: позицията НЕ изнася тази геометрия и остава
+            # за собствено решение — отделена, не решена.
+            row["global_conflict"] = False
+            row["geometry_owner_conflict"] = False
+            row["ownership_assigned_elsewhere"] = True
+            отказ = (
+                "ВЛАДЕНИЕТО Е РЕШЕНО: геометрията е присъдена на надпис %s. "
+                "Тази позиция не я изнася; избери ѝ друга геометрия или я реши "
+                "поотделно." % (decision.owner_annotation_handle or "друг")
+            )
+            row["batch_status"] = "ЗА РЪЧЕН ПРЕГЛЕД"
+            row["candidate_confidence"] = "ГЕОМЕТРИЯТА Е ПРИСЪДЕНА НА ДРУГ НАДПИС"
+            notes = list(row.get("candidate_notes", []))
+            if отказ not in notes:
+                notes.append(отказ)
+            row["candidate_notes"] = notes
+            warnings = list(row.get("analysis_warnings", []))
+            if отказ not in warnings:
+                warnings.append(отказ)
+            row["analysis_warnings"] = warnings
+            continue
+
         row["global_conflict"] = True
         row["geometry_owner_conflict"] = True
+        row["ownership_assigned_elsewhere"] = False
         row["batch_status"] = "ЗА РЪЧЕН ПРЕГЛЕД"
         row["candidate_confidence"] = "КАНДИДАТ ЗА РЪЧНА ПРОВЕРКА — КОНФЛИКТ"
         notes = list(row.get("candidate_notes", []))
@@ -5089,6 +6365,48 @@ def _apply_global_geometry_conflicts(rows: Sequence[dict]) -> None:
         if note not in warnings:
             warnings.append(note)
         row["analysis_warnings"] = warnings
+
+
+def _ownership_components(
+    conflicts: Mapping[int, tuple[dict, set[str], set[int]]],
+) -> dict[int, tuple[tuple[str, ...], tuple[str, ...]]]:
+    """Свързаните компоненти на спора: ключ на геометрия и членове.
+
+    Спорът не е по двойки: А спори с Б, Б спори с В, значи и трите са в един
+    спор и се решават заедно. Затова операторът вижда компонента, а не
+    двойката — иначе решение за едната двойка би оставило другата да го
+    отмени.
+    """
+
+    съседи = {ключ: set(стойност[2]) for ключ, стойност in conflicts.items()}
+    посетени: set[int] = set()
+    резултат: dict[int, tuple[tuple[str, ...], tuple[str, ...]]] = {}
+    for начало in conflicts:
+        if начало in посетени:
+            continue
+        компонент: list[int] = []
+        опашка = [начало]
+        посетени.add(начало)
+        while опашка:
+            текущ = опашка.pop()
+            компонент.append(текущ)
+            for съсед in съседи.get(текущ, ()):
+                if съсед not in посетени and съсед in conflicts:
+                    посетени.add(съсед)
+                    опашка.append(съсед)
+        геометрия: set[str] = set()
+        надписи: set[str] = set()
+        for ключ in компонент:
+            ред, припокриване, _връзки = conflicts[ключ]
+            геометрия.update(str(стойност) for стойност in припокриване)
+            надписи.add(str(ред.get("annotation_handle") or ""))
+        подпис = (
+            tuple(sorted(геометрия)),
+            tuple(sorted(стойност for стойност in надписи if стойност)),
+        )
+        for ключ in компонент:
+            резултат[ключ] = подпис
+    return резултат
 
 
 def _resolve_global_geometry_ownership(
@@ -5308,6 +6626,28 @@ def _candidate_snapshot_from_row(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _prednina_do_ostanalite(
+    оставащи: Sequence[Mapping[str, Any]],
+    избран: Mapping[str, Any],
+    поле: str,
+) -> float | None:
+    """Преднина спрямо най-силния ОСТАНАЛ кандидат; ``None`` щом няма такъв."""
+
+    стойности: list[float] = []
+    for кандидат in оставащи:
+        try:
+            стойности.append(float(кандидат.get(поле)))
+        except (TypeError, ValueError):
+            continue
+    if not стойности:
+        return None
+    try:
+        свой = float(избран.get(поле))
+    except (TypeError, ValueError):
+        return None
+    return min(стойности) - свой
+
+
 def _promote_ownership_alternative(
     row: dict[str, Any],
     alternative: Mapping[str, Any],
@@ -5320,7 +6660,22 @@ def _promote_ownership_alternative(
     handles = [str(value) for value in alternative.get("handles", []) if str(value)]
     original_confidence = str(alternative.get("confidence") or "")
     risk_only = "РИСКОВ" in original_confidence or original_confidence.startswith("СЛАБ")
-    verified = _verified_ownership_alternative(row, alternative, policy)
+    # Съперник, ДОКАЗАНО принадлежащ на друг надпис, вече не е съперник.
+    # `alternative["score_gap"]` мери преднината спрямо най-силния друг
+    # кандидат, включително отхвърления — затова тук се мери наново само
+    # спрямо кандидатите, които остават възможни за ТОЗИ надпис.
+    оставащи = [
+        стойност
+        for стойност in row.get("alternative_candidates", [])
+        if isinstance(стойност, Mapping)
+        and list(стойност.get("handles", []))
+        != list(alternative.get("handles", []))
+    ]
+    преднина = _prednina_do_ostanalite(оставащи, alternative, "score")
+    пространствена = _prednina_do_ostanalite(оставащи, alternative, "distance_raw")
+    verified = _verified_ownership_alternative(
+        row, alternative, policy, score_gap=преднина
+    )
     if verified:
         note = (
             "ПРОВЕРЕНО ГЛОБАЛНО ПРЕНАСОЧВАНЕ: първият кандидат беше "
@@ -5385,8 +6740,8 @@ def _promote_ownership_alternative(
             "candidate_original_confidence": original_confidence,
             "candidate_basis": alternative.get("basis"),
             "candidate_score": alternative.get("score"),
-            "candidate_score_gap": alternative.get("score_gap"),
-            "candidate_distance_gap_raw": alternative.get("distance_gap_raw"),
+            "candidate_score_gap": преднина,
+            "candidate_distance_gap_raw": пространствена,
             "global_conflict": False,
             "geometry_owner_conflict": False,
             "master_conflict": bool(alternative.get("master_ambiguous_shape_codes")),
@@ -5459,6 +6814,8 @@ def _verified_ownership_alternative(
     row: Mapping[str, Any],
     alternative: Mapping[str, Any],
     policy: RecognitionPolicy,
+    *,
+    score_gap: float | None = None,
 ) -> bool:
     """Prove that a free replacement candidate is strong on its own merits."""
 
@@ -5497,7 +6854,6 @@ def _verified_ownership_alternative(
             float(alternative.get("dimension_total_difference_cm"))
         )
         distance = float(alternative.get("distance_raw"))
-        score_gap = float(alternative.get("score_gap"))
     except (TypeError, ValueError):
         return False
     if difference > policy.exact_length_tolerance_for_master(
@@ -5511,6 +6867,11 @@ def _verified_ownership_alternative(
         return False
     if distance > policy.strong_distance_limit(declared):
         return False
+    # Няма ли ОСТАНАЛ кандидат, преднина не се иска: останалите доказателства
+    # (точни A–E, точна обща L, еднозначен MASTER, Ø от слоя и силна близост)
+    # носят решението — същото правило като `NO_ALTERNATIVE` в разделителя.
+    if score_gap is None:
+        return True
     return score_gap >= float(policy.strong_score_gap)
 
 
@@ -6002,6 +7363,8 @@ def _analysis_row(analysis: GeometryCandidateAnalysis, approved: dict | None) ->
             list(top.local_f006_printed_dimension_handles) if top else []
         ),
         "review_reason_codes": list(top.review_reason_codes) if top else [],
+        # Информационните причини стоят отделно и НЕ участват в одобрението.
+        "review_info_codes": list(getattr(top, "review_info_codes", ()) or ()) if top else [],
         "contextual_rule_code": top.contextual_rule_code if top else None,
         "contextual_rule_note": top.contextual_rule_note if top else None,
         "near_gap_healed": top.near_gap_healed if top else False,
@@ -6116,6 +7479,7 @@ def _write_csv(path: Path, rows: list[dict]) -> None:
         "dimension_resolution_strategy",
         "dimension_total_difference_cm",
         "review_reason_codes",
+        "review_info_codes",
         "contextual_rule_code",
         "named_u_subtype_context_resolved",
         "named_u_subtype_context_handles",
@@ -6183,6 +7547,7 @@ def _write_csv(path: Path, rows: list[dict]) -> None:
                 row.get("master_ambiguous_shape_codes", [])
             )
             flat["review_reason_codes"] = ", ".join(row.get("review_reason_codes", []))
+            flat["review_info_codes"] = ", ".join(row.get("review_info_codes", []))
             flat["named_u_subtype_context_handles"] = ", ".join(
                 row.get("named_u_subtype_context_handles", [])
             )

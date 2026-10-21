@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lion-rebar-desktop"
-version = "0.1.44.21-rc44"
+version = "0.1.44.23-rc46"
 description = "Local DXF review shell and user-managed MASTER engine for rebar workflows"
 readme = "README_BG.md"
 requires-python = ">=3.11,<3.14"

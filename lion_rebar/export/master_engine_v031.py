@@ -251,6 +251,7 @@ def parameters_from_segments(
     *,
     production_length_cm: float | None = None,
     turn_angles_deg: Sequence[float] = (),
+    declared_allowance_cm: float | None = None,
 ) -> MasterShapeParameters:
     code = str(shape_code or "").strip().upper()
     lengths = tuple(float(value) for value in segment_lengths_cm)
@@ -400,7 +401,8 @@ def parameters_from_segments(
     # errors across more segments. See docs/KNOWN_LIMITATIONS_v0.1.0_BG.md.
     row_tolerance = 2.1 if code == "F006" else MASTER_TOTAL_TOLERANCE_CM
     # Единен източник на истина (lion_rebar.engine.bend_allowance).
-    if not segments_match_total(code, calculated, total, tolerance=row_tolerance):
+    if not segments_match_total(code, calculated, total, tolerance=row_tolerance,
+                                declared_allowance_cm=declared_allowance_cm):
         raise MasterDimensionError(
             f"{code}: MASTER формулата дава {calculated:g} cm, "
             f"а производствената дължина е {total:g} cm. "

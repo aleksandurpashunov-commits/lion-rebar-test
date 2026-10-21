@@ -49,6 +49,23 @@ from __future__ import annotations
  .бел { color:#fbbf24; }
  #помощ { position:fixed; left:14px; bottom:10px; font-size:11.5px; color:#94a3b8; }
  #часовник { margin-left:auto; color:#64748b; font-size:11.5px; white-space:nowrap; }
+ #меню { position:fixed; z-index:20; width:320px; background:#111827; color:#e2e8f0;
+   border:1px solid #475569; border-radius:10px; padding:10px 12px; font-size:12.5px;
+   box-shadow:0 10px 30px #0008; display:none; }
+ #меню h4 { margin:0 0 2px; font-size:14px; }
+ #меню .под { color:#94a3b8; margin-bottom:8px; }
+ #меню label { display:block; color:#94a3b8; margin:6px 0 3px; }
+ #меню select, #меню textarea { width:100%; box-sizing:border-box; background:#0b1220;
+   color:#e2e8f0; border:1px solid #334155; border-radius:6px; padding:5px 6px;
+   font:inherit; }
+ #меню textarea { height:72px; resize:vertical; }
+ #меню .бутони { display:flex; gap:8px; margin-top:10px; }
+ #меню button { flex:1; border:0; border-radius:6px; padding:6px 0; cursor:pointer;
+   font:inherit; background:#334155; color:#e2e8f0; }
+ #меню button.главен { background:#7c3aed; }
+ #меню .грешка { color:#f87171; margin-top:6px; min-height:1em; }
+ .отбелязан { fill:#7c3aed !important; font-weight:bold; }
+ .сл path.отбелязан { stroke:#7c3aed !important; }
  #търсене { background:#0b1220; border:1px solid #334155; color:#e2e8f0;
    border-radius:6px; padding:4px 8px; font-size:12.5px; width:140px; }
 </style></head><body>
@@ -62,13 +79,18 @@ from __future__ import annotations
   <span class="значка" data-к="чертеж-текст">размери по чертежа</span>
   <span class="значка" data-к="етикети">етикети на позициите</span>
   <input id="търсене" placeholder="търси надпис…">
+  <span class="значка" id="бележки-значка" title="свали бележките като JSON"><i class="точка" style="background:#7c3aed"></i>бележки <b id="бележки-брой">0</b></span>
   <span id="часовник">{време}</span>
 </div>
 <div id="платно">{svg}</div>
 <div id="панел"></div>
-<div id="помощ">колелце = мащаб · влачене = местене · щракване = подробности · 0 = начален изглед · Enter в търсенето = приближи до позицията</div>
+<div id="меню"></div>
+<div id="помощ">колелце = мащаб · влачене = местене · щракване = подробности · десен бутон = MASTER форма или пояснение · 0 = начален изглед · Enter в търсенето = приближи до позицията</div>
 <script>
 const ИНФО = {инфо};
+const ФОРМИ = {форми};
+const ИЗВЕСТНИ = {известни};
+let БЕЛЕЖКИ = {бележки};
 const платно = document.getElementById('платно');
 const свг = платно.querySelector('svg');
 const етикети = document.getElementById('етикети');
@@ -139,6 +161,12 @@ function покажи(h) {
     });
     t += '</table>';
   }
+  const б = (БЕЛЕЖКИ.notes || {})[h];
+  if (б) {
+    t += '<h3 style="margin-top:10px;color:#a78bfa">бележка на оператора</h3><table>';
+    t += ред('MASTER', [б.master_code, б.master_name].filter(Boolean).join(' · '));
+    t += ред('пояснение', б.note ? екран(б.note) : '') + ред('кога', б.at) + '</table>';
+  }
   if (п.notes && п.notes.length) {
     t += '<div class="бел" style="margin-top:8px">' + п.notes.map(function (n) { return '• ' + n; }).join('<br>') + '</div>';
   }
@@ -177,6 +205,120 @@ document.getElementById('търсене').addEventListener('keydown', function (
   });
   if (!h) return;
   покажи(h); приближи(h);
+});
+// --- бележки на оператора ------------------------------------------------
+// Записват се в belezhki_operator.json ДО прегледа, не в проекта: не са
+// одобрение и не стигат до портата или експорта. Без сървър (отворен файл)
+// се пазят в браузъра и се свалят от значката „бележки“.
+const СЪРВЪР = location.protocol.indexOf('http') === 0;
+const КЛЮЧ_ПАМЕТ = 'lion-viewer-belezhki-' + (БЕЛЕЖКИ.source_sha256 || '');
+function екран(т) {
+  return String(т).replace(/[&<>"]/g, function (c) {
+    return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c];
+  });
+}
+if (!СЪРВЪР) {
+  try {
+    const пазено = JSON.parse(localStorage.getItem(КЛЮЧ_ПАМЕТ) || 'null');
+    if (пазено && пазено.source_sha256 === БЕЛЕЖКИ.source_sha256) БЕЛЕЖКИ = пазено;
+  } catch (e) { }
+}
+function отбележи() {
+  const n = БЕЛЕЖКИ.notes || {};
+  свг.querySelectorAll('.отбелязан').forEach(function (е) { е.classList.remove('отбелязан'); });
+  Object.keys(n).forEach(function (к) {
+    свг.querySelectorAll('[data-h="' + к + '"], [data-e="' + к + '"]').forEach(function (е) {
+      е.classList.add('отбелязан');
+    });
+  });
+  document.getElementById('бележки-брой').textContent = Object.keys(n).length;
+}
+отбележи();
+const меню = document.getElementById('меню');
+function затвори_меню() { меню.style.display = 'none'; }
+function ключ_от(цел) {
+  // Позицията, ако обектът е вързан с позиция; иначе самият надпис.
+  if (цел.dataset.h && ИЗВЕСТНИ[цел.dataset.h] !== undefined) return {к: цел.dataset.h, вид: 'позиция'};
+  if (цел.dataset.e && ИЗВЕСТНИ[цел.dataset.e] !== undefined) return {к: цел.dataset.e, вид: 'надпис'};
+  return null;
+}
+function отвори_меню(к, вид, x, y) {
+  const б = (БЕЛЕЖКИ.notes || {})[к] || {};
+  const п = ИНФО[к];
+  let t = '<h4>' + екран(ИЗВЕСТНИ[к] || к) + '</h4><div class="под">' + вид + ' · ' + к;
+  if (п) t += ' · ' + екран(п.вид) + (п.shape_code ? ' · програмата: ' + екран(п.shape_code) : '');
+  t += '</div><label>MASTER форма</label><select id="м-форма"><option value="">— без форма —</option>';
+  ФОРМИ.forEach(function (ф) {
+    t += '<option value="' + екран(ф.code) + '"' + (ф.code === б.master_code ? ' selected' : '') + '>'
+      + екран(ф.code + ' · ' + ф.name) + (ф.active ? '' : ' (неактивна)') + '</option>';
+  });
+  t += '</select>';
+  if (!ФОРМИ.length) t += '<div class="грешка">формите не са заредени — engine-ът на анализа не е намерен</div>';
+  t += '<label>Пояснение (ако формата я няма или нещо не е намерено)</label>'
+    + '<textarea id="м-пояснение" maxlength="2000">' + екран(б.note || '') + '</textarea>'
+    + '<div class="бутони"><button class="главен" id="м-запази">Запази</button>'
+    + (б.at ? '<button id="м-изтрий">Изтрий</button>' : '')
+    + '<button id="м-отказ">Отказ</button></div><div class="грешка" id="м-грешка"></div>';
+  меню.innerHTML = t;
+  меню.style.display = 'block';
+  const ш = меню.offsetWidth, в = меню.offsetHeight;
+  меню.style.left = Math.max(8, Math.min(x, innerWidth - ш - 8)) + 'px';
+  меню.style.top = Math.max(52, Math.min(y, innerHeight - в - 8)) + 'px';
+  document.getElementById('м-отказ').onclick = затвори_меню;
+  document.getElementById('м-запази').onclick = function () {
+    запази({key: к, kind: вид,
+            master_code: document.getElementById('м-форма').value,
+            note: document.getElementById('м-пояснение').value});
+  };
+  const изтрий = document.getElementById('м-изтрий');
+  if (изтрий) изтрий.onclick = function () { запази({key: к, delete: true}); };
+  document.getElementById('м-пояснение').focus();
+}
+async function запази(заявка) {
+  const грешка = document.getElementById('м-грешка');
+  if (!заявка.delete && !заявка.master_code && !String(заявка.note || '').trim()) {
+    грешка.textContent = 'Избери MASTER форма или напиши пояснение.'; return;
+  }
+  if (СЪРВЪР) {
+    try {
+      const о = await fetch('belezhki', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                          body: JSON.stringify(заявка)});
+      const данни = await о.json();
+      if (!о.ok) { грешка.textContent = данни.error || ('грешка ' + о.status); return; }
+      БЕЛЕЖКИ = данни;
+    } catch (e) { грешка.textContent = 'сървърът не отговаря — бележката НЕ е записана'; return; }
+  } else {
+    // Без сървър: същата проверка като в belezhki.py, после в браузъра.
+    if (заявка.master_code && !ФОРМИ.some(function (ф) { return ф.code === заявка.master_code; })) {
+      грешка.textContent = 'Формата я няма в engine-а на анализа.'; return;
+    }
+    БЕЛЕЖКИ.notes = БЕЛЕЖКИ.notes || {};
+    if (заявка.delete) delete БЕЛЕЖКИ.notes[заявка.key];
+    else {
+      const ф = ФОРМИ.find(function (ф) { return ф.code === заявка.master_code; });
+      БЕЛЕЖКИ.notes[заявка.key] = {key: заявка.key, kind: заявка.kind, text: ИЗВЕСТНИ[заявка.key],
+        master_code: заявка.master_code || '', master_name: ф ? ф.name : '',
+        note: String(заявка.note || '').trim(), at: new Date().toISOString()};
+    }
+    try { localStorage.setItem(КЛЮЧ_ПАМЕТ, JSON.stringify(БЕЛЕЖКИ)); } catch (e) { }
+  }
+  затвори_меню(); отбележи();
+  if (ИНФО[заявка.key]) покажи(заявка.key);
+}
+платно.addEventListener('contextmenu', function (e) {
+  const цел = e.target.closest('[data-h], [data-e]');
+  const к = цел ? ключ_от(цел) : null;
+  if (!к) return;
+  e.preventDefault();
+  отвори_меню(к.к, к.вид, e.clientX, e.clientY);
+});
+платно.addEventListener('mousedown', function (e) { if (e.button === 0) затвори_меню(); });
+меню.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+window.addEventListener('keydown', function (e) { if (e.key === 'Escape') затвори_меню(); });
+document.getElementById('бележки-значка').addEventListener('click', function () {
+  const б = new Blob([JSON.stringify(БЕЛЕЖКИ, null, 2)], {type: 'application/json'});
+  const а = document.createElement('a');
+  а.href = URL.createObjectURL(б); а.download = 'belezhki_operator.json'; а.click();
 });
 let печат = "{време}";
 setInterval(async function () {

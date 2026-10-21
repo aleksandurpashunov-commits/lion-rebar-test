@@ -85,8 +85,31 @@ def test_vertical_reinforcement_title_creates_verticals_frame():
     assert frames[0].confidence == "MEDIUM"
 
 
-def test_unique_title_without_secondary_evidence_remains_without_frame():
-    assert detect_drawing_frames([_text("T1", "ГОРНА АРМИРОВКА НА ПЛОЧА")]) == []
+def test_edinstvenoto_zaglavie_bez_nito_edno_vmakvane_pravi_edin_list():
+    """РЕШЕНИЕ НА СОБСТВЕНИКА, 06.10.2026 — смяна на очакването.
+
+    Дотук тестът пазеше обратното: едно недвусмислено заглавие без втори
+    свидетел НЕ правеше рамка. Измерено на чертеж от непознато бюро
+    (``S-_H01-1001_Bottom_Reinforcement``) това значеше нула рамки, нула
+    изнесени позиции и нито един операторски изход — обявяването на категория
+    работи само върху вече НАМЕРЕНА рамка.
+
+    Собственик, 06.10.2026: „Да, стига. Долу в чертежа ясно пише към коя рамка
+    се отнася «долна армировка на кота …».“
+
+    Защитата не е махната, а стеснена: важи само когато в чертежа няма НИТО
+    ЕДНО вмъкване. Пази се от
+    ``test_misleading_insert_layer_names_do_not_create_frame`` и
+    ``test_two_frame_inserts_are_not_accepted_as_one_frameless_sheet``.
+    """
+
+    рамки = detect_drawing_frames([_text("T1", "ГОРНА АРМИРОВКА НА ПЛОЧА")])
+
+    assert len(рамки) == 1
+    assert рамки[0].category_code == "TOP"
+    assert рамки[0].resolution_reason == "SINGLE_SHEET_TITLE_ONLY"
+    # по-слабото доказателство се вижда: категорията НЕ се брои за потвърдена
+    assert рамки[0].confidence == "LOW"
 
 
 def test_two_frame_inserts_are_not_accepted_as_one_frameless_sheet():

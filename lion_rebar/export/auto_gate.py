@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from lion_rebar.dxf.local_detail_resolver import local_detail_shape_code
 from lion_rebar.engine.bend_allowance import segments_match_total
@@ -88,6 +88,12 @@ _PRINTED_DECLARATION_SOURCES = frozenset(
 #: кода на източника, нито на писателя.
 _BORN_FROM_CASE_PRINTED_SOURCE = "BORN_FROM_CASE_PRINTED"
 
+#: Всяко рамо на НАЧЕРТАНАТА ВЕРИГА носи собствен отпечатан размер и сборът им е
+#: точно обявената дължина. Писателят е
+#: ``batch_geometry_report._apply_chain_printed_production_segments``; проверката
+#: долу не вярва нито на кода на източника, нито на писателя.
+_CHAIN_PRINTED_SOURCE = "CHAIN_PRINTED_DIMENSIONS"
+
 _PRODUCTION_SEGMENT_EVIDENCE_SOURCES = frozenset(
     {
         "F007_CONTEXTUAL_MASTER_CANONICAL",
@@ -97,6 +103,8 @@ _PRODUCTION_SEGMENT_EVIDENCE_SOURCES = frozenset(
         "F006_PRINTED_MASTER_EXACT",
         "F006_OWNED_CONTOUR_DIMENSIONS",
         "SINGLE_OPEN_LWPOLYLINE_TOPOLOGY",
+        "GEOMETRY_GRID_ROUNDED",
+        _CHAIN_PRINTED_SOURCE,
         _PRINTED_DETAIL_DIMENSION_SOURCE,
         _PRINTED_SPECIFICATION_DIMENSION_SOURCE,
         _PRINTED_REPEATED_LABEL_DIMENSION_SOURCE,
@@ -282,6 +290,10 @@ def validate_production_segment_evidence(
         return _f006_owned_contour_evidence_is_owned(row, evidence, segments)
     if source == "SINGLE_OPEN_LWPOLYLINE_TOPOLOGY":
         return _single_open_lwpolyline_topology_is_owned(row, evidence, segments)
+    if source == "GEOMETRY_GRID_ROUNDED":
+        return _grid_rounded_evidence_is_owned(row, evidence, segments)
+    if source == _CHAIN_PRINTED_SOURCE:
+        return _chain_printed_evidence_is_owned(row, evidence, segments, total)
     if source in {
         _PRINTED_DETAIL_DIMENSION_SOURCE,
         *_PRINTED_DECLARATION_SOURCES,
@@ -500,6 +512,108 @@ def _topology_snap(value: float) -> float:
     if abs(value - nearest) <= 0.4:
         return float(nearest)
     return round(value * 2.0) / 2.0
+
+
+def _chain_printed_evidence_is_owned(
+    row: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    segments: Sequence[float],
+    total: float,
+) -> bool:
+    """Сверява записаната верижна присъда със самия ред.
+
+    Портата няма DXF обектите, затова НЕ преизвежда веригата от чертежа. Това,
+    което може да провери — и проверява — е дали записът е вътрешно пълен:
+
+    * присъдата стои на реда и е ПОТВЪРДЕНА;
+    * нейните участъци, участъците в доказателството и подадените съвпадат;
+    * всяко рамо има СВОЙ отпечатан размер (различни handle-и, точно колкото са
+      участъците) — така „досметнат" остатък не може да мине оттук;
+    * сборът е точно обявената дължина на СЪЩИЯ ред;
+    * праговете на правилото са спазени — записани по-широки стойности не
+      разширяват автоматиката.
+    """
+
+    from lion_rebar.dxf import chain_printed_dimensions as верига
+
+    присъда = row.get(верига.ПОЛЕ)
+    if not isinstance(присъда, Mapping):
+        return False
+    if str(присъда.get("status") or "") != верига.ПОТВЪРДЕНО:
+        return False
+    записани = _finite_positive_vector(присъда.get("segments_cm"))
+    от_доказателството = _finite_positive_vector(evidence.get("segments"))
+    подадени = _finite_positive_vector(segments)
+    if записани is None or подадени is None or записани != подадени:
+        return False
+    if от_доказателството is not None and от_доказателството != подадени:
+        return False
+    надписи = [str(з) for з in (присъда.get("dimension_text_handles") or ()) if str(з)]
+    if len(надписи) != len(подадени) or len(set(надписи)) != len(надписи):
+        return False
+    геометрия = [str(з) for з in (присъда.get("geometry_handles") or ()) if str(з)]
+    if not геометрия or len(set(геометрия)) != len(геометрия):
+        return False
+    обявена = row.get("declared_length_cm")
+    try:
+        обявена = float(обявена)
+    except (TypeError, ValueError):
+        return False
+    if abs(float(присъда.get("declared_length_cm") or 0.0) - обявена) > 1e-6:
+        return False
+    if abs(sum(подадени) - обявена) > верига.ДОПУСК_СБОР_CM:
+        return False
+    if abs(float(total) - обявена) > верига.ДОПУСК_СБОР_CM:
+        return False
+    try:
+        запас = float(присъда.get("assignment_margin"))
+        височини = float(присъда.get("farthest_text_in_heights"))
+    except (TypeError, ValueError):
+        return False
+    if запас < верига.ЗАПАС_НА_ПРИСВОЯВАНЕТО:
+        return False
+    if височини > верига.ОБХВАТ_ВИСОЧИНИ:
+        return False
+    return True
+
+
+def _grid_rounded_evidence_is_owned(
+    row: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    segments: Sequence[float],
+) -> bool:
+    """Преизвежда закръгляването и приема само ако излезе същият вектор.
+
+    Портата не вярва на записания източник: смята наново от семантичните
+    участъци и обявената дължина. Така подправен или остарял запис не минава.
+
+    Преизвеждането подава и отпечатаните размери на пръта — същият вход, с
+    който правилото е произнесло присъдата. Без тях портата би приела вектор,
+    който самото правило вече отказва, защото изхвърля обявен размер.
+    """
+
+    from lion_rebar.dxf.grid_rounded_segments import (
+        ПРИЕТО,
+        printed_values_for_row,
+        solve,
+    )
+
+    сурови = evidence.get("semantic_segments_cm")
+    if not isinstance(сурови, (list, tuple)) or len(сурови) != len(segments):
+        return False
+    try:
+        участъци = [float(с) for с in сурови]
+        обявена = float(row.get("declared_length_cm"))
+    except (TypeError, ValueError):
+        return False
+    присъда = solve(участъци, обявена,
+                    printed_values_cm=printed_values_for_row(row))
+    if str(присъда.get("status") or "") != ПРИЕТО:
+        return False
+    наново = [float(с) for с in присъда.get("segments_cm") or ()]
+    if len(наново) != len(segments):
+        return False
+    return all(abs(а - б) <= 1e-6 for а, б in zip(наново, [float(с) for с in segments]))
 
 
 def _single_open_lwpolyline_topology_is_owned(

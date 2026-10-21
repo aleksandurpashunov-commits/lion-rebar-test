@@ -5,6 +5,9 @@
   },
   "permissions": {
     "deny": [
+      "Edit(//i/Моят диск/Lion-Rebar/LION_REBAR_v0_1_44_21-rc44_WINDOWS/**)",
+      "Edit(//i/Моят диск/Lion-Rebar/Lion Formwork+Concrete/**)",
+      "Edit(//c/Dev/lion_formwork/**)",
       "Edit(//i/Моят диск/Lion-Rebar/LION_REBAR_v0_1_44_20-rc*_WINDOWS/**)",
       "Edit(~/OneDrive/Работен плот/Claude/LION_REBAR_CLAUDE_REVIEW_v0.1.41_ENG_v0.3.6/**)",
       "Edit(//i/Моят диск/Тест-желязо/**)",

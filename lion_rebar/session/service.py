@@ -10,7 +10,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
-from lion_rebar.config.constants import APP_VERSION, RECOGNITION_MATCHER_SHA256
+from lion_rebar.config.constants import (
+    APP_DATA_FOLDER,
+    APP_VERSION,
+    RECOGNITION_MATCHER_SHA256,
+)
 from lion_rebar.session.database import SessionDatabase
 from lion_rebar.session.learning_pack import (
     LearningPackResult,
@@ -234,7 +238,7 @@ class SessionService:
             fallback_destination = (
                 Path(tempfile.gettempdir())
                 / "LionBuild"
-                / "LionRebarDesktop"
+                / APP_DATA_FOLDER
                 / "learning_pack_recovery"
             )
             try:

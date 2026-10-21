@@ -11,6 +11,7 @@ from typing import Any, Mapping, Sequence
 
 from lion_rebar.dxf.models import DxfEntityRecord
 from lion_rebar.engine.models import EnginePackage
+from lion_rebar.engine.shape_index import APPROVED_SHAPE_STATES
 from lion_rebar.export.bundle import replace_export_bundle
 from lion_rebar.export.excel_export import (
     ExcelExportError,
@@ -41,6 +42,11 @@ from lion_rebar.export.auto_gate import (
     auto_matcher_disposition_passes,
     is_deterministic_production_source,
     validate_production_segment_evidence,
+)
+from lion_rebar.export.printed_dimension_guard import (
+    ПОЛЕ as _PRINTED_GUARD_FIELD,
+    ПРОТИВОРЕЧИ as _PRINTED_GUARD_BLOCK,
+    присъда_за_реда as _printed_dimension_verdict,
 )
 from lion_rebar.project.models import ProjectModel
 from lion_rebar.project.data_identity import current_identity
@@ -134,6 +140,35 @@ def production_segment_precision(values: Sequence[float]) -> tuple[float, ...]:
     return tuple(изход)
 
 
+def _chain_geometry_handles(
+    row: Mapping[str, Any],
+    candidate_handles: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Целият начертан прът, когато веригата е доказана и съдържа кандидата.
+
+    Връща празно (тоест „не пипай"), когато няма потвърдена верига или когато
+    веригата НЕ съдържа всичко, което matcher-ът е избрал — подмяна на
+    геометрията не е работа на този проход.
+    """
+
+    from lion_rebar.dxf import chain_printed_dimensions as верига
+
+    присъда = row.get(верига.ПОЛЕ)
+    if not isinstance(присъда, Mapping):
+        return ()
+    if str(присъда.get("status") or "") != верига.ПОТВЪРДЕНО:
+        return ()
+    handles = tuple(
+        str(стойност) for стойност in (присъда.get("geometry_handles") or ())
+        if str(стойност)
+    )
+    if not handles or not candidate_handles:
+        return ()
+    if not set(candidate_handles).issubset(handles):
+        return ()
+    return handles if len(handles) > len(candidate_handles) else ()
+
+
 def _own_proxy_geometry_handles(row: Mapping[str, Any]) -> tuple[str, ...]:
     """Геометрията на СОБСТВЕНОТО proxy на надписа, когато тя може да замени
     липсващ кандидат от matcher-а.
@@ -211,10 +246,16 @@ def build_batch_export_context(
     frame_map = {frame.index: frame for frame in frames}
     beam_labels = _detect_beam_labels(entities, frames)
     all_shape_map = {shape.code.strip().upper(): shape for shape in engine.shapes}
+    # Изнася се само ОДОБРЕНА форма. ``active`` не е одобрение: новородената
+    # форма се ражда с ``active=True`` и ``state="DRAFT"`` (лостът за одобрение
+    # е ``state``). Без проверката по състояние чернова, попаднала в пакетиран
+    # engine, би минала през тази карта — matcher-ът я спира, но описът не бива
+    # да зависи от чужда спирачка.
     active_shape_map = {
         shape.code.strip().upper(): shape
         for shape in engine.shapes
         if shape.active
+        and str(shape.state or "").strip().upper() in APPROVED_SHAPE_STATES
     }
 
     positions: list[ExportPosition] = []
@@ -322,7 +363,15 @@ def build_batch_export_context(
         matcher_geometry = tuple(
             str(value) for value in (row.get("candidate_handles") or []) if str(value)
         )
-        geometry_handles = engineer_geometry or own_proxy_geometry or matcher_geometry
+        # Когато прътът е начертан като няколко обекта, matcher-ът е взел само
+        # част от него. Проследимостта трябва да сочи ЦЕЛИЯ прът, иначе под
+        # позицията в описа стои половин обект: измерено на `d-1`, където
+        # 4B53 се записваше без свързаната с него 4B54. Взима се само ДОКАЗАНА
+        # верига, която СЪДЪРЖА кандидата — тоест го разширява, не го подменя.
+        chain_geometry = _chain_geometry_handles(row, matcher_geometry)
+        geometry_handles = (
+            engineer_geometry or own_proxy_geometry or chain_geometry or matcher_geometry
+        )
         exports_own_proxy_geometry = bool(
             not engineer_geometry and own_proxy_geometry
         )
@@ -332,6 +381,15 @@ def build_batch_export_context(
         # което записваме.
         if bool(row.get("global_conflict")) and not exports_own_proxy_geometry:
             reasons.append(("OWNERSHIP_CONFLICT", "геометрията има нерешен ownership конфликт"))
+        # Спорът Е решен, но не в полза на тази позиция. Тя не е решена, а
+        # ОТДЕЛЕНА: геометрията е чужда и ѝ трябва своя (§ 6.2).
+        if bool(row.get("ownership_assigned_elsewhere")) and not exports_own_proxy_geometry:
+            reasons.append(
+                (
+                    "OWNERSHIP_ASSIGNED_ELSEWHERE",
+                    "геометрията е присъдена на друг надпис с операторско решение",
+                )
+            )
         if str(row.get("f006_production_status") or "") == "F006_PRODUCTION_REVIEW":
             reasons.append(
                 (
@@ -394,6 +452,20 @@ def build_batch_export_context(
         if not geometry_handles and not bool(approved_link.get("geometry_optional_by_engineer")):
             reasons.append(("MISSING_GEOMETRY", "липсва еднозначна геометрия"))
 
+        # Заявената добавка за огъване се чете САМО от одобрената връзка, тоест
+        # само там, където има записано решение на инженер с автор, време и
+        # самоличност на данните. От реда на отчета НЕ се чете: автоматичният
+        # път няма кой да заяви число.
+        declared_allowance_cm = approved_link.get("production_bend_allowance_cm")
+        try:
+            declared_allowance_cm = (
+                float(declared_allowance_cm)
+                if declared_allowance_cm is not None
+                else None
+            )
+        except (TypeError, ValueError):
+            declared_allowance_cm = None
+
         segment_lengths_cm: tuple[float, ...] = ()
         turn_angles_deg: tuple[float, ...] = ()
         # ЕКСПЕРИМЕНТ B: когато производствените размери вече са ИЗВЕДЕНИ по
@@ -451,6 +523,7 @@ def build_batch_export_context(
                     candidate_segments,
                     production_length_cm=production_length_cm,
                     turn_angles_deg=candidate_turns,
+                    declared_allowance_cm=declared_allowance_cm,
                 )
             except F006AsymmetricHookError as exc:
                 reasons.append(("F006_PRODUCTION_REVIEW", str(exc)))
@@ -479,6 +552,7 @@ def build_batch_export_context(
                     segment_lengths_cm,
                     production_length_cm=production_length_cm,
                     turn_angles_deg=turn_angles_deg,
+                    declared_allowance_cm=declared_allowance_cm,
                 )
                 if shape_code == "F002":
                     segment_lengths_cm = tuple(
@@ -491,6 +565,28 @@ def build_batch_export_context(
                 reasons.append(("F006_PRODUCTION_REVIEW", str(exc)))
             except (ExcelExportError, EngineShapeParameterError, TypeError, ValueError) as exc:
                 reasons.append(("MASTER_LENGTH_CHECK", str(exc)))
+
+        # ПОСЛЕДНА ПРОВЕРКА ВЪРХУ КРАЙНИЯ ВЕКТОР, независимо кой доказател го е
+        # сложил и по коя стратегия. Стои ТУК, защото това е единственото място,
+        # през което минава всичко, което ще стигне до Excel и DXF: контекстът се
+        # сглобява наново от отчета и одобрените връзки при всяко извикване,
+        # затова кеш, старо одобрение или заредена сесия не могат да я заобиколят.
+        #
+        # Собственик, 30.09.2026: „Провери и поправи всички пътища, по които вече
+        # записан производствен вектор може да заобиколи проверката, отказала ново
+        # предложение. Проверката трябва да важи за крайния резултат независимо от
+        # стратегията, кеша, старо одобрение или заредена сесия."
+        #
+        # Измерено преди поправката (``B2_INSTALIRANITE.json``): 17 позиции носят
+        # вектор, който изхвърля отпечатан размер — 9 в експортния контекст, 8
+        # спрени само по ``UNKNOWN_FRAME``, тоест отговор за площта би ги
+        # освободил с неразгледан размерен конфликт.
+        if segment_lengths_cm:
+            _пазач = _printed_dimension_verdict(row, segment_lengths_cm)
+            if _пазач is not None:
+                row[_PRINTED_GUARD_FIELD] = _пазач
+                if str(_пазач.get("status") or "") == _PRINTED_GUARD_BLOCK:
+                    reasons.append((_PRINTED_GUARD_BLOCK, str(_пазач.get("reason") or "")))
 
         if reasons:
             blockers.append(

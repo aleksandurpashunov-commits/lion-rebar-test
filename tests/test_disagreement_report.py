@@ -147,6 +147,42 @@ def test_r5_vazhi_i_za_forma_rodena_ot_sluchay() -> None:
     assert "F020 очаква 5, а са 3" in находки[0].explanation
 
 
+def test_odobrenata_pozicia_se_meri_po_odobrenite_uchastuci() -> None:
+    """Вече одобрена позиция се мери по решението, не по частичния прочит.
+
+    Измерено на 27.09.2026 в `s-10`: девет позиции `N18x410` (F002) носят
+    едновременно одобреното ``[260, 40, 110]`` и частичното
+    ``production_segments_cm = [15, 395]``, защото анализът е пропуснат
+    („ПРОПУСНАТО — ВЕЧЕ Е ОДОБРЕНО В ПРОЕКТА"). В спецификацията влиза
+    одобреното — проверено в `s-10_СПЕЦИФИКАЦИЯ_TRACEABILITY.json`. Затова и
+    проверките четат него; иначе се обаждат за девет ВЕРНИ позиции.
+    """
+
+    ред = _ред(
+        annotation_text="134N18x410",
+        batch_status="ОДОБРЕНА ВРЪЗКА",
+        master_shape_code="F002",
+        production_segment_lengths_cm=[260.0, 40.0, 110.0],
+        production_segments_cm=[15.0, 395.0],
+        nearby_dimensions_cm=[260.0, 40.0, 110.0],
+    )
+    находки = disagreements_for_row(ред, shapes=_индекс(_форма("F002", 3)))
+    assert [находка.kind for находка in находки] == []
+
+
+def test_bez_odobreni_uchastuci_se_chete_prochitut_na_analiza() -> None:
+    """Неодобрена позиция няма одобрен вектор — проверката пази обхвата си."""
+
+    ред = _ред(
+        master_shape_code="F002",
+        production_segments_cm=[15.0, 395.0],
+        nearby_dimensions_cm=[15.0, 395.0],
+    )
+    находки = disagreements_for_row(ред, shapes=_индекс(_форма("F002", 3)))
+    assert [находка.kind for находка in находки] == ["БРОЙ_УЧАСТЪЦИ"]
+    assert "F002 очаква 3, а са 2" in находки[0].explanation
+
+
 def test_r5_mulchi_za_nepoznata_forma() -> None:
     """Отказът е по-добър от догадката: без дефиниция не се твърди нищо."""
 

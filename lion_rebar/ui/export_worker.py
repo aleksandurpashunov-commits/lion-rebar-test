@@ -94,6 +94,10 @@ class ExportWorker(QObject):
         self._entities = list(entities)
         self._frames = list(frames)
         self._positions = list(positions)
+        #: Броят РЕДОВЕ в изнесените листове. Пълни се след генерирането на
+        #: Excel-а и отива в манифеста до ``excel_rows``, което носи броя
+        #: ПОЗИЦИИ. Вж. ``final_export_manifest.build_final_export_manifest``.
+        self._excel_grouped_rows: int | None = None
         self._configs = list(configs)
         self._excel_path = Path(excel_path)
         self._manifest_error = ""
@@ -122,6 +126,8 @@ class ExportWorker(QObject):
                 paths.temporary_excel,
                 require_frozen_config=True,
             )
+            self._excel_grouped_rows = int(
+                getattr(excel_result, "grouped_row_count", 0) or 0)
 
             self.progress.emit(60, "Добавям кръглите позиционни блокове в DXF...")
             dxf_result = generate_dxf_position_export(
@@ -241,6 +247,7 @@ class ExportWorker(QObject):
                 final_control_path=freeze,
                 ledger_row_count=_ledger_counts(ledger)["rows"],
                 excel_row_count=len(self._positions),
+                excel_grouped_row_count=self._excel_grouped_rows,
                 engineer_resolved_without_geometry_count=(
                     _ledger_counts(ledger)["without_geometry"]
                     or sum(1 for position in self._positions

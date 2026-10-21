@@ -34,6 +34,7 @@ from lion_rebar.review.apply_to_group import (
     apply_group_plan,
     build_group_plan,
 )
+from lion_rebar.session.operator_identity import НЕЗАЯВЕН
 
 
 class ApplyToGroupDialog(QDialog):
@@ -51,7 +52,7 @@ class ApplyToGroupDialog(QDialog):
         }
         self._project_root = Path(project_root)
         self._identity = identity
-        self._operator = str(operator or "").strip() or "оператор"
+        self._operator = str(operator or "").strip() or НЕЗАЯВЕН
         self.operation_id: str | None = None
 
         self._plan = build_group_plan(representative, rows, identity,

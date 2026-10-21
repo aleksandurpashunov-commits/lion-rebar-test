@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,28 @@ def ensure_directory(path: Path) -> Path:
     return path
 
 
+#: Колко дълго се чака целта да се освободи, преди записът да бъде обявен за
+#: провален. Виж обяснението в ``atomic_write_text``.
+REPLACE_RETRY_SECONDS = 5.0
+REPLACE_RETRY_INTERVAL = 0.05
+
+
 def atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
+    """Запис през временен файл и ``os.replace``.
+
+    ЗАЩО ИМА ОПИТИ. В Windows ``os.replace`` пада с ``PermissionError``, когато
+    друг държи целта ОТВОРЕНА — втори процес на програмата, редактор на
+    собственика, синхронизацията на стриймващия драйв или антивирусна проверка.
+    Измерено на 01.10.2026 с два процеса върху един файл: освен загубената
+    актуализация се видяха и паднал запис, и паднало четене. Паднал запис на
+    ledger-а значи ЗАГУБЕНО решение, затова не се предаваме при първия отказ, а
+    изчакваме целта да се освободи. След изтичане на времето грешката се вдига:
+    мълчаливото продължаване без запис е точно дефектът, който гоним.
+
+    Опитите НЕ заместват заключването (``utils.process_lock``). Заключването
+    пази решението между нашите процеси; опитите пазят записа от чужд читател.
+    """
+
     ensure_directory(path.parent)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
     tmp_path = Path(tmp_name)
@@ -24,7 +46,15 @@ def atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(tmp_path, path)
+        краен_срок = time.monotonic() + REPLACE_RETRY_SECONDS
+        while True:
+            try:
+                os.replace(tmp_path, path)
+                break
+            except PermissionError:
+                if time.monotonic() >= краен_срок:
+                    raise
+                time.sleep(REPLACE_RETRY_INTERVAL)
     finally:
         if tmp_path.exists():
             tmp_path.unlink(missing_ok=True)

@@ -558,6 +558,50 @@ def _freeze_beam_assignments(
                 else None
             )
             assignment = _assign_beam_label(point[0], point[1], int(frame_index), labels)
+            # ПОТВЪРДЕНОТО ОТ ОПЕРАТОР РЕШЕНИЕ Е НАД РАМКАТА.
+            #
+            # Собственик, 02.10.2026: „Самото очертаване на рамка не е
+            # достатъчно основание да се отмени предишно потвърдено решение."
+            #
+            # Дотук рамката печелеше безусловно и мълчаливо отменяше
+            # ``record_beam_decision`` за същата позиция — а то е по-конкретното
+            # твърдение: сочи ЕДНА позиция и една греда, с автор и мотив.
+            # Правоъгълникът сочи площ. При разминаване печели решението, а
+            # спорът се вижда (``BEAM_AREA_OVERRIDES_CONFIRMED_DECISION``), за
+            # да може операторът да го реши изрично — като оттегли решението или
+            # прекрои рамката.
+            decided_handle = str(operator_beam_decisions.get(handle, "") or "")
+            decided_label = beam_labels_by_handle.get(decided_handle)
+            if (
+                area_label is not None
+                and decided_label is not None
+                and str(decided_label.handle) != str(area_label.handle)
+            ):
+                issues.append(
+                    IntegrityIssue(
+                        code="BEAM_AREA_OVERRIDES_CONFIRMED_DECISION",
+                        severity="WARNING",
+                        message=(
+                            "Начертаната рамка „%s“ обхваща позиция с вече "
+                            "потвърдено решение за греда „%s“. Рамката НЕ я "
+                            "мести: остава потвърденото решение. Оттегли го или "
+                            "прекрои рамката, ако искаш друго."
+                            % (area_label.title, decided_label.title)
+                        ),
+                        annotation_handles=[handle],
+                    )
+                )
+                frozen.update(
+                    {
+                        "beam_name": decided_label.title,
+                        "beam_label_handle": decided_label.handle,
+                        "beam_assignment_method": OPERATOR_BEAM_METHOD,
+                        "beam_assignment_score": "",
+                        "beam_assignment_margin": "",
+                    }
+                )
+                assignments[handle] = frozen
+                continue
             if area_label is not None:
                 frozen.update(
                     {
@@ -1736,11 +1780,48 @@ def reconcile_project_integrity(
                 beam_assignments=beam_assignments,
             )
 
+    # ОСНОВАНИЕТО НА ПРИЕТО ПРЕДЛОЖЕНИЕ, КОЕТО Е ОТПАДНАЛО.
+    #
+    # Решение, прието по предложение от друг случай, носи ``основание`` —
+    # ``event_id`` на решението, което го е подкрепило. Ако това решение бъде
+    # ОТТЕГЛЕНО или отменено, приетият резултат остава в журнала (историята не
+    # се трие), но вече няма основание. Финалният контрол го СПИРА и го
+    # изброява поименно: операторът трябва да го реши наново, вместо да го
+    # намери по-късно в Excel.
+    withdrawn_basis: list[dict[str, Any]] = []
+    try:
+        from lion_rebar.review.decision_reuse import (
+            зависими_за_повторна_проверка,
+        )
+
+        withdrawn_basis = зависими_за_повторна_проверка(root)
+    except Exception:  # noqa: BLE001 - нечетимо досие не спира контрола
+        withdrawn_basis = []
+    for запис in withdrawn_basis:
+        issues.append(
+            IntegrityIssue(
+                code="REUSED_DECISION_BASIS_WITHDRAWN",
+                severity="ERROR",
+                message=(
+                    "Приетото предложение стъпва на оттеглено решение — "
+                    "иска повторна проверка."
+                ),
+                annotation_handles=[str(запис.get("annotation_handle") or "")],
+                details={
+                    "annotation_text": запис.get("annotation_text"),
+                    "basis": запис.get("основание"),
+                    "withdrawn_basis": запис.get("отпаднало_основание"),
+                    "withdrawal": запис.get("оттеглянето"),
+                },
+            )
+        )
+
     integrity_passed = (
         duplicates_remaining == 0
         and not unresolved_handles
         and identity_failures == 0
         and beam_failure_count == 0
+        and not withdrawn_basis
     )
     # Legacy EXCLUDED_BY_ENGINEER and intrinsic missing-MASTER still block a
     # complete production export.  NON_PRODUCTION_POSITION is different: it is

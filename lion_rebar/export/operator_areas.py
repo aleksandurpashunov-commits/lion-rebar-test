@@ -45,6 +45,7 @@
 """
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 from dataclasses import dataclass
@@ -53,6 +54,8 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from lion_rebar.project.data_identity import DataIdentity, mismatch_reason
+from lion_rebar.utils.files import atomic_write_text
+from lion_rebar.utils.process_lock import exclusive_file_lock
 
 AREAS_NAME = "operator_group_areas.json"
 AUDIT_NAME = "operator_group_areas_audit.jsonl"
@@ -167,6 +170,10 @@ class OperatorArea:
     #: Съседните области, по които рамката се е огънала при чертането.
     #: Празно при по-старите записи — тогава рамката е чист правоъгълник.
     bent_around: tuple[Box, ...] = ()
+    #: Присъдата за ВСЕКИ член към момента на чертането (§ 6.1). Празно при
+    #: по-старите записи — тогава преценката се е правила и е била изхвърляна,
+    #: затова за тях нито един член не може да бъде проверен след записа.
+    members: tuple[dict, ...] = ()
 
     def contains(self, x: float, y: float) -> bool:
         return region_contains(
@@ -192,6 +199,7 @@ class OperatorArea:
             "source_generation_id": self.source_generation_id,
             "analysis_run_id": self.analysis_run_id,
             "bent_around": [list(other) for other in self.bent_around],
+            "members": [dict(член) for член in self.members],
         }
 
 
@@ -205,25 +213,75 @@ def _paths(project_root: Path | str) -> tuple[Path, Path]:
 
 
 def _read(path: Path) -> dict:
+    """Записаните области. ЛИПСВАЩ файл е празно; НЕЧЕТИМ файл е ОТКАЗ.
+
+    ЗАЩО разликата е важна (§ 7.6: повредено хранилище не се подменя мълчаливо
+    с празно). Дотук и двата случая връщаха празен списък. Последствията бяха
+    две и двете мълчаливи:
+
+    * ``record_operator_area`` чете, добавя и записва ПРОЧЕТЕНОТО. Един
+      неуспешен прочит — заето от синхронизацията на драйва, антивирусна
+      проверка, прекъснат запис — и новият файл съдържа САМО новата рамка.
+      Всички по-рано начертани рамки изчезват, без да е казано нищо.
+    * ``load_operator_areas`` връщаше нула области и анализът вървеше, както
+      ако операторът не беше чертал нищо. Позициите, които е оградил, пак
+      излизат без греда — и вината изглежда като на разпознаването.
+
+    Затова нечетимият или с неочаквана структура файл вдига грешка. Отказът е
+    по-добър от догадката; празният списък е догадка.
+    """
+
     if not path.is_file():
         return {"schema": SCHEMA, "areas": []}
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {"schema": SCHEMA, "areas": []}
+    except (OSError, ValueError) as грешка:
+        raise OperatorAreaError(
+            "Файлът с начертаните рамки (%s) съществува, но не се чете: %s. "
+            "Нито една рамка не е прочетена и затова нищо не се записва върху "
+            "него. Провери файла, преди да продължиш." % (path.name, грешка)
+        ) from грешка
     if not isinstance(payload, dict) or not isinstance(payload.get("areas"), list):
-        return {"schema": SCHEMA, "areas": []}
+        raise OperatorAreaError(
+            "Файлът с начертаните рамки (%s) е с неочаквана структура. "
+            "Нищо не се записва върху него." % path.name
+        )
     return payload
 
 
 def _write(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(
+    """Траен запис. Начертаните рамки са операторско решение.
+
+    Дотук записът беше временен файл без ``fsync`` и един опит за
+    преименуване: операторът виждаше „рамката е записана", преди данните да са
+    стигнали до диска, а в Windows преименуването пада, когато друг държи целта
+    отворена (§ 3.4 и § 7.4 от заданието от 30.09.2026). Форматът не се мени,
+    за да не се преформатират вече записаните файлове.
+    """
+
+    atomic_write_text(
+        path,
         json.dumps(payload, ensure_ascii=False, indent=1, sort_keys=True) + "\n",
-        encoding="utf-8",
     )
-    tmp.replace(path)
+
+
+def _под_заключване(func):
+    """Функцията държи ключалката на файла с областите за целия си ход.
+
+    ЗАЩО. ``record_operator_area`` и ``withdraw_operator_area`` четат целия
+    списък, решават върху прочетеното и записват нов списък. Два процеса,
+    прочели едно и също състояние, записват две пълни, но взаимно изключващи се
+    версии и една от двете начертани рамки изчезва (§ 7.4). Първият позиционен
+    аргумент на двете е коренът на проекта.
+    """
+
+    @functools.wraps(func)
+    def вътре(project_root, *args, **kwargs):
+        path, _ = _paths(project_root)
+        with exclusive_file_lock(path):
+            return func(project_root, *args, **kwargs)
+
+    return вътре
 
 
 def _audit(project_root: Path | str, entry: Mapping[str, Any]) -> None:
@@ -289,6 +347,7 @@ def validate_area(
         )
 
 
+@_под_заключване
 def record_operator_area(
     project_root: Path | str,
     *,
@@ -300,8 +359,15 @@ def record_operator_area(
     decided_by: str,
     note: str,
     identity: DataIdentity,
+    members: Sequence[Mapping[str, Any]] = (),
 ) -> OperatorArea:
-    """Записва една област и одитния ѝ ред."""
+    """Записва една област, присъдите по членове и одитния ѝ ред.
+
+    ``members`` е присъдата за ВСЕКИ обект, който рамката засяга, към момента
+    на чертането (``export/operator_area_members.py``). Без нея областта е само
+    правоъгълник и заглавие: след записа не може да се провери нито един член —
+    точно което § 6.1 иска да не е така.
+    """
 
     ordered = normalise_box((box[0], box[1]), (box[2], box[3]))
     validate_area(
@@ -349,6 +415,9 @@ def record_operator_area(
         source_generation_id=identity.source_generation_id,
         analysis_run_id=identity.analysis_run_id,
         bent_around=bent_around,
+        # Същата строгост като при четенето: половин присъда не се записва,
+        # защото ред без присъда после би минал за приет член.
+        members=_read_members(list(members or ())),
     )
 
     path, _audit_path = _paths(project_root)
@@ -366,6 +435,7 @@ def record_operator_area(
     return area
 
 
+@_под_заключване
 def withdraw_operator_area(
     project_root: Path | str,
     area_id: str,
@@ -454,6 +524,7 @@ def load_operator_areas(
                 source_generation_id=str(entry.get("source_generation_id") or ""),
                 analysis_run_id=str(entry.get("analysis_run_id") or ""),
                 bent_around=_read_bent_around(entry.get("bent_around")),
+                members=_read_members(entry.get("members")),
             )
         except (KeyError, TypeError, ValueError):
             continue
@@ -465,6 +536,27 @@ def load_operator_areas(
             continue
         result.append(area)
     return tuple(result)
+
+
+def _read_members(value: Any) -> tuple[dict, ...]:
+    """Присъдите по членове от записа. Непознат ред се пропуска, а не се гадае.
+
+    Четат се само редове с handle и присъда: половин присъда не е доказателство
+    за нищо, а записана без присъда би минала за приет член.
+    """
+
+    if not isinstance(value, (list, tuple)):
+        return ()
+    резултат: list[dict] = []
+    for ред in value:
+        if not isinstance(ред, Mapping):
+            continue
+        if not str(ред.get("handle") or "").strip():
+            continue
+        if not str(ред.get("verdict") or "").strip():
+            continue
+        резултат.append(dict(ред))
+    return tuple(резултат)
 
 
 def _read_bent_around(value: Any) -> tuple[Box, ...]:

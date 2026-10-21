@@ -1,4 +1,4 @@
-"""Recognition pair: matcher 05210e71 + Engine 0.3.13 са неразделима двойка.
+"""Recognition pair: matcher 3e396bed + Engine 0.3.13 са неразделима двойка.
 
 Този тест ДОКУМЕНТИРА несъвместимостта, установена от 2x2 isolation matrix:
 Engine 0.3.13 + старият proven matcher (fe46be28) произвежда 47 MASTER
@@ -10,7 +10,7 @@ from lion_rebar.config.constants import RECOGNITION_MATCHER_SHA256
 from lion_rebar.utils.files import sha256_file
 
 EXPECTED_MATCHER_SHA = (
-    "05210e71ba6dc68c4d98665194cece4a11b3ce15ea684680e070e1f9ac2f024b"
+    "dc3a660cd906a8167b38bf595e9b5d9d86095181e68203b0ae1c029d96766065"
 )
 
 

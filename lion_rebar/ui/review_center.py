@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from datetime import datetime
@@ -59,7 +60,10 @@ from lion_rebar.review_center_model import (
     review_decision_code,
     review_queue_rows,
 )
+from lion_rebar.session.operator_identity import НЕЗАЯВЕН
 from lion_rebar.ui.review_problem_dialog import ReviewProblemDialog
+from lion_rebar.utils.files import atomic_write_text
+from lion_rebar.utils.process_lock import exclusive_file_lock
 
 LOGGER = logging.getLogger("lion_rebar.review_center")
 SEARCH_DEBOUNCE_MS = 180
@@ -282,6 +286,14 @@ def _dimension_evidence_html(row) -> str:
             "котировки около тази позиция</span><br>"
         )
     return "<br>".join(parts) + "<br>"
+
+
+class ReviewStateError(RuntimeError):
+    """Състоянието на Review Center не се чете или е променено отвън.
+
+    И двата случая са ОТКАЗ, не мълчаливо продължаване: файлът е единственото
+    копие на операторската работа по този чертеж (§ 7.6 и § 7.4).
+    """
 
 
 class ReviewCenterDialog(QDialog):
@@ -826,7 +838,16 @@ class ReviewCenterDialog(QDialog):
         self.approved_handles: set[str] = {
             str(handle) for handle in (approved_links or {}) if str(handle)
         }
+        #: Отпечатъкът на файла при зареждането и дали вече е открит конфликт.
+        #: Задават се в ``_load_state``; обявени тук, за да ги има и когато
+        #: зареждането вдигне отказ.
+        self._state_fingerprint: str | None = None
+        self._state_conflict = False
+        #: Решенията, както са били ПРИ ЗАРЕЖДАНЕТО. Служат за сверка при запис:
+        #: без тях не се различава „чуждо ново решение" от „наше изтрито".
+        self._loaded_decisions: dict = {}
         self._state = self._load_state()
+        self._loaded_decisions = dict(self._state.get("decisions") or {})
         rejected_decisions = {
             str(handle)
             for handle, value in self._state.get("decisions", {}).items()
@@ -893,13 +914,37 @@ class ReviewCenterDialog(QDialog):
         return result
 
     def _load_state(self) -> dict:
+        """Състоянието на Review Center. НЕЧЕТИМ файл е отказ, не празно.
+
+        ЗАЩО (§ 7.6). Дотук нечетимият файл даваше ``loaded = {}``, тоест
+        прозорецът се отваряше с НУЛА решения — а първият следващ запис ги
+        изтриваше окончателно. Повреденият файл е единственото копие на
+        операторската работа по този чертеж; мълчаливата му подмяна с празно е
+        най-скъпата възможна загуба.
+
+        Различен отпечатък на отчета или различна самоличност са ДРУГО: там
+        празното състояние е правилно, защото решенията са за друг прогон.
+        """
+
         fingerprint = report_fingerprint(self.report)
         data: dict = {}
+        self._state_fingerprint = self._state_file_fingerprint()
         if self.state_path.is_file():
             try:
                 loaded = json.loads(self.state_path.read_text(encoding="utf-8-sig"))
-            except (OSError, json.JSONDecodeError):
-                loaded = {}
+            except (OSError, json.JSONDecodeError) as грешка:
+                raise ReviewStateError(
+                    "Файлът с решенията на Review Center (%s) съществува, но не "
+                    "се чете: %s.\n\nТой е единственото копие на операторската "
+                    "работа по този чертеж. Review Center НЕ се отваря, за да не "
+                    "го презапише с празно. Виж файла, преди да продължиш."
+                    % (self.state_path.name, грешка)
+                ) from грешка
+            if not isinstance(loaded, dict):
+                raise ReviewStateError(
+                    "Файлът с решенията на Review Center (%s) е с неочаквана "
+                    "структура и НЕ се презаписва." % self.state_path.name
+                )
             identity_matches = (
                 not self._report_identity
                 or (
@@ -1117,19 +1162,152 @@ class ReviewCenterDialog(QDialog):
         self._save_state()
         return sample
 
+    def _state_file_fingerprint(self) -> str | None:
+        """Отпечатък на файла със състоянието, както е на диска СЕГА.
+
+        ``None`` значи „няма файл". Служи за сверка при записа: по-късният
+        прозорец не бива да записва остаряло състояние върху по-ново решение.
+        """
+
+        try:
+            if not self.state_path.is_file():
+                return None
+            return hashlib.sha256(self.state_path.read_bytes()).hexdigest()
+        except OSError:
+            # Нечетимият файл не е „няма файл": връща се различна стойност, за
+            # да не мине сверката за съвпадение.
+            return "UNREADABLE"
+
+    def set_operator_name(self, name: str) -> None:
+        """Приема новозаявеното име, когато операторът го смени в прозореца.
+
+        Вече записаните решения НЕ се пипат — авторът в тях е към момента на
+        записа. Това само казва кой работи ОТСЕГА.
+        """
+
+        self.operator_name = str(name or "").strip()
+
+    def _operator_for_record(self) -> str:
+        """Авторът за новите записи. Незаявено име е ``НЕЗАЯВЕН``.
+
+        Не е „оператор": старите записи с този низ остават с неизвестен автор и
+        не се приписват със задна дата, затова новите трябва да са различими.
+        """
+
+        return self.operator_name or НЕЗАЯВЕН
+
     def _save_state(self) -> None:
+        """Траен запис на операторските решения в Review Center.
+
+        Дотук записът беше временен файл без ``fsync`` и един опит за
+        преименуване: на оператора се съобщаваше „решението е записано", преди
+        данните да са стигнали до диска, а § 3.4 иска „запомнено" да се казва
+        само след траен запис. Преименуването пада и когато друг процес държи
+        файла отворен (измерено в Windows на 01.10.2026).
+
+        ВТОРИЯТ ПРОЗОРЕЦ (уговорка на собственика, 01.10.2026). Заключването
+        пази файла от едновременен запис, но не от ОСТАРЯЛО състояние: два
+        отворени прозореца имат всеки своя памет и по-късният щеше да презапише
+        по-ранното решение. Затова под същата ключалка се сверява отпечатъкът на
+        файла с този при зареждането. Разминаване значи, че друг е писал — и
+        записът се ОТКАЗВА. Нищо чуждо не се губи, а операторът научава веднага,
+        че това решение не е записано.
+        """
+
         started = perf_counter()
-        self.state_path.parent.mkdir(parents=True, exist_ok=True)
         self._state["updated_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
         if self._report_identity:
             self._state[IDENTITY_KEY] = dict(self._report_identity)
-        temporary = self.state_path.with_suffix(self.state_path.suffix + ".tmp")
-        temporary.write_text(
-            json.dumps(self._state, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        temporary.replace(self.state_path)
+        with exclusive_file_lock(self.state_path):
+            if self._state_file_fingerprint() != self._state_fingerprint:
+                self._merge_foreign_decisions()
+            atomic_write_text(
+                self.state_path,
+                json.dumps(self._state, ensure_ascii=False, indent=2) + "\n",
+            )
+            self._state_fingerprint = self._state_file_fingerprint()
+            self._loaded_decisions = dict(self._state.get("decisions") or {})
         self._log_timing("save_state", started, rows=len(self._state.get("decisions", {})))
+
+    def _merge_foreign_decisions(self) -> None:
+        """Файлът е променен отвън. Приема чуждото или ОТКАЗВА записа.
+
+        Критерият е точен: отказва се само когато нашият запис би УНИЩОЖИЛ
+        чуждо решение — тоест на диска има решение за handle, което ние не
+        знаем и не сме взели сами. Тогава нищо не се записва и операторът
+        научава веднага.
+
+        Във всички останали случаи чуждите решения, които просто не сме
+        виждали, се ПРИЕМАТ в нашето състояние и записът продължава. Това не е
+        догадка: решенията са по handle и добавянето на чужд handle не мени
+        нито едно наше поле. Без това отварянето на втори прозорец щеше да
+        блокира първия, макар че никой нищо не губи.
+        """
+
+        try:
+            дисково = json.loads(self.state_path.read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError) as грешка:
+            self._state_conflict = True
+            съобщение = (
+                "Файлът с решенията не се чете (%s). ТОВА РЕШЕНИЕ НЕ Е ЗАПИСАНО "
+                "и файлът не е презаписан." % грешка
+            )
+            self._report_state_conflict(съобщение)
+            raise ReviewStateError(съобщение) from грешка
+        ако_не_е_речник = not isinstance(дисково, dict)
+        чужди = {} if ако_не_е_речник else dict(дисково.get("decisions") or {})
+        наши = dict(self._state.get("decisions") or {})
+        заредени = dict(self._loaded_decisions or {})
+
+        # Нашият запис унищожава чуждо решение само когато ЗА СЪЩИЯ handle и
+        # двете страни са решили различно. Чуждо решение за handle, който ние
+        # не сме пипали, не е конфликт — просто го приемаме.
+        загубени = [
+            handle
+            for handle, стойност in чужди.items()
+            if наши.get(handle) != стойност
+            and наши.get(handle) != заредени.get(handle)
+        ]
+        if загубени:
+            self._state_conflict = True
+            съобщение = (
+                "Друг прозорец или процес е записал решения за %d позиции "
+                "(%s%s), откакто този Review Center отвори проекта.\n\n"
+                "ТОВА РЕШЕНИЕ НЕ Е ЗАПИСАНО — иначе чуждите щяха да изчезнат.\n\n"
+                "Затвори другия прозорец, отвори Review Center наново и вземи "
+                "решението пак."
+                % (
+                    len(загубени),
+                    ", ".join(загубени[:5]),
+                    " и др." if len(загубени) > 5 else "",
+                )
+            )
+            self._report_state_conflict(съобщение)
+            raise ReviewStateError(съобщение)
+        # Нищо не се губи: приемаме чуждото за всеки handle, който ние не сме
+        # пипали. Нашите собствени решения остават наши.
+        приети = 0
+        for handle, стойност in чужди.items():
+            if наши.get(handle) == заредени.get(handle):
+                if наши.get(handle) != стойност:
+                    приети += 1
+                наши[handle] = стойност
+        self._state["decisions"] = наши
+        self._loaded_decisions = dict(наши)
+        if приети:
+            # Таблицата още показва старото; производните състояния се смятат
+            # наново, за да не остане приетото чуждо решение невидимо.
+            инвалидиране = getattr(self, "_invalidate_derived_state", None)
+            if callable(инвалидиране):
+                инвалидиране()
+
+    def _report_state_conflict(self, message: str) -> None:
+        """Казва на оператора, че записът е отказан. Видимо, не в лога."""
+
+        етикет = getattr(self, "result_label", None)
+        if етикет is not None:
+            етикет.setText("Записът е отказан: състоянието е променено отвън.")
+        QMessageBox.warning(self, "Решението НЕ е записано", message)
 
     def _queue_code(self) -> str:
         return str(self.queue_combo.currentData() or "WORK")
@@ -2463,7 +2641,7 @@ class ReviewCenterDialog(QDialog):
             changes["production_segments_cm"] = list(segments)
         dialog = ApplyToGroupDialog(
             row, list(self._rows), changes, Path(project_root), identity,
-            operator=getattr(self, "operator_name", "") or "оператор",
+            operator=self._operator_for_record(),
             parent=self)
         if dialog.exec() and dialog.operation_id:
             self.decisionsChanged.emit()
@@ -2514,7 +2692,7 @@ class ReviewCenterDialog(QDialog):
         try:
             restored = undo_group_operation(
                 Path(project_root), str(target.get("operation_id")),
-                undone_by=getattr(self, "operator_name", "") or "оператор",
+                undone_by=self._operator_for_record(),
                 note="връщане от Review Center")
         except GroupApplicationError as error:
             QMessageBox.critical(self, "Връщането е отказано", str(error))
@@ -2562,7 +2740,7 @@ class ReviewCenterDialog(QDialog):
             changes["production_segments_cm"] = list(segments)
         dialog = ApplyToSimilarDialog(
             row, list(self._rows), changes, Path(project_root), identity,
-            operator=getattr(self, "operator_name", "") or "оператор",
+            operator=self._operator_for_record(),
             parent=self)
         if dialog.exec() and dialog.operation_id:
             self.decisionsChanged.emit()
@@ -2604,7 +2782,7 @@ class ReviewCenterDialog(QDialog):
         try:
             restored = undo_similar_operation(
                 Path(project_root), str(target.get("operation_id")),
-                undone_by=getattr(self, "operator_name", "") or "оператор",
+                undone_by=self._operator_for_record(),
                 note="връщане от Review Center")
         except SimilarApplicationError as error:
             QMessageBox.critical(self, "Връщането е отказано", str(error))
@@ -2662,7 +2840,7 @@ class ReviewCenterDialog(QDialog):
         try:
             restored = undo_bulk_operation(
                 Path(project_root), str(target.get("operation_id")),
-                undone_by=getattr(self, "operator_name", "") or "оператор",
+                undone_by=self._operator_for_record(),
                 note="връщане от Review Center")
         except BulkApprovalError as error:
             QMessageBox.critical(self, "Връщането е отказано", str(error))

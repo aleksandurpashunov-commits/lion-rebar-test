@@ -38,6 +38,7 @@ from lion_rebar.review.apply_to_similar import (
     apply_similar_plan,
     build_similar_plan,
 )
+from lion_rebar.session.operator_identity import НЕЗАЯВЕН
 
 
 class ApplyToSimilarDialog(QDialog):
@@ -55,7 +56,7 @@ class ApplyToSimilarDialog(QDialog):
         }
         self._project_root = Path(project_root)
         self._identity = identity
-        self._operator = str(operator or "").strip() or "оператор"
+        self._operator = str(operator or "").strip() or НЕЗАЯВЕН
         self.operation_id: str | None = None
 
         # ``enabled`` е None в production — тогава важи module-level

@@ -75,6 +75,12 @@ def build_final_export_manifest(
     non_production_position_count: int = 0,
     ledger_row_count: int = 0,
     excel_row_count: int = 0,
+    #: Колко РЕДА има в листовете. ``excel_row_count`` по исторически причини
+    #: носи броя ПОЗИЦИИ (``len(self._positions)``), а Excel групира еднаквите
+    #: позиции в един ред. Измерено на `s-10`: 126 позиции → 85 реда. Името
+    #: ``excel_rows`` не се мени, защото е част от приемния договор; тук се
+    #: добавя истинският брой редове, за да не се налага одиторът да гадае.
+    excel_grouped_row_count: int | None = None,
     frame_provenance: list[dict] | None = None,
     unresolved_frame_count: int = 0,
     exported_at: str | None = None,
@@ -125,7 +131,12 @@ def build_final_export_manifest(
         "artifacts": artifacts,
         "counts": {
             "final_ledger_rows": int(ledger_row_count),
+            # ВНИМАНИЕ: ``excel_rows`` носи броя ПОЗИЦИИ, не броя редове в
+            # листовете. Името е историческо и е част от приемния договор,
+            # затова се пази; истинският брой редове е ``excel_grouped_rows``.
             "excel_rows": int(excel_row_count),
+            "excel_grouped_rows": (None if excel_grouped_row_count is None
+                                   else int(excel_grouped_row_count)),
             "engineer_resolved_without_geometry": int(engineer_resolved_without_geometry_count),
             "non_production_positions": int(non_production_position_count),
             "unresolved_frames": int(unresolved_frame_count),

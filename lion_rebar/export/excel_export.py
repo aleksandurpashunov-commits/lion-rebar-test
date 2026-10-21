@@ -123,6 +123,10 @@ class ExportPosition:
     vertical_assignment_score: float | None = None
     vertical_assignment_margin: float | None = None
     master_topology_signature: str = ""
+    #: Заявената от инженера добавка за огъване за ТАЗИ позиция, ако решението
+    #: е минало с нея. Пътува до Excel, защото проверката на MASTER/Engine се
+    #: прави НАНОВО тук — без нея същата позиция би паднала след одобрението.
+    bend_allowance_cm: float | None = None
     #: Owner-requested 2026-09-12: the koloni group header this position was
     #: drawn under ("К23, К24 (35/35) - 2бр."). Purely a layout key for the
     #: working sheet -- deliberately NOT part of ``group_key``, so "Общо"
@@ -861,12 +865,14 @@ def load_export_context(
             entity_map=entity_map,
             production_length_cm=production_length,
         )
+        declared_allowance_cm = _declared_bend_allowance_of_link(link)
         try:
             shape_parameters = parameters_for_shape(
                 shape_map[shape_code],
                 segments,
                 production_length_cm=production_length,
                 turn_angles_deg=turns,
+                declared_allowance_cm=declared_allowance_cm,
             )
         except F006AsymmetricHookError:
             # This typed signal is intentionally preserved.  The batch/F006
@@ -1113,6 +1119,7 @@ def load_export_context(
                 vertical_assignment_score=vertical_assignment_score,
                 vertical_assignment_margin=vertical_assignment_margin,
                 column_group_label=str(row.get("column_group_label") or ""),
+                bend_allowance_cm=declared_allowance_cm,
             )
         )
     _validate_beam_assignments(frames, beam_labels, positions)
@@ -1172,6 +1179,7 @@ def generate_excel_export(
                 position.segment_lengths_cm or (position.production_length_cm,),
                 production_length_cm=position.production_length_cm,
                 turn_angles_deg=position.turn_angles_deg,
+                declared_allowance_cm=position.bend_allowance_cm,
             )
         except (EngineShapeParameterError, F006AsymmetricHookError) as exc:
             raise ExcelExportError(
@@ -3238,6 +3246,30 @@ def _beam_sort_key(value: str) -> tuple:
     return (1, normalized, 10**9, normalized)
 
 
+def _declared_bend_allowance_of_link(link: dict) -> float | None:
+    """Заявената от инженера добавка за огъване, ако решението е минало с нея.
+
+    Чете се САМО от одобрената връзка — там, където стои записаното решение с
+    автор, време и самоличност на данните. Няма стойност по подразбиране:
+    липсва ли, важат само измерените правила.
+    """
+
+    сурово = link.get("production_bend_allowance_cm")
+    if сурово is None:
+        ръчно = link.get("manual_assignment")
+        if isinstance(ръчно, dict):
+            сурово = ръчно.get("production_bend_allowance_cm")
+    if сурово is None:
+        return None
+    try:
+        число = float(сурово)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(число) or число <= 0:
+        return None
+    return число
+
+
 def _segments_for_link(
     link: dict[str, Any],
     *,
@@ -3333,6 +3365,24 @@ def _segments_for_link(
             else:
                 return canonical_values, canonical_turns
 
+        # Заоблена огъвка (поредица къси хорди): начертаните рамена НЕ са
+        # размери на проектанта. Измерено на h01-1001 срещу бележките на
+        # собственика (07.10.2026): свитата полилиния дава 128,8/18,8,
+        # 404/19, 373,75/38,6, а той е написал 130/20, 405/20, 375/40 — три
+        # от три различни. Затова тук такъв прът НЕ минава по суровия път:
+        # размерите идват само от доказан вектор (закръгляне към мрежата,
+        # коти до пръта), който стига до експорта по-рано. Без него — ясен
+        # отказ с причината, вместо десетични рамена или „очаква 2 сегмента,
+        # получени са 10“.
+        collapsed = _collapsed_fillet_segments(summary, records)
+        if collapsed is not None:
+            drawn = ", ".join(f"{value:g}" for value in (round(v, 1) for v in collapsed[0]))
+            raise ExcelExportError(
+                f"{link.get('annotation_text') or link.get('annotation_handle')}: "
+                f"огъвката е начертана заоблена; начертаните рамена ({drawn}) не са "
+                f"размери на проектанта и не се изнасят. Нужни са доказани размери "
+                f"за {shape.code} — закръгляне към мрежата или коти до пръта."
+            )
         raw_values = tuple(float(value) for value in summary.segment_lengths_cm)
         if raw_values:
             canonical_raw = _canonicalize_for_master(shape.code, raw_values, points=summary.points)
@@ -3356,6 +3406,61 @@ def _segments_for_link(
         f"{link.get('annotation_text') or link.get('annotation_handle')}: "
         f"няма доказани сегментни размери за {shape.code}. "
         "Export-ът не наглася винкели или прави части по усмотрение."
+    )
+
+
+def _collapsed_fillet_segments(
+    summary: Any,
+    records: Sequence[DxfEntityRecord],
+) -> tuple[tuple[float, ...], tuple[float, ...], tuple[tuple[float, float], ...]] | None:
+    """Участъците след свиване на заоблените огъвки, или ``None`` без заобление.
+
+    Същата нормализация като в ``match_master_shapes`` (``collapse_fillets``
+    след ``simplify_polyline``), за да види Excel формата, която е разпознал
+    Matcher-ът. Сравнява се със САМО опростената полилиния: връща се резултат
+    единствено когато свиването е махнало върхове, тоест когато в чертежа има
+    заобление. Сливането на колинеарни отсечки само по себе си не мени нищо тук.
+
+    Точките се четат от САМАТА полилиния, не от ``summary.points``: там
+    подреждането слива точки по-близки от допуска за краища (0,75), тоест
+    точно хордите на заоблението (~0,57) — свиването не би видяло нищо.
+    Затова правилото важи само за прът, начертан като един обект.
+    """
+
+    from lion_rebar.dxf.geometry_core_v2 import polyline_path_from_geometry
+    from lion_rebar.dxf.recognition_policy import RecognitionPolicy
+    from lion_rebar.dxf.shape_recognition import collapse_fillets, simplify_polyline
+    from lion_rebar.manual_assignment import _turns_from_points
+
+    # ``summary.branched`` не се гледа: за една полилиния то идва от същото
+    # сливане на хордите, а един обект не може да е разклонен.
+    if summary.inferred_composite or summary.near_gap_healed:
+        return None
+    if len(records) != 1 or "POLYLINE" not in str(records[0].entity_type).upper():
+        return None
+    path = polyline_path_from_geometry(records[0].geometry)
+    if path is None or path.curve_count:
+        return None
+    points = tuple((float(p[0]), float(p[1])) for p in path.points)
+    if len(points) < 5:
+        return None
+    tolerance = RecognitionPolicy().collinear_merge_tolerance_deg
+    simple = simplify_polyline(points, tolerance)
+    clean = collapse_fillets(simple)
+    if len(clean) >= len(simple):
+        return None
+    lengths = tuple(
+        math.dist(left, right)
+        for left, right in zip(clean, clean[1:])
+        if math.dist(left, right) > 1e-9
+    )
+    if summary.closed and math.dist(clean[0], clean[-1]) > 1e-9:
+        lengths = lengths + (math.dist(clean[-1], clean[0]),)
+    turns = _turns_from_points(clean, closed=bool(summary.closed))
+    return (
+        tuple(round(value, 6) for value in lengths),
+        tuple(round(value, 3) for value in turns),
+        tuple(clean),
     )
 
 

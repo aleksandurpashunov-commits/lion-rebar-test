@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import html as _html
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +26,7 @@ from pathlib import Path
 if str(КОРЕН) not in sys.path:
     sys.path.insert(0, str(КОРЕН))
 
+from tools.recognition_viewer import belezhki as бел  # noqa: E402
 from tools.recognition_viewer import viewer as вю  # noqa: E402
 from tools.recognition_viewer.html_template import ШАБЛОН  # noqa: E402
 
@@ -68,14 +70,34 @@ def png_от_svg(svg: str, път: Path, ширина: int) -> bool:
     return bool(изображение.save(str(път)))
 
 
-def _сглоби_html(картина: вю.Картина, име: str, време: str) -> str:
+def _json_в_скрипт(стойност) -> str:
+    """JSON за вграждане в ``<script>``: ``</`` би затворил скрипта по-рано.
+
+    Пояснението е свободен текст на оператора и може да съдържа всичко.
+    """
+
+    return json.dumps(стойност, ensure_ascii=False).replace("</", "<\\/")
+
+
+def _сглоби_html(
+    картина: вю.Картина,
+    име: str,
+    време: str,
+    *,
+    форми: list | None = None,
+    бележки: dict | None = None,
+    самоличност: str = "",
+) -> str:
     """Заместване, НЕ ``format``: шаблонът е пълен с фигурни скоби от CSS и JS."""
 
     с = картина.summary
     замени = {
         "{име}": _html.escape(име),
         "{svg}": картина.svg,
-        "{инфо}": json.dumps(картина.инфо, ensure_ascii=False),
+        "{инфо}": _json_в_скрипт(картина.инфо),
+        "{форми}": _json_в_скрипт(форми or []),
+        "{бележки}": _json_в_скрипт(бележки or бел.празни(самоличност, име)),
+        "{известни}": _json_в_скрипт(картина.известни),
         "{зелено}": str(с.get("зелено", 0)),
         "{жълто}": str(с.get("жълто", 0)),
         "{червено}": str(с.get("червено", 0)),
@@ -87,6 +109,55 @@ def _сглоби_html(картина: вю.Картина, име: str, вре�
     for ключ, стойност in замени.items():
         текст = текст.replace(ключ, стойност)
     return текст
+
+
+def обработчик(
+    папка: Path,
+    *,
+    самоличност: str,
+    проект: str,
+    известни: dict,
+    форми: list,
+):
+    """HTTP обработчикът на ``--serve``: папката на прегледа + запис на бележки.
+
+    Единственият запис е ``belezhki_operator.json`` до прегледа. Проектът,
+    одобренията и експортът не се пипат.
+    """
+
+    import http.server
+
+    class Тих(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=str(папка), **kwargs)
+
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            if self.path.split("?")[0] != "/belezhki":
+                self.send_error(404)
+                return
+            try:
+                дължина = int(self.headers.get("Content-Length") or 0)
+                заявка = json.loads(self.rfile.read(дължина).decode("utf-8"))
+                if not isinstance(заявка, dict):
+                    raise бел.НевалиднаБележка("Заявката не е обект.")
+                данни = бел.приложи(
+                    папка, самоличност, проект, заявка,
+                    известни=известни, форми=форми,
+                )
+                код, тяло = 200, данни
+            except (бел.НевалиднаБележка, ValueError) as грешка:
+                код, тяло = 400, {"error": str(грешка)}
+            суров = json.dumps(тяло, ensure_ascii=False).encode("utf-8")
+            self.send_response(код)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(суров)))
+            self.end_headers()
+            self.wfile.write(суров)
+
+    return Тих
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -126,7 +197,15 @@ def main(argv: list[str] | None = None) -> int:
     папка.mkdir(parents=True, exist_ok=True)
     време = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
     име = str(отчет.get("project_name") or а.dxf.stem)
-    (папка / "viewer.html").write_text(_сглоби_html(картина, име, време), encoding="utf-8")
+    форми = бел.форми_от_engine(а.report, отчет)
+    бележки = бел.зареди(папка, на_чертежа, име)
+    (папка / "viewer.html").write_text(
+        _сглоби_html(
+            картина, име, време,
+            форми=форми, бележки=бележки, самоличност=на_чертежа,
+        ),
+        encoding="utf-8",
+    )
     (папка / "stamp.txt").write_text(време, encoding="utf-8")
     ок = True if а.no_png else png_от_svg(картина.svg, папка / "viewer.png", а.png_width)
 
@@ -139,22 +218,23 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  червени        : {с.get('червено', 0)}")
     print(f"не са позиции    : {с.get('не-позиция', 0)}")
     print(f"несвързани обекти: {с.get('несвързано', 0)}")
+    print(f"MASTER форми     : {len(форми) or 'НЕ СА ЗАРЕДЕНИ (engine-ът на анализа не е намерен)'}")
+    print(f"бележки          : {len(бележки.get('notes') or {})} ({папка / бел.ФАЙЛ})")
     print(f"HTML : {папка / 'viewer.html'}")
     if not а.no_png:
         print(f"PNG  : {папка / 'viewer.png'} ({'записан' if ок else 'НЕ Е ЗАПИСАН'})")
 
     if а.serve:
-        import http.server
         import socketserver
 
-        class Тих(http.server.SimpleHTTPRequestHandler):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, directory=str(папка), **kwargs)
-
-            def log_message(self, *args):
-                pass
-
-        socketserver.TCPServer.allow_reuse_address = True
+        Тих = обработчик(
+            папка, самоличност=на_чертежа, проект=име,
+            известни=картина.известни, форми=форми,
+        )
+        # На Windows ``SO_REUSEADDR`` позволява ВТОРИ сървър на същия порт и
+        # заявките отиват при стария. Измерено 07.10.2026: стар преглед без
+        # запис на бележки отговаряше 501 на новия. Зает порт трябва да е отказ.
+        socketserver.TCPServer.allow_reuse_address = os.name != "nt"
         with socketserver.TCPServer(("127.0.0.1", а.port), Тих) as сървър:
             порт = сървър.server_address[1]
             print(f"ОТВОРИ: http://127.0.0.1:{порт}/viewer.html", flush=True)

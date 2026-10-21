@@ -49,6 +49,7 @@ from lion_rebar.export.beam_decisions import (
     record_beam_decision,
 )
 from lion_rebar.project.data_identity import DataIdentity
+from lion_rebar.session.operator_identity import НЕЗАЯВЕН
 
 
 class UnresolvedBeamDialog(QDialog):
@@ -74,7 +75,7 @@ class UnresolvedBeamDialog(QDialog):
         self._known = {handle: title for handle, title in self._beam_titles}
         self._project_root = Path(project_root)
         self._identity = identity
-        self._operator = str(operator or "").strip() or "оператор"
+        self._operator = str(operator or "").strip() or НЕЗАЯВЕН
         self._beam_boxes: list[QComboBox] = []
         self._note_edits: list[QLineEdit] = []
         self.decisions_made = 0

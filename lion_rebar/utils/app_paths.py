@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from lion_rebar.config.constants import APP_DATA_FOLDER
 from lion_rebar.utils.files import ensure_directory
 
 
@@ -19,6 +20,17 @@ class AppPaths:
     session_recovery_file: Path
     learning_packs: Path
 
+    @property
+    def learned_knowledge(self) -> Path:
+        """Научените правила за прочит — до останалите данни на приложението.
+
+        СВОЙСТВО, а не поле: ``AppPaths`` се сглобява на ръка в тестовете и в
+        диагностиката, а ново задължително поле би счупило всяко такова място
+        (измерено: 9 провала). Следва ``root``, тоест и ``LION_REBAR_DATA_ROOT``.
+        """
+
+        return self.root / "naucheno"
+
     @classmethod
     def default(cls) -> "AppPaths":
         explicit_root = os.environ.get("LION_REBAR_DATA_ROOT")
@@ -27,14 +39,15 @@ class AppPaths:
         else:
             base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
             if base:
-                root = Path(base) / "LionBuild" / "LionRebarDesktop"
+                root = Path(base) / "LionBuild" / APP_DATA_FOLDER
             else:
-                root = Path.home() / ".lion_rebar_desktop"
+                root = Path.home() / f".{APP_DATA_FOLDER.lower()}"
         engine_registry = root / "engine_registry"
         app_logs = root / "logs"
         session_root = root / "session_core"
         learning_packs = session_root / "learning_packs"
-        for directory in (root, engine_registry, app_logs, session_root, learning_packs):
+        for directory in (root, engine_registry, app_logs, session_root,
+                          learning_packs, root / "naucheno"):
             ensure_directory(directory)
         return cls(
             root=root,

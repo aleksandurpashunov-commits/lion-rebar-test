@@ -38,7 +38,9 @@ from lion_rebar.engine.bend_allowance import (
 )
 from lion_rebar.engine.models import ShapeDefinition
 from lion_rebar.engineer_decision import (
+    DECLARED_BEND_ALLOWANCE_MAX_CM,
     REASON_OPTIONS,
+    declared_bend_allowance,
     classify_engineer_action,
     engineer_note_policy,
     engineer_reason_from_problem,
@@ -50,6 +52,13 @@ from lion_rebar.engineer_decision import (
 )
 from lion_rebar.export.engine_shape_parameters import parameters_for_shape
 from lion_rebar.export.errors import ExcelExportError
+from lion_rebar.review.decision_reuse import (
+    ПРИЛОЖИМО,
+    ПРОТИВОРЕЧИЕ,
+    САМО_ФОРМА,
+    Предложение,
+    ПредложениетоНеЕПриложимо,
+)
 from lion_rebar.review.decision_suggestions import (
     CONFLICT,
     READY,
@@ -104,6 +113,8 @@ class EngineerDecisionDialog(QDialog):
         project_name: str = "",
         project_version: str = "",
         decision_suggestion: DecisionSuggestion | None = None,
+        reuse_proposal: "Предложение | None" = None,
+        reuse_index=None,
         parent=None,
     ):
         super().__init__(parent)
@@ -117,6 +128,14 @@ class EngineerDecisionDialog(QDialog):
         self._decision_suggestion_accepted = False
         self._accepted_suggestion_fields: dict = {}
         self._applying_decision_suggestion = False
+        # ПРЕИЗПОЛЗВАНЕ с разделени етапи. ``reuse_index`` е нужен, за да се
+        # провери НЕПОСРЕДСТВЕНО преди приемането дали основанието още е в
+        # сила: диалогът може да е отворен отпреди оттеглянето.
+        self.reuse_proposal = reuse_proposal
+        self.reuse_index = reuse_index
+        self._reuse_accepted = False
+        self._reuse_accepted_fields: dict = {}
+        self._reuse_refused_reason = ""
         self.shapes = tuple(
             shape
             for shape in shapes
@@ -146,7 +165,12 @@ class EngineerDecisionDialog(QDialog):
         intro.setWordWrap(True)
         intro.setStyleSheet("background:#eef2ff; border:1px solid #c7d2fe; padding:6px;")
 
+        self.reuse_frame = self._build_reuse_frame()
         self.suggestion_frame = self._build_decision_suggestion_frame()
+        if self.reuse_proposal is not None:
+            # Едно поле за предложения, не две. Новият път е водещият: той
+            # казва и ЗАЩО случаят е намерен, и кое поле от какво е подкрепено.
+            self.suggestion_frame.hide()
 
         form = QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)
@@ -246,6 +270,25 @@ class EngineerDecisionDialog(QDialog):
         self.length_edit.setValidator(QDoubleValidator(0.1, 20_000.0, 3, self))
         self.length_edit.textChanged.connect(self._refresh)
         form.addRow("Обща производствена L [cm]:", self.length_edit)
+
+        # ЗАЯВЕНА ДОБАВКА ЗА ОГЪВАНЕ. Празно = важат само измерените правила
+        # (закръглянето до 5 и таваните на F006/F009). Числото се приема само
+        # когато ТОЧНО затваря уравнението сбор + добавка = L, и се записва
+        # като част от решението, с автор и време. Виж
+        # ``engine.bend_allowance.declared_allowance_closes``.
+        self.bend_allowance_edit = QLineEdit("")
+        self.bend_allowance_edit.setPlaceholderText(
+            "празно = по правилата на програмата"
+        )
+        self.bend_allowance_edit.setValidator(
+            QDoubleValidator(0.0, DECLARED_BEND_ALLOWANCE_MAX_CM, 2, self)
+        )
+        self.bend_allowance_edit.setToolTip(
+            "Число, с което ТОЗИ детайл затваря: сбор на участъците + добавка = "
+            "обща дължина. Приема се само ако наистина затваря уравнението."
+        )
+        self.bend_allowance_edit.textChanged.connect(self._refresh)
+        form.addRow("Заявена добавка за огъване [cm]:", self.bend_allowance_edit)
 
         segments = (
             self.existing_link.get("production_segment_lengths_cm")
@@ -418,6 +461,7 @@ class EngineerDecisionDialog(QDialog):
         content_layout.setContentsMargins(2, 2, 2, 2)
         content_layout.setSpacing(6)
         content_layout.addWidget(intro)
+        content_layout.addWidget(self.reuse_frame)
         content_layout.addWidget(self.suggestion_frame)
         content_layout.addLayout(form)
         content_layout.addWidget(self.shape_preview)
@@ -453,6 +497,294 @@ class EngineerDecisionDialog(QDialog):
 
         self._shape_changed()
         self._restore_window_geometry()
+
+    # -- ПРЕИЗПОЛЗВАНЕ: показване, приемане, отказ ------------------------
+    def _build_reuse_frame(self) -> QFrame:
+        """Предложението от предишно решение — видимо и обяснено.
+
+        Показва петте неща, които операторът трябва да види, преди да реши:
+        какво се предлага, от кое решение и чертеж идва, защо случаят е намерен
+        за сходен, кое поле е подкрепено от ТОЗИ чертеж и какво остава за него.
+
+        Бутон за приемане се показва САМО при ``ПРИЛОЖИМО``. Видимо
+        предложение, което не може да бъде ползвано, не се предлага за
+        приемане — то е само сведение, че за този надпис има предишно решение
+        и защо то не стига.
+        """
+
+        frame = QFrame(self)
+        frame.setObjectName("decisionReuseProposal")
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(8, 7, 8, 7)
+        layout.setSpacing(5)
+        self.reuse_label = QLabel(frame)
+        self.reuse_label.setWordWrap(True)
+        self.reuse_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        layout.addWidget(self.reuse_label)
+        self.reuse_accept_button = QPushButton("Приеми предложението", frame)
+        self.reuse_accept_button.setMaximumWidth(260)
+        self.reuse_accept_button.clicked.connect(self._accept_reuse_proposal)
+        layout.addWidget(self.reuse_accept_button)
+
+        предложение = self.reuse_proposal
+        if предложение is None or предложение.състояние not in {
+            ПРИЛОЖИМО, САМО_ФОРМА, ПРОТИВОРЕЧИЕ,
+        }:
+            frame.hide()
+            return frame
+        frame.show()
+        self.reuse_label.setText(self._reuse_text(предложение))
+        if предложение.състояние == ПРИЛОЖИМО:
+            frame.setStyleSheet(
+                "QFrame#decisionReuseProposal {"
+                "background:#ecfdf5; border:1px solid #34d399;}"
+            )
+        else:
+            frame.setStyleSheet(
+                "QFrame#decisionReuseProposal {"
+                "background:#fff7ed; border:1px solid #fb923c;}"
+            )
+            self.reuse_accept_button.hide()
+        return frame
+
+    def _reuse_text(self, предложение: "Предложение") -> str:
+        редове = [
+            "ПРЕИЗПОЛЗВАНЕ НА ПРЕДИШНО РЕШЕНИЕ — %s. %s"
+            % (предложение.състояние, предложение.обяснение),
+        ]
+        случай = предложение.случай
+        if случай is not None:
+            редове.append(
+                "Какво се предлага: форма %s (%s), %d рамена; правило за "
+                "разчитане: %s."
+                % (случай.форма.код, случай.форма.име, случай.форма.рамена,
+                   случай.правило)
+            )
+            редове.append(
+                "Размерите на донора (%s) НЕ се пренасят."
+                % "/".join(
+                    _text_number(стойност)
+                    for стойност in случай.донорски_размери_cm
+                )
+            )
+        if предложение.произход:
+            произход = предложение.произход[0]
+            редове.append(
+                "Произход: решение %s от %s, чертеж „%s“, позиция %s."
+                % (произход.event_id[:8] or "—", произход.occurred_at or "—",
+                   произход.проект or "—", произход.handle or "—")
+            )
+        if предложение.защо_е_намерен:
+            редове.append(
+                "Защо е намерен за сходен: " + "; ".join(предложение.защо_е_намерен)
+            )
+        if предложение.полета:
+            редове.append("Поле по поле:")
+            for поле in предложение.полета:
+                редове.append(
+                    "  • %s = %s — %s (източник: %s). %s"
+                    % (поле.име, поле.стойност, поле.присъда, поле.източник,
+                       поле.обяснение)
+                )
+        if предложение.остава_за_оператора:
+            редове.append(
+                "Остава за теб: " + "; ".join(предложение.остава_за_оператора)
+            )
+        if self._reuse_refused_reason:
+            редове.append("ОТКАЗ: " + self._reuse_refused_reason)
+        return "\n".join(редове)
+
+    def _accept_reuse_proposal(self) -> None:
+        """Изрично приемане. Проверява състоянието НЕПОСРЕДСТВЕНО преди това."""
+
+        предложение = self.reuse_proposal
+        if предложение is None:
+            return
+        # Диалогът може да е отворен ПРЕДИ оттеглянето на решението-основание.
+        # Затова тук се пита наново, вместо да се вярва на заснетото състояние.
+        if self.reuse_index is not None:
+            try:
+                отпаднали = self.reuse_index.отпаднало_основание(
+                    предложение.основание()
+                )
+            except Exception:                                  # noqa: BLE001
+                отпаднали = ()
+            if отпаднали:
+                self._reuse_refused_reason = (
+                    "решението-основание вече не е в сила (оттеглено или "
+                    "отменено): " + ", ".join(отпаднали)
+                    + ". Предложението НЕ е приложено."
+                )
+                self.reuse_accept_button.setEnabled(False)
+                self.reuse_label.setText(self._reuse_text(предложение))
+                self.reuse_label.setStyleSheet("color:#b91c1c; font-weight:700;")
+                return
+        try:
+            стойности = предложение.за_приемане(изрично_прието=True)
+        except ПредложениетоНеЕПриложимо as грешка:
+            self._reuse_refused_reason = str(грешка)
+            self.reuse_accept_button.setEnabled(False)
+            self.reuse_label.setText(self._reuse_text(предложение))
+            self.reuse_label.setStyleSheet("color:#b91c1c; font-weight:700;")
+            return
+
+        код = str(стойности.get("shape_code") or "").upper()
+        индекс = self.shape_combo.findData(код)
+        форма = self._shape_by_code.get(код)
+        if индекс < 0 or форма is None:
+            self._reuse_refused_reason = (
+                "предложената форма %s не е активна в заключения Engine — "
+                "избери ръчно" % (код or "—")
+            )
+            self.reuse_accept_button.setEnabled(False)
+            self.reuse_label.setText(self._reuse_text(предложение))
+            self.reuse_label.setStyleSheet("color:#b91c1c; font-weight:700;")
+            return
+
+        участъци = tuple(
+            float(стойност)
+            for стойност in стойности.get("segment_lengths_cm") or ()
+        )
+        self._applying_decision_suggestion = True
+        try:
+            self.shape_combo.setCurrentIndex(индекс)
+            self._last_shape_code = код
+            self._initial_segments = участъци
+            self._rebuild_segment_fields(форма, участъци)
+            self.shape_preview.set_shape(форма)
+            for етикет in self._segment_source_labels.values():
+                if "MASTER" not in етикет.text():
+                    етикет.setText("от данните на ТАЗИ позиция")
+            self.count_edit.setText(str(int(стойности["count"])))
+            self.diameter_edit.setText(_text_number(стойности["diameter_mm"]))
+            self.length_edit.setText(
+                _text_number(стойности["production_length_cm"])
+            )
+            индекс_причина = self.reason_combo.findData(
+                str(стойности.get("reason_code") or "")
+            )
+            if индекс_причина >= 0:
+                self.reason_combo.setCurrentIndex(индекс_причина)
+            if стойности.get("geometry_mode") == "NO_DXF_GEOMETRY":
+                # Изрично СЛЕД натискане, не като страничен ефект от показването.
+                self.use_candidate_check.setChecked(False)
+            # Бележката на донора НЕ се копира: иска се нова за ТОЗИ случай.
+            self.note_toggle_button.setChecked(True)
+        finally:
+            self._applying_decision_suggestion = False
+
+        self._reuse_accepted = True
+        self._reuse_accepted_fields = self._suggestion_fields_from_prefill(
+            стойности
+        )
+        # ПРАЗНИЯТ ЛИСТ отпада, преценката — не.
+        #
+        # При решение без DXF геометрия бележката е задължителна
+        # (`NO_RELIABLE_GEOMETRY`) и това правило е отпреди преизползването:
+        # важи и когато операторът решава сам. Но да го караме да пише на ръка
+        # „вярно" при всяко приемане е търкане без стойност — а и такава
+        # бележка не казва нищо на следващия, който ще чете журнала.
+        #
+        # Затова се предлага ПРОСЛЕДИМ ФАКТ: откъде идва формата и откъде идва
+        # размерът. Нарочно НЕ съдържа твърдение от името на оператора (няма
+        # „проверено", няма „вярно") — това си остава негова дума и той може да
+        # я допише. Бележката на донора НЕ се копира никога.
+        if not self.note_edit.toPlainText().strip():
+            self.note_edit.setPlainText(self._предложена_бележка(стойности))
+        self.reuse_label.setText(
+            "Предложението е приложено след изрично действие. Провери формата, "
+            "размерите и причината — можеш да редактираш всичко преди запис. "
+            "Геометрия, бележка и принадлежност НЕ са копирани. Бележката е "
+            "попълнена с произхода — допълни я, ако има какво да добавиш."
+        )
+        self.reuse_accept_button.setText("Предложението е приложено")
+        self.reuse_accept_button.setEnabled(False)
+        self._refresh()
+
+    def _предложена_бележка(self, стойности: dict) -> str:
+        """Проследим факт за журнала, не твърдение от името на оператора."""
+
+        предложение = self.reuse_proposal
+        случай = getattr(предложение, "случай", None)
+        if предложение is None or случай is None:
+            return ""
+        произход = предложение.произход[0] if предложение.произход else None
+        части = [
+            "Прието предложение за преизползване.",
+        ]
+        if произход is not None:
+            части.append(
+                "Източник: решение %s от %s, чертеж „%s“, позиция %s."
+                % (
+                    (произход.event_id or "—")[:8],
+                    произход.occurred_at or "—",
+                    произход.проект or "—",
+                    произход.handle or "—",
+                )
+            )
+        по_име = {поле.име: поле for поле in предложение.полета}
+        участъци = по_име.get("segment_lengths_cm")
+        части.append(
+            "Формата %s идва от предишното решение; размерите НЕ са на донора."
+            % случай.форма.код
+        )
+        if участъци is not None:
+            части.append(
+                "Участъци %s — източник: %s."
+                % (
+                    " + ".join(
+                        _text_number(стойност)
+                        for стойност in (участъци.стойност or ())
+                    ) or "—",
+                    участъци.източник,
+                )
+            )
+        if случай.без_геометрия:
+            части.append(
+                "Позицията няма начертана геометрия — решението стъпва на "
+                "надписа и на инженерна преценка."
+            )
+        return " ".join(части)
+
+    def _reuse_audit(self, values: dict) -> dict | None:
+        """Одитът на преизползването — влиза в плика на решението."""
+
+        предложение = self.reuse_proposal
+        if предложение is None or предложение.състояние not in {
+            ПРИЛОЖИМО, САМО_ФОРМА, ПРОТИВОРЕЧИЕ,
+        }:
+            return None
+        if предложение.състояние != ПРИЛОЖИМО:
+            изход = "ПОКАЗАНО_НЕПРИЛОЖИМО"
+        elif not self._reuse_accepted:
+            изход = "ПОКАЗАНО_НЕПОЛЗВАНО"
+        else:
+            крайни = self._suggestion_fields_from_values(values)
+            изход = (
+                "ПРИЕТО_БЕЗ_ПРОМЯНА"
+                if крайни == self._reuse_accepted_fields
+                else "ПРИЕТО_И_РЕДАКТИРАНО"
+            )
+        одит = {
+            "схема": "lion-rebar-preizpolzvane-ui-odit/v1",
+            "показано": True,
+            "състояние": предложение.състояние,
+            "изход": изход,
+            "изрично_прието": self._reuse_accepted,
+            "отказ": self._reuse_refused_reason or None,
+            # ОСНОВАНИЕТО се записва винаги, когато е прието: по него се
+            # намира какво да се провери наново, ако решението бъде оттеглено.
+            "основание": list(предложение.основание()) if self._reuse_accepted else [],
+            "предложение": предложение.речник(),
+        }
+        if self._reuse_accepted:
+            try:
+                одит["приемане"] = предложение.одит()
+            except ПредложениетоНеЕПриложимо:
+                одит["приемане"] = None
+        return одит
 
     def _build_decision_suggestion_frame(self) -> QFrame:
         frame = QFrame(self)
@@ -1018,6 +1350,19 @@ class EngineerDecisionDialog(QDialog):
         shape_code = str(self.shape_combo.currentData() or "").upper()
         if segments_match_total(shape_code, total, length):
             return f"Σ={total:g} cm | L={length:g} cm | валидно"
+        try:
+            заявена = declared_bend_allowance(
+                {"bend_allowance_cm": self.bend_allowance_edit.text()}
+            )
+        except ValueError:
+            заявена = None
+        if заявена is not None and segments_match_total(
+            shape_code, total, length, declared_allowance_cm=заявена
+        ):
+            return (
+                f"Σ={total:g} cm | L={length:g} cm | валидно със заявена "
+                f"добавка {заявена:g} cm"
+            )
         return f"Σ={total:g} cm | L={length:g} cm | НЕВАЛИДНО"
 
     def _values(self) -> dict:
@@ -1035,6 +1380,7 @@ class EngineerDecisionDialog(QDialog):
                 "length": None,
                 "segments": (),
                 "turn_angles": (),
+                "bend_allowance_cm": None,
                 "reason_code": reason_code,
                 "handles": [],
                 "action_class": "EXCLUSION",
@@ -1050,6 +1396,9 @@ class EngineerDecisionDialog(QDialog):
         diameter = positive_float(self.diameter_edit.text(), field="Диаметър")
         length = positive_float(self.length_edit.text(), field="Обща дължина")
         assert count is not None and diameter is not None and length is not None
+        bend_allowance = declared_bend_allowance(
+            {"bend_allowance_cm": self.bend_allowance_edit.text()}
+        )
         if self._quick_parse_error:
             raise ValueError(self._quick_parse_error)
         segments = self._segments_from_fields(shape)
@@ -1067,8 +1416,21 @@ class EngineerDecisionDialog(QDialog):
         # Приема се недостиг до 8 cm. НАДВИШАВАНЕ не се приема: сегменти,
         # чийто сбор е по-голям от общата дължина, са грешка, не добавка.
         # Единен източник на истина (lion_rebar.engine.bend_allowance).
-        if segments and not segments_match_total(shape_code, sum(segments), length):
-            raise ValueError(explain_mismatch(shape_code, sum(segments), length))
+        нужна_е_добавка = bool(segments) and not segments_match_total(
+            shape_code, sum(segments), length
+        )
+        if нужна_е_добавка and not segments_match_total(
+            shape_code, sum(segments), length, declared_allowance_cm=bend_allowance
+        ):
+            raise ValueError(
+                explain_mismatch(
+                    shape_code,
+                    sum(segments),
+                    length,
+                    declared_allowance_cm=bend_allowance,
+                )
+            )
+        bend_allowance = bend_allowance if нужна_е_добавка else None
 
         turn_angles = tuple(self.row.get("canonical_turn_angles_deg") or ())
         if (
@@ -1086,6 +1448,7 @@ class EngineerDecisionDialog(QDialog):
                 segments,
                 production_length_cm=length,
                 turn_angles_deg=turn_angles,
+                declared_allowance_cm=bend_allowance,
             )
         except ExcelExportError as exc:
             raise ValueError(f"MASTER/Engine проверка: {exc}") from exc
@@ -1126,6 +1489,7 @@ class EngineerDecisionDialog(QDialog):
             "length": length,
             "segments": segments,
             "turn_angles": turn_angles,
+            "bend_allowance_cm": bend_allowance,
             "reason_code": reason_code,
             "handles": list(handles),
             "action_class": action_class,
@@ -1296,6 +1660,7 @@ class EngineerDecisionDialog(QDialog):
                 "shape_name": shape.name if shape is not None else values["shape_code"],
                 "shape_revision": int(shape.revision) if shape is not None else None,
                 "turn_angles_deg": list(values.get("turn_angles") or ()),
+                "bend_allowance_cm": values.get("bend_allowance_cm"),
             },
             "geometry": {
                 "handles": values["handles"],
@@ -1306,6 +1671,10 @@ class EngineerDecisionDialog(QDialog):
             },
             "diagnostic_problem": self._diagnostic_problem(),
             "decision_suggestion": suggestion_audit,
+            # Ключът е ``preizpolzvane`` нарочно на латиница: по него
+            # ``review/decision_reuse.зависими_за_повторна_проверка`` намира
+            # кои приети решения зависят от кое основание.
+            "preizpolzvane": self._reuse_audit(values),
         }
         self.accept()
 

@@ -78,6 +78,7 @@ def parameters_for_shape(
     *,
     production_length_cm: float | None = None,
     turn_angles_deg: Sequence[float] = (),
+    declared_allowance_cm: float | None = None,
 ) -> EngineShapeParameters:
     """Validate and canonicalize production dimensions for one Engine shape.
 
@@ -106,6 +107,7 @@ def parameters_for_shape(
                 lengths,
                 production_length_cm=total,
                 turn_angles_deg=turn_angles_deg,
+                declared_allowance_cm=declared_allowance_cm,
             )
         except F006AsymmetricHookError:
             raise
@@ -119,7 +121,9 @@ def parameters_for_shape(
             validation_source="LOCKED_MASTER_V0_3_1",
         )
 
-    return _parameters_from_engine_definition(shape, lengths, total)
+    return _parameters_from_engine_definition(
+        shape, lengths, total, declared_allowance_cm=declared_allowance_cm
+    )
 
 
 def expected_segment_codes(shape: ShapeDefinition) -> tuple[str, ...]:
@@ -133,6 +137,8 @@ def _parameters_from_engine_definition(
     shape: ShapeDefinition,
     lengths: tuple[float, ...],
     total: float,
+    *,
+    declared_allowance_cm: float | None = None,
 ) -> EngineShapeParameters:
     code = str(shape.code or "").strip().upper()
     segments = tuple(sorted(shape.segments, key=lambda item: int(item.index)))
@@ -178,7 +184,8 @@ def _parameters_from_engine_definition(
     calculated = sum(lengths)
     tolerance = _shape_total_tolerance(shape)
     if not segments_match_total(code, calculated, total, tolerance=tolerance,
-                                rounding_step=shape_bend_rounding_step(shape)):
+                                rounding_step=shape_bend_rounding_step(shape),
+                                declared_allowance_cm=declared_allowance_cm):
         raise EngineShapeParameterError(
             f"{code}: Engine сегментите дават {calculated:g} cm, "
             f"а производствената L е {total:g} cm."

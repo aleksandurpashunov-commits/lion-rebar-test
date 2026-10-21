@@ -34,6 +34,7 @@ from lion_rebar.export.frame_decisions import (
 )
 from lion_rebar.export.frame_detection import CATEGORY_SHEET_NAMES, DrawingFrame
 from lion_rebar.project.data_identity import DataIdentity
+from lion_rebar.session.operator_identity import НЕЗАЯВЕН
 
 
 class UnknownFrameDialog(QDialog):
@@ -47,7 +48,7 @@ class UnknownFrameDialog(QDialog):
         self._frames = list(frames)
         self._project_root = Path(project_root)
         self._identity = identity
-        self._operator = str(operator or "").strip() or "оператор"
+        self._operator = str(operator or "").strip() or НЕЗАЯВЕН
         self._category_boxes: list[QComboBox] = []
         self._note_edits: list[QLineEdit] = []
         self.decisions_made = 0

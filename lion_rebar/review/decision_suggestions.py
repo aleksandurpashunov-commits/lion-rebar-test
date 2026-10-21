@@ -25,6 +25,7 @@ from lion_rebar.session.decision_contract import (
     DECISION_EVENT_TYPES,
     JOURNAL_NAME,
     OUTBOX_NAME,
+    is_supported_decision_contract,
 )
 from lion_rebar.session.learning_pack import _decision_rows
 
@@ -635,7 +636,7 @@ def _eligible_evidence(
         )
         stable_id = _text(event.get("stable_event_id"))
         if (
-            envelope.get("schema") != DECISION_CONTRACT_SCHEMA
+            not is_supported_decision_contract(envelope.get("schema"))
             or _text(envelope.get("event_id")) != stable_id
             or _upper(envelope.get("event_type")) not in DECISION_EVENT_TYPES
         ):

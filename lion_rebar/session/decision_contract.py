@@ -9,8 +9,22 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+from lion_rebar.session.decision_fields import decision_fields
+from lion_rebar.utils.process_lock import exclusive_file_lock
 
-DECISION_CONTRACT_SCHEMA = "lion-rebar-human-decision/v2"
+
+#: Схемата, с която се ЗАПИСВА днес. v3 добавя петте полета от § 3.3
+#: (``change``, ``actor``, ``evidence``, ``decision_scope``, ``code_version``)
+#: и ``decision_kind``. Нищо не е премахнато спрямо v2.
+DECISION_CONTRACT_SCHEMA = "lion-rebar-human-decision/v3"
+DECISION_CONTRACT_SCHEMA_V2 = "lion-rebar-human-decision/v2"
+
+#: Схемите, които се ЧЕТАТ. Записано решение не губи силата си, защото кодът е
+#: научил нови полета: § 3.5 и § 7.6 — паметта не се подменя мълчаливо с празна.
+SUPPORTED_DECISION_CONTRACT_SCHEMAS = frozenset(
+    {DECISION_CONTRACT_SCHEMA, DECISION_CONTRACT_SCHEMA_V2}
+)
+
 DECISION_JOURNAL_SCHEMA = "lion-rebar-human-decision-journal/v2"
 DECISION_OUTBOX_SCHEMA = "lion-rebar-human-decision-outbox/v1"
 
@@ -31,11 +45,32 @@ DECISION_EVENT_TYPES = frozenset(
         "GROUP_UNDONE",
         "SIMILAR_APPLIED",
         "SIMILAR_UNDONE",
+        "ENGINEER_DECISION_WITHDRAWN",
     }
 )
 
+#: Оттегляне на ЕДНО инженерно решение.
+#:
+#: Дотук журналът можеше да ОТМЕНИ решение само с НОВО решение върху същата
+#: позиция (``supersedes_event_ids``) и да отмени ГРУПОВА операция
+#: (``GROUP_UNDONE`` / ``SIMILAR_UNDONE``). Нямаше как операторът да каже
+#: „това решение беше грешно и го махам", без да сложи друго на негово място.
+#:
+#: Преизползването прави това задължително: щом едно решение може да стане
+#: ОСНОВАНИЕ за предложение в друг чертеж, трябва да има и начин основанието
+#: да бъде обезсилено — иначе една грешка се разнася нататък.
+#:
+#: Оттеглянето е ДОПИСАНО събитие: нищо не се трие и историята остава четима.
+WITHDRAW_EVENT_TYPE = "ENGINEER_DECISION_WITHDRAWN"
+
+#: Най-късата приемлива обосновка за оттегляне. Същата мярка, с която работят
+#: оттеглянето на рамка (``export/operator_areas``) и на спорно владение.
+MIN_WITHDRAW_REASON_LENGTH = 3
+
 #: Undo-type events: never themselves superseded, and mark the operation inactive.
-UNDO_EVENT_TYPES = frozenset({"GROUP_UNDONE", "SIMILAR_UNDONE"})
+UNDO_EVENT_TYPES = frozenset(
+    {"GROUP_UNDONE", "SIMILAR_UNDONE", WITHDRAW_EVENT_TYPE}
+)
 
 #: Bulk/group-shaped events for the ``operation_kind`` classification below.
 BULK_EVENT_TYPES = frozenset({"BULK_APPROVED", "GROUP_APPLIED", "SIMILAR_APPLIED"})
@@ -46,6 +81,12 @@ OUTBOX_NAME = "decision_event_outbox.jsonl"
 
 def is_human_decision_event(event_type: str) -> bool:
     return str(event_type or "").strip().upper() in DECISION_EVENT_TYPES
+
+
+def is_supported_decision_contract(schema: Any) -> bool:
+    """Чете ли се плик с тази схема. Старите записи остават валидни."""
+
+    return str(schema or "") in SUPPORTED_DECISION_CONTRACT_SCHEMAS
 
 
 def positive_number(value: Any) -> float | None:
@@ -151,6 +192,22 @@ def append_project_decision_event(
     root = Path(project_root)
     working = root / "working"
     working.mkdir(parents=True, exist_ok=True)
+    # Четене на журнала, изчисляване на ревизията и дописването са ЕДНА
+    # критична секция. Атомарният запис пази файла от половинчато съдържание,
+    # но не пази решението: два процеса, прочели едно и също състояние, дават
+    # една и съща ревизия и един от двата набора ``supersedes`` е грешен
+    # (§ 7.4).
+    with exclusive_file_lock(working / JOURNAL_NAME):
+        return _append_locked(root, working, event_type, payload, occurred_at)
+
+
+def _append_locked(
+    root: Path,
+    working: Path,
+    event_type: str,
+    payload: Mapping[str, Any] | None,
+    occurred_at: str | None,
+) -> dict[str, Any]:
     project = _read_json(working / "project.json")
     safe_payload = _json_safe(dict(payload or {}))
     timestamp = occurred_at or datetime.now().astimezone().isoformat(timespec="seconds")
@@ -165,23 +222,36 @@ def append_project_decision_event(
     )
     handles = _decision_handles(safe_payload)
     prior = _read_unique_events(working / JOURNAL_NAME)
+    identity = _identity(project, safe_payload, root)
     revisions = [
         int(row.get("decision_revision") or 0)
         for row in prior.values()
         if set(_event_handles(row)) & set(handles)
+        and _same_drawing(row, identity)
     ]
     decision_revision = max(revisions, default=0) + 1
 
-    identity = _identity(project, safe_payload, root)
-    supersedes = sorted(
-        {
-            str(row.get("event_id"))
-            for row in prior.values()
-            if row.get("active", True)
-            and set(_event_handles(row)) & set(handles)
-            and str(row.get("event_type") or "") not in UNDO_EVENT_TYPES
-        }
-    )
+    # ОТМЯНАТА ВАЖИ САМО В РАМКИТЕ НА ЕДИН И СЪЩ ЧЕРТЕЖ.
+    #
+    # ``handle`` е самоличност на обект В ЕДИН DXF. Два различни чертежа
+    # спокойно носят един и същ низ: измерено, ``s-8`` и ``s-9`` имат
+    # ``81E9::BJ-FI-L`` и в двата. Дотук отмяната се изчисляваше САМО по
+    # handle, затова решение в един проект обезсилваше чуждо решение със
+    # същия handle, щом двете се окажат в едно досие (учебен пакет, пренесена
+    # памет, донорски източник за преизползване).
+    #
+    # Намерено на 02.10.2026 при приемателния опит за преизползване: приемането
+    # на предложение в целевия проект отмени ДОНОРСКОТО решение и веднага
+    # обяви собственото си основание за отпаднало.
+    superseded_rows = [
+        row
+        for row in prior.values()
+        if row.get("active", True)
+        and set(_event_handles(row)) & set(handles)
+        and str(row.get("event_type") or "") not in UNDO_EVENT_TYPES
+        and _same_drawing(row, identity)
+    ]
+    supersedes = sorted({str(row.get("event_id")) for row in superseded_rows})
     content_key = {
         "event_type": event_name,
         "identity": identity,
@@ -218,6 +288,18 @@ def append_project_decision_event(
         "source_identity": identity,
         "payload": safe_payload,
     }
+    # Петте полета от § 3.3 са ИЗВЕДЕНИ от същите входове, от които се прави
+    # ``event_id``. Затова не влизат в ``content_key``: идентификаторът на едно
+    # и също решение остава същият и повторната доставка пак е една доставка.
+    envelope.update(
+        decision_fields(
+            event_name,
+            safe_payload,
+            annotation_handles=handles,
+            supersedes_event_ids=supersedes,
+            superseded_events=superseded_rows,
+        )
+    )
 
     if stable_id not in prior:
         _append_jsonl_fsync(
@@ -255,6 +337,102 @@ def mark_project_decision_delivered(
     )
 
 
+class DecisionWithdrawError(RuntimeError):
+    """Оттеглянето е отказано: липсва автор, мотив или такова решение."""
+
+
+def withdraw_project_decision(
+    project_root: Path | str,
+    event_ids: Iterable[str],
+    *,
+    actor: str,
+    reason: str,
+    occurred_at: str | None = None,
+) -> dict[str, Any]:
+    """Оттегля изброените инженерни решения с автор и мотив.
+
+    Нищо не се трие: дописва се събитие ``ENGINEER_DECISION_WITHDRAWN``, което
+    носи ``withdraws_event_ids``. Оттеглените решения спират да бъдат
+    доказателство за предложение веднага — и в указателя за преизползване, и в
+    стария строг указател (оттеглянето влиза в ``supersedes_event_ids``, тоест
+    и двата пътя го виждат).
+
+    Отказва се, когато липсва автор или мотив и когато подаденото ``event_id``
+    не е живо инженерно решение в това досие: оттегляне на несъществуващо
+    решение би било мълчалив запис без последствие.
+    """
+
+    root = Path(project_root)
+    искани = [str(стойност).strip() for стойност in event_ids if str(стойност or "").strip()]
+    if not искани:
+        raise DecisionWithdrawError("Няма подадено решение за оттегляне.")
+    if not str(actor or "").strip():
+        raise DecisionWithdrawError("Липсва автор на оттеглянето.")
+    if len(str(reason or "").strip()) < MIN_WITHDRAW_REASON_LENGTH:
+        raise DecisionWithdrawError(
+            "Обосновката за оттегляне е задължителна "
+            f"(поне {MIN_WITHDRAW_REASON_LENGTH} знака)."
+        )
+    налични = _read_unique_events(root / "working" / JOURNAL_NAME)
+    липсващи = [ид for ид in искани if ид not in налични]
+    if липсващи:
+        raise DecisionWithdrawError(
+            "Няма такова решение в досието: " + ", ".join(липсващи)
+        )
+    негодни = [
+        ид
+        for ид in искани
+        if str(налични[ид].get("event_type") or "").upper() != "ENGINEER_RESOLVED"
+    ]
+    if негодни:
+        raise DecisionWithdrawError(
+            "Оттегля се само инженерно решение: " + ", ".join(негодни)
+        )
+    handles = sorted({
+        str(стойност)
+        for ид in искани
+        for стойност in _event_handles(налични[ид])
+        if str(стойност or "").strip()
+    })
+    първото = налични[искани[0]]
+    payload = {
+        "withdraws_event_ids": искани,
+        "annotation_handles": handles,
+        "annotation_handle": handles[0] if handles else None,
+        "annotation_text": str(
+            _mapping(първото.get("payload")).get("annotation_text") or ""
+        ),
+        "actor": str(actor).strip(),
+        "reason": str(reason).strip(),
+        "reason_code": "DECISION_WITHDRAWN",
+    }
+    return append_project_decision_event(
+        root, WITHDRAW_EVENT_TYPE, payload, occurred_at=occurred_at
+    )
+
+
+def withdrawn_decision_ids(project_root: Path | str) -> dict[str, dict[str, Any]]:
+    """Кои ``event_id`` са оттеглени и с какъв мотив — само четене."""
+
+    резултат: dict[str, dict[str, Any]] = {}
+    for envelope in _read_jsonl(Path(project_root) / "working" / JOURNAL_NAME):
+        if str(envelope.get("event_type") or "").upper() != WITHDRAW_EVENT_TYPE:
+            continue
+        payload = _mapping(envelope.get("payload"))
+        for ид in payload.get("withdraws_event_ids") or []:
+            резултат[str(ид)] = {
+                "withdrawn_by": str(envelope.get("event_id") or ""),
+                "at": str(envelope.get("occurred_at") or ""),
+                "reason": str(payload.get("reason") or ""),
+                "actor": str(
+                    _mapping(envelope.get("actor")).get("recorded_as")
+                    or payload.get("actor")
+                    or ""
+                ),
+            }
+    return резултат
+
+
 def pending_project_decision_events(project_root: Path | str) -> list[dict[str, Any]]:
     path = Path(project_root) / "working" / OUTBOX_NAME
     if not path.is_file():
@@ -286,9 +464,12 @@ def flush_project_decision_outbox(
     for envelope in pending_project_decision_events(root):
         event_id = str(envelope.get("event_id") or "")
         # Repair the narrow crash window between PENDING fsync and journal fsync.
-        journal = _read_unique_events(root / "working" / JOURNAL_NAME)
-        if event_id and event_id not in journal:
-            _append_jsonl_fsync(root / "working" / JOURNAL_NAME, dict(envelope))
+        # Проверката „няма го в журнала" и дописването са под заключване: иначе
+        # два процеса, които поправят един и същ прозорец, дописват два пъти.
+        with exclusive_file_lock(root / "working" / JOURNAL_NAME):
+            journal = _read_unique_events(root / "working" / JOURNAL_NAME)
+            if event_id and event_id not in journal:
+                _append_jsonl_fsync(root / "working" / JOURNAL_NAME, dict(envelope))
         session_id = deliver(envelope)
         mark_project_decision_delivered(root, event_id, session_id=session_id)
         delivered_count += 1
@@ -321,6 +502,26 @@ def _identity(project: Mapping[str, Any], payload: Mapping[str, Any], root: Path
         "engine_version": project.get("engine_version"),
         "engine_sha256": project.get("engine_sha256"),
     }
+
+
+def _same_drawing(row: Mapping[str, Any], identity: Mapping[str, Any]) -> bool:
+    """Един и същ ЧЕРТЕЖ ли описват двата записа.
+
+    Сравнява се по това, което е налично: проект, отпечатък на източника и
+    редакция (``source_generation_id``). Стар запис без самоличност се брои за
+    СВОЙ — иначе една добавка в кода би обезсилила отмяната на цялата
+    натрупана история.
+    """
+
+    свое = _mapping(row.get("source_identity"))
+    if not свое:
+        return True
+    for име in ("project_id", "source_sha256", "source_generation_id"):
+        наше = str(identity.get(име) or "")
+        чуждо = str(свое.get(име) or "")
+        if наше and чуждо and наше != чуждо:
+            return False
+    return True
 
 
 def _decision_handles(payload: Mapping[str, Any]) -> list[str]:

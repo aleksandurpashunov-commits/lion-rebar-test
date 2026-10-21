@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from lion_rebar.session import rule_activation
 from lion_rebar.config.constants import APP_VERSION
 from lion_rebar.diagnostics.bundle import create_diagnostic_bundle
 from lion_rebar.engineer_decision import (
@@ -116,7 +117,32 @@ def build_learning_pack(
     summary["active_decision_count"] = len(active_decisions)
     summary["candidate_count"] = len(rule_candidates)
     summary["calibration_group_count"] = len(calibration_evidence)
-    summary["activated_rule_count"] = 0
+    # АКТИВИРАНЕТО вече се ИЗЧИСЛЯВА, не е литерал.
+    #
+    # До 30.09.2026 тук стоеше `summary["activated_rule_count"] = 0`. Числото
+    # оставаше нула независимо от доказателствата и никой не можеше да види какво
+    # точно липсва на кандидата. Собственик, 30.09.2026: „Не го оставяй постоянно
+    # изключен чрез `activated_rule_count = 0`. Запази изключения режим като
+    # валидна контролна конфигурация."
+    #
+    # Критериите са в `session/rule_activation.py`, всеки проверим от данните на
+    # кандидата; повторенията НЕ са критерий.
+    # `LION_REBAR_RULE_ACTIVATION=off` дава нула и записва режима — това е
+    # контролната конфигурация, не мълчание.
+    активиране = rule_activation.обобщи(rule_candidates)
+    for кандидат, присъда in zip(rule_candidates, активиране["verdicts"]):
+        кандидат["activation"] = присъда
+        кандидат["status"] = (
+            "ACTIVATED_IN_SCOPE_%s" % присъда.get("scope")
+            if присъда.get("activated")
+            else "CANDIDATE_ONLY_REQUIRES_AUDIT_AND_REGRESSION"
+        )
+    summary["activated_rule_count"] = активиране["activated_rule_count"]
+    summary["rule_activation"] = {
+        "mode": активиране["mode"],
+        "blocked_by_counts": активиране["blocked_by_counts"],
+    }
+    decision_metrics["activated_rule_count"] = активиране["activated_rule_count"]
     files["session/summary.json"] = _json_bytes(summary)
     files["session/decision_metrics.json"] = _json_bytes(
         {"schema": "lion-rebar-decision-metrics/v1", **decision_metrics}
@@ -1150,6 +1176,10 @@ def _decision_metrics(decisions: list[dict[str, Any]]) -> dict[str, Any]:
         "auto_decision_count": sum(str(row.get("observation_mode") or "") == "AUTO" for row in current),
         "incomplete_instance_count": sum(not bool(row.get("complete_production_resolution")) for row in current),
         "conflict_instance_count": len({str(row.get("instance_id") or "") for row in current if row.get("decision_conflict")}),
+        # Стойността по подразбиране е нула, защото тези метрики се смятат ПРЕДИ
+        # кандидатите. Истинското число се презаписва в `build_learning_pack`
+        # след присъдата на `session/rule_activation.py` — там е единственото
+        # място, което знае дали кандидатът има право на прилагане.
         "activated_rule_count": 0,
     }
 

@@ -158,6 +158,19 @@ def render_shape_png(
 
     master_engine_preflight()
     code = str(shape.code or "").strip().upper()
+    # Продуктово решение (собственик, 28.09.2026): стандартният режим
+    # възпроизвежда ДОКАЗАНАТА ФОРМА ОТ ПРОЕКТА. Заключеният MASTER рисувач
+    # чертае шаблона на кода и подадените завои не влияят на геометрията му —
+    # затова, когато позицията носи завои, РАЗЛИЧНИ от шаблонните, рисунката
+    # се прави от самите завои. MASTER остава за преизползване: кодът, името и
+    # всичко, което проектът не доказва.
+    if _turns_contradict_shape(shape, turn_angles_deg):
+        from lion_rebar.export.proven_form import начертай
+
+        return _rasterize_svg(
+            начертай(list(segment_lengths_cm), list(turn_angles_deg)),
+            path, shape_code=code,
+        )
     if code in LOCKED_MASTER_DRAWN_CODES:
         parameters = parameters_from_segments(
             code,
@@ -188,6 +201,52 @@ def render_shape_png(
 #: Формите със СОБСТВЕНА рисунка в заключения MASTER: F001..F008 от
 #: ``geometry()``, плюс F006 и F009 с отделните си рисувачи.
 LOCKED_MASTER_DRAWN_CODES = frozenset(f"F{index:03d}" for index in range(1, 10))
+
+#: Под колко градуса разликата между доказания и шаблонния завой се смята за
+#: същия ъгъл. По-малко би пращало през другия рисувач всяко закръгляне.
+_TURN_MATCH_TOLERANCE_DEG = 5.0
+
+
+def shape_turn_angles_deg(shape: ShapeDefinition) -> tuple[float, ...]:
+    """Завоите на самата форма, със знак: положителен = наляво.
+
+    Четат се от дефиницията, не от таблица в кода — същият източник, от който
+    рисува и редакторът.
+    """
+
+    изход: list[float] = []
+    for сегмент in sorted(shape.segments, key=lambda с: int(с.index)):
+        ъгъл = getattr(сегмент, "bend_after_deg", None)
+        if ъгъл is None:
+            continue
+        посока = str(getattr(сегмент, "bend_direction", "") or "").strip().upper()
+        изход.append(float(ъгъл) if посока.startswith("L") else -float(ъгъл))
+    return tuple(изход)
+
+
+def _turns_contradict_shape(
+    shape: ShapeDefinition,
+    turn_angles_deg: Sequence[float],
+) -> bool:
+    """Противоречат ли подадените завои на шаблона на формата.
+
+    Празни или несъвпадащи по брой завои значат „няма какво да се сравнява" —
+    тогава рисува шаблонът, както досега.
+    """
+
+    подадени = [
+        float(с) for с in (turn_angles_deg or ())
+        if isinstance(с, (int, float))
+    ]
+    if len(подадени) < 1:
+        return False
+    шаблонни = shape_turn_angles_deg(shape)
+    if len(шаблонни) != len(подадени):
+        return False
+    return any(
+        abs(abs(а) - abs(б)) > _TURN_MATCH_TOLERANCE_DEG
+        for а, б in zip(подадени, шаблонни)
+    )
 
 def _canonical_drawing_order(code: str, lengths: Sequence[float]) -> tuple[float, ...]:
     """Редът, в който заключената форма иска да бъде НАРИСУВАНА.

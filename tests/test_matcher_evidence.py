@@ -465,3 +465,89 @@ def test_diameter_coded_layer_uses_standard_score_gap_threshold() -> None:
     assert separation.band is EvidenceBand.CLEAR
     assert separation.value["score_advantage_threshold"] == pytest.approx(0.04)
     assert separation.value["resolution_basis"] == "SCORE_GAP"
+
+
+def test_hooked_closure_stays_manual_without_dimension_confirmation() -> None:
+    """Контрапримерът остава: без второ доказателство спирачката е налице.
+
+    Пази се заедно с теста по-долу. Промяната от етап 5 НЕ облекчава
+    ``HOOKED_CLOSURE`` — прави я условна само при потвърдени собствени коти.
+    Всяко друго състояние на присъдата пак е ръчно потвърждение.
+    """
+
+    from lion_rebar.dxf.f006_owned_dimension_confirmation import ПОЛЕ
+
+    for присъда in (
+        None,
+        {"status": "DISAGREES"},
+        {"status": "NO_OWNED_DIMENSIONS"},
+        {"status": "EQUATION_OPEN"},
+    ):
+        decision = evaluate_matcher_candidate(
+            _candidate(review_reason_codes=["HOOKED_CLOSURE"], **{ПОЛЕ: присъда}),
+            context=_context(),
+            calibration=_calibration(),
+        )
+        assert decision.disposition is MatcherDisposition.MANUAL, присъда
+        assert "HOOKED_CLOSURE" in {gate.code for gate in decision.safety_gates}
+
+
+def test_hooked_closure_confirmed_by_owned_dimensions_is_not_manual() -> None:
+    """Два независими източника за същия вектор махат точно тази спирачка.
+
+    ``HOOKED_CLOSURE`` иска ръчно потвърждение, защото затворената MASTER форма
+    е сравнена при РАЗШИРЕН допуск на отношенията (0,20–0,25 вместо 0,05).
+    Когато котите на проектанта върху самия контур дават същия производствен
+    вектор, решението не стъпва на този допуск. Другите спирачки не се пипат —
+    вж. следващия тест.
+    """
+
+    from lion_rebar.dxf.f006_owned_dimension_confirmation import ПОЛЕ, ПОТВЪРДЕНО
+
+    decision = evaluate_matcher_candidate(
+        _candidate(
+            review_reason_codes=["HOOKED_CLOSURE"],
+            **{ПОЛЕ: {
+                "status": ПОТВЪРДЕНО,
+                "owner_geometry_handle": "G1",
+                "dimension_handles": ["D1", "D2", "D3"],
+            }},
+        ),
+        context=_context(),
+        calibration=_calibration(),
+    )
+
+    assert "HOOKED_CLOSURE" not in {gate.code for gate in decision.safety_gates}
+    assert decision.disposition is not MatcherDisposition.MANUAL
+    # потвърждението е ДОКАЗАТЕЛСТВО, не спирачка: _resolve_disposition връща
+    # MANUAL при всяка налична спирачка, затова записано като gate то би
+    # блокирало точно това, което разрешава
+    доказателство = _evidence(decision, "HOOKED_CLOSURE_DIMENSIONS_CONFIRMED")
+    assert доказателство.band is EvidenceBand.EXACT
+    assert доказателство.source == "DXF_OWNED_DIMENSIONS"
+    assert доказателство.value["dimension_handles"] == ["D1", "D2", "D3"]
+
+
+def test_potvurdenite_koti_ne_mahat_drugite_spirachki() -> None:
+    """Потвърждението важи САМО за отворените куки.
+
+    Реалният състав в корпуса е `HOOKED_CLOSURE + WEAK_CANDIDATE_SEPARATION`
+    при 69 позиции. Те трябва да останат за оператора.
+    """
+
+    from lion_rebar.dxf.f006_owned_dimension_confirmation import ПОЛЕ, ПОТВЪРДЕНО
+
+    decision = evaluate_matcher_candidate(
+        _candidate(
+            review_reason_codes=["HOOKED_CLOSURE"],
+            mirror_requires_review=True,
+            **{ПОЛЕ: {"status": ПОТВЪРДЕНО}},
+        ),
+        context=_context(),
+        calibration=_calibration(),
+    )
+
+    коди = {gate.code for gate in decision.safety_gates}
+    assert "HOOKED_CLOSURE" not in коди
+    assert "MIRROR_NOT_PERMITTED" in коди
+    assert decision.disposition is MatcherDisposition.MANUAL

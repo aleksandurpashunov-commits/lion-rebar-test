@@ -92,19 +92,143 @@ class BatchGeometryWorker(QObject):
         # ``build_batch_geometry_report``: анализът остава чиста функция на
         # входа си, без да ходи до файловата система сам.
         self._operator_areas = self._load_operator_areas()
+        # Решенията за спорно владение — по същата причина се четат ТУК.
+        self._ownership_decisions = self._load_ownership_decisions()
         self._cancel_event = threading.Event()
 
+    def _load_ownership_decisions(self) -> dict:
+        """Решенията кой надпис владее спорната геометрия (§ 6.2).
+
+        Нечетимо досие СПИРА анализа по същата причина като при рамките:
+        мълчаливата нула би върнала 52-те позиции в спор, без операторът да
+        научи, че решенията му не са прочетени.
+        """
+
+        from lion_rebar.export.ownership_decisions import (
+            OwnershipDecisionError,
+            load_ownership_decisions,
+        )
+
+        if self._project is None:
+            return {}
+        try:
+            return dict(
+                load_ownership_decisions(
+                    Path(self._project.root), self._data_identity
+                )
+            )
+        except OwnershipDecisionError:
+            raise
+        except Exception:
+            return {}
+
     def _load_operator_areas(self) -> tuple:
-        from lion_rebar.export.operator_areas import load_operator_areas
+        """Начертаните рамки. Нечетимо досие СПИРА анализа, не се подминава.
+
+        Дотук всяко изключение тук връщаше нула области, с обяснението че
+        анализът не бива да пада заради повредено помощно досие. Измереното
+        последствие: при нечетим файл анализът върви, както ако операторът не
+        беше чертал нищо — оградените от него позиции пак излизат без греда и
+        изглежда, че е сбъркало разпознаването. Мълчаливата нула мени
+        инженерния резултат, а операторът не научава защо (§ 7.6).
+
+        Затова отказът на самото хранилище (``OperatorAreaError``) се вдига.
+        Останалите неочаквани грешки продължават да се подминават: липсата на
+        областите е по-малкото зло от падането на целия анализ — но повреден
+        файл не е липса.
+        """
+
+        from lion_rebar.export.operator_areas import (
+            OperatorAreaError,
+            load_operator_areas,
+        )
 
         if self._project is None:
             return ()
         try:
             return load_operator_areas(Path(self._project.root), self._data_identity)
+        except OperatorAreaError:
+            raise
         except Exception:
-            # Анализът не бива да пада заради повредено помощно досие --
-            # без областите той просто работи както преди тях.
             return ()
+
+    def _load_decision_memory(self):
+        """Указателят с вече потвърдени решения — за НИВО Б в самия анализ.
+
+        Чете се ТУК, както и начертаните области, за да остане
+        ``build_batch_geometry_report`` чиста функция на входа си. Проектното
+        досие е авторитетно; сесийната база е допълнителен източник и липсата ѝ
+        не е грешка.
+
+        Собственик, 30.09.2026: „Паметта трябва да участва в нормалния анализ,
+        преди случаят да бъде изпратен за ръчна работа."
+        """
+
+        import os
+
+        from lion_rebar.review.decision_suggestions import DecisionSuggestionIndex
+
+        if self._project is None:
+            return None
+        # ЗАПИСАН КОНТРОЛЕН РЕЖИМ за приемателния опит по § 8.3: „сравнение при
+        # изключена памет, празна памет и памет от разрешените обучаващи
+        # случаи — при един и същ код и вход". Без него режим А не може да се
+        # получи, без да се мени кодът между прогоните — а точно това опитът
+        # забранява. По подразбиране паметта е ВКЛЮЧЕНА.
+        if str(os.environ.get("LION_REBAR_DECISION_MEMORY", "")).strip().lower() in {
+            "off",
+            "0",
+            "false",
+        }:
+            return None
+        try:
+            # Само ПРОЕКТНОТО досие: то е авторитетно за решенията
+            # (`working/decision_events_v2.jsonl`), а работникът не носи сесийна
+            # база. Сесийната е допълнителен източник и се ползва там, където я
+            # има — в редактора през прозореца.
+            return DecisionSuggestionIndex.from_sources(
+                session_db_path=None,
+                project_root=Path(self._project.root),
+            )
+        except Exception:
+            # Паметта никога не спира анализа: без указател той работи както
+            # преди нея, а причината се вижда в предложенията (`INELIGIBLE`).
+            return None
+
+    def _памет_е_изключена(self) -> bool:
+        """Записаният контролен ключ за режим А на приемателния опит."""
+
+        import os
+
+        return str(
+            os.environ.get("LION_REBAR_DECISION_MEMORY", "")
+        ).strip().lower() in {"off", "0", "false"}
+
+    def _load_decision_reuse(self):
+        """Указателят за ПРЕИЗПОЛЗВАНЕ с разделени етапи.
+
+        Отделен е от ``_load_decision_memory``: старият указател търси по
+        изхода на разпознаването, този — само по входните доказателства. И
+        двата се подават на анализа, за да е видимо в отчета КОЙ какво казва
+        за един и същ ред.
+
+        ``LION_REBAR_DECISION_REUSE_DONORS`` (пътища, разделени с ``;``) сочи
+        РАЗРЕШЕНИ донорски проекти. Без него се чете само своето досие:
+        решения не се наследяват между проекти без изрично разрешение.
+        """
+
+        from lion_rebar.review.decision_reuse import Указател, донорски_пътища
+
+        if self._project is None or self._памет_е_изключена():
+            return None
+        донори = донорски_пътища()
+        try:
+            return Указател.от_проект(
+                Path(self._project.root), допълнителни=донори
+            )
+        except Exception:
+            # Преизползването никога не спира анализа.
+            return None
 
     def request_cancel(self) -> None:
         """Thread-safe cancellation request callable directly from the GUI."""
@@ -129,6 +253,9 @@ class BatchGeometryWorker(QObject):
                 skip_approved=True,
                 operator_areas=self._operator_areas,
                 checkpoint_parent=_local_checkpoint_parent(),
+                decision_memory=self._load_decision_memory(),
+                decision_reuse=self._load_decision_reuse(),
+                ownership_decisions=self._ownership_decisions,
             )
         except Exception as exc:
             self.failed.emit(str(exc), traceback.format_exc())

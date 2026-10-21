@@ -115,26 +115,98 @@ def отчет_от_junit(път: Path) -> dict[str, Any]:
     return цели
 
 
+#: Папките, от които се вземат НЕПРОСЛЕДЕНИТЕ продуктови файлове в режим
+#: ``--dirty-ok``. Изброени са поименно: търсене „всичко непроследено" би
+#: вкарало работните материали на друг агент и чужди артефакти.
+ПРОДУКТОВИ_ПАПКИ = ("lion_rebar", "tests", "tools", "docs", "engine_updates")
+
+#: Какво НЕ влиза, дори да е в продуктова папка.
+ИЗКЛЮЧЕНИ_ЧАСТИ = ("__pycache__", ".venv", ".git", ".agents", ".codex")
+
+
+def непроследени_продуктови_файлове() -> tuple[str, ...]:
+    """Новите продуктови файлове, които git още не проследява.
+
+    Нужно е САМО за пакет от незаписано дърво (``--dirty-ok``): иначе
+    манифестът би описал стар код и би премълчал новите модули.
+    """
+
+    записи = [
+        ред[3:].strip()
+        for ред in _git("status", "--porcelain").splitlines()
+        if ред.startswith("?? ")
+    ]
+    намерени: set[str] = set()
+    for запис in записи:
+        ако_е_папка = запис.endswith("/")
+        име = запис.rstrip("/")
+        if any(част in име for част in ИЗКЛЮЧЕНИ_ЧАСТИ):
+            continue
+        корен_на_записа = име.split("/")[0]
+        път = КОРЕН / име
+        if not ако_е_папка and път.is_file():
+            if корен_на_записа in ПРОДУКТОВИ_ПАПКИ:
+                намерени.add(име)
+            continue
+        if корен_на_записа not in ПРОДУКТОВИ_ПАПКИ:
+            continue
+        for файл in път.rglob("*"):
+            if not файл.is_file():
+                continue
+            относителен = файл.relative_to(КОРЕН).as_posix()
+            if any(част in относителен for част in ИЗКЛЮЧЕНИ_ЧАСТИ):
+                continue
+            намерени.add(относителен)
+    return tuple(sorted(име for име in намерени if име != СОБСТВЕНОТО_ИМЕ))
+
+
 def построй(
     *,
     version: str,
     evidence: Iterable[str] = (),
     tests: Path | None = None,
+    dirty_ok: bool = False,
 ) -> dict[str, Any]:
+    """Манифестът на ДОСТАВЕНИТЕ файлове.
+
+    По подразбиране иска ЧИСТО дърво: манифест на непроследено състояние не
+    значи нищо.
+
+    ``dirty_ok`` е за пакет от РАБОТНО дърво — точно случаят на тестова версия,
+    която не е комитвана. Тогава манифестът:
+
+    * хешира и непроследените ПРОДУКТОВИ файлове, за да описва истинския код;
+    * записва ``uncommitted_changes`` и ``commit_is_base_only``, за да не може
+      комитът да се чете като „това е кодът";
+    * изброява мръсните проследени файлове поименно.
+
+    Това НЕ е разхлабване: манифестът пак описва точните байтове, които се
+    доставят — само казва честно, че комитът е само БАЗА.
+    """
+
     чисто, мръсни = дървото_е_чисто()
-    if not чисто:
+    if not чисто and not dirty_ok:
         raise МанифестError(
             "работното дърво има неприключени промени — манифест на непроследено "
             "състояние не значи нищо:\n" + мръсни
         )
-    файлове = проследени_файлове()
+    файлове = list(проследени_файлове())
     манифест: dict[str, Any] = {
         "schema": СХЕМА,
         "version": version,
         "commit": _git("rev-parse", "HEAD").strip(),
-        "files": сумите(файлове),
-        "evidence_files": list(evidence),
     }
+    if not чисто:
+        непроследени = непроследени_продуктови_файлове()
+        файлове.extend(непроследени)
+        манифест["uncommitted_changes"] = True
+        манифест["commit_is_base_only"] = True
+        манифест["dirty_tracked_files"] = [
+            ред[3:].strip() for ред in мръсни.splitlines() if ред.strip()
+        ]
+        манифест["untracked_product_files"] = list(непроследени)
+    манифест["files"] = сумите(sorted(set(файлове)))
+    манифест["evidence_files"] = list(evidence)
     if tests is not None:
         манифест["tests"] = отчет_от_junit(tests)
     return манифест
@@ -169,6 +241,12 @@ def main() -> int:
     parser.add_argument("--version", default=f"v{APP_VERSION}")
     parser.add_argument("--tests", type=Path, default=None, help="junitxml от пакета")
     parser.add_argument("--evidence", nargs="*", default=[])
+    parser.add_argument(
+        "--dirty-ok",
+        action="store_true",
+        help="пакет от РАБОТНО дърво: хешира и непроследените "
+             "продуктови файлове и отбелязва, че комитът е само база",
+    )
     args = parser.parse_args()
 
     try:
@@ -188,6 +266,7 @@ def main() -> int:
             version=args.version,
             evidence=args.evidence,
             tests=args.tests,
+            dirty_ok=args.dirty_ok,
         )
         if args.write:
             МАНИФЕСТ.write_text(
@@ -195,7 +274,8 @@ def main() -> int:
                 encoding="utf-8",
             )
             print(f"ЗАПИСАН  {МАНИФЕСТ.name}")
-        print(f"версия {манифест['version']}  комит {манифест['commit'][:7]}  "
+        print(f"версия {манифест['version']}  комит {манифест['commit'][:7]}"
+              f"{' (само база)' if манифест.get('commit_is_base_only') else ''}  "
               f"файлове {len(манифест['files'])}")
         if "tests" in манифест:
             отчет = манифест["tests"]

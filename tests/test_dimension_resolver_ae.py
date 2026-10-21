@@ -742,6 +742,19 @@ def test_cross_axis_exclusion_is_off_for_local_matching_by_default() -> None:
     Глобално приложено, правилото правеше хоризонтален прът от 742 cm
     „кандидат" на 36N8x295 в s-11: махнато грешно тълкуване оставяше
     единствено друго грешно. Включването навсякъде изисква ново измерване.
+
+    ПРОМЕНЕН НА ЕТАП 6, с обосновка. Старото твърдение беше
+    ``assert any("OFFSET4" in row.text_handles ...)`` — косвен белег, че
+    правилото за напречните коти е изключено по подразбиране. То обаче
+    изискваше грешното тълкуване (146, 4, 320) да продължава да се получава.
+
+    Сега досметнатата стойност се проверява срещу начертания участък
+    (``_inferred_value_matches_drawing``, 6,0 cm). Начертаните участъци са
+    [110,0; 40,2; 320,0]; отместването 4 дава досметнато 146 при начертано 110
+    и пада. Измерено: и четирите оцелели тълкувания дават ВЕРНИЯ вектор.
+
+    Обхватът на правилото за напречните коти не е пипан — него пази
+    ``test_offset_dimension_across_a_reduction_never_governs_a_segment_length``.
     """
 
     shape = ShapeDefinition(
@@ -763,4 +776,9 @@ def test_cross_axis_exclusion_is_off_for_local_matching_by_default() -> None:
         declared_length_cm=470.0,
     )
 
-    assert any("OFFSET4" in row.text_handles for row in evidence)
+    # Котата на отместването пак ВЛИЗА в оценката (правилото за напречните коти
+    # е изключено по подразбиране), но тълкуването с нея вече не оцелява:
+    # досметнатото 146 не се потвърждава от начертаните 110.
+    assert evidence, "случаят трябва да остане разрешим"
+    assert {row.segment_lengths_cm for row in evidence} == {(110.0, 40.0, 320.0)}
+    assert all("OFFSET4" not in row.text_handles for row in evidence)

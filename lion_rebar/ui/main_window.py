@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
@@ -12,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from time import perf_counter
 
-from PySide6.QtCore import QSettings, Qt, QThread
+from PySide6.QtCore import QObject, QSettings, Qt, QThread, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QColor, QFont, QGuiApplication, QKeySequence, QPen
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -27,6 +28,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QProgressDialog,
+    QSizePolicy,
     QToolBar,
 )
 
@@ -41,7 +43,7 @@ from lion_rebar.project.review_recovery import (
     ReviewRecoveryDecision,
     decide_review_entry,
 )
-from lion_rebar.config.constants import APP_NAME, APP_VERSION
+from lion_rebar.config.constants import APP_EDITION, APP_NAME, APP_VERSION
 from lion_rebar.diagnostics import (
     append_feedback_event,
     create_diagnostic_bundle,
@@ -77,6 +79,7 @@ from lion_rebar.review_center_model import (
     load_review_report,
     missing_master_reason,
 )
+from lion_rebar.review.bulk_member_verdicts import bulk_member_verdicts
 from lion_rebar.engine.repository import EngineRepository, EngineRepositoryError
 from lion_rebar.engine.shape_index import EngineShapeIndex
 from lion_rebar.engineer_decision import (
@@ -134,10 +137,45 @@ from lion_rebar.ui.import_report import ImportReportDialog
 from lion_rebar.ui.layer_panel import LayerPanel
 from lion_rebar.ui.manual_form_assignment_dialog import ManualFormAssignmentDialog
 from lion_rebar.ui.rebar_inventory_dialog import RebarInventoryDialog
-from lion_rebar.ui.review_center import ReviewCenterDialog
+from lion_rebar.ui.review_center import ReviewCenterDialog, ReviewStateError
 from lion_rebar.ui.batch_geometry_worker import BatchGeometryWorker
+from lion_rebar.session.operator_identity import (
+    НЕЗАЯВЕН,
+    OperatorIdentityError,
+    claimed_operator,
+    declare_operator,
+)
 from lion_rebar.utils.app_paths import AppPaths
-from lion_rebar.utils.files import safe_filename
+from lion_rebar.utils.files import atomic_write_text, safe_filename
+from lion_rebar.utils.process_lock import exclusive_file_lock
+
+
+def _locked_project_file(relative: str):
+    """Методът държи изключително заключване върху този проектен файл.
+
+    Шестте четене-промяна-запис в този прозорец минават през
+    ``atomic_write_text``: файлът никога не е наполовина записан. Това не пази
+    РЕШЕНИЕТО — два процеса, прочели едно и също състояние, записват две пълни,
+    но взаимно изключващи се версии и една от двете изчезва (§ 7.4 от заданието
+    от 30.09.2026).
+
+    Заключването се взема за целия метод, защото четенето и записът са в двата
+    му края. Без отворен проект пътят не е известен и методът върви както преди
+    — той и без това вдига грешка за липсващия проект.
+    """
+
+    def обвий(func):
+        @functools.wraps(func)
+        def вътре(self, *args, **kwargs):
+            project = getattr(self, "project", None)
+            if project is None:
+                return func(self, *args, **kwargs)
+            with exclusive_file_lock(Path(project.root) / relative):
+                return func(self, *args, **kwargs)
+
+        return вътре
+
+    return обвий
 
 
 def _blocking_integrity_issue_text(result, lifecycle_blockers=()) -> str:
@@ -409,69 +447,62 @@ def operator_area_preview(
     филтърът не правеше нищо — точно тогава дефектът хапеше.
     """
 
-    from lion_rebar.dxf.batch_geometry_report import _annotation_class
-    from lion_rebar.dxf.recognition_policy import RecognitionPolicy
-    from lion_rebar.dxf.text_parser import parse_rebar_text
-    from lion_rebar.export.excel_export import (
-        _assign_beam_label,
-        _detect_beam_labels,
-        _entity_insert,
+    from lion_rebar.export.operator_area_members import (
+        ПРИЕТИ,
+        ПРЕМЕСТЕН,
+        area_member_verdicts,
     )
-    from lion_rebar.export.frame_detection import (
-        assign_point_to_frame,
-        detect_drawing_frames,
-    )
-    from lion_rebar.export.operator_areas import KIND_BEAM, region_contains
-
-    resolved = (
-        policy
-        if isinstance(policy, RecognitionPolicy)
-        else RecognitionPolicy.from_settings(policy)
-    )
-    allowed = {"BLOCK_ATTR_TEXT"}
-    if resolved.include_text_mtext_annotations:
-        allowed.update({"TEXT", "MTEXT"})
 
     try:
-        records = list(entities)
-        frames = detect_drawing_frames(records)
-        labels = _detect_beam_labels(records, frames)
+        членове = area_member_verdicts(
+            entities=list(entities),
+            policy=policy,
+            box=tuple(box),
+            bent_around=tuple(bent_around),
+            kind=kind,
+            title_handle=title_handle,
+        )
     except Exception:  # noqa: BLE001 - прегледът не бива да чупи записа
         return 0, []
-
-    обхванати = 0
-    премествани: list[tuple[str, str]] = []
-    for record in records:
-        if str(record.entity_type or "").upper() not in allowed:
-            continue
-        # ПОЗИЦИЯ значи същото, което значи и при анализа: надпис с брой,
-        # диаметър и дължина. „стр. 59N8/s=20" минава за армировъчен текст, но
-        # няма дължина и не е позиция — а точно такива бележки пълнеха списъка
-        # с „премествани".
-        if _annotation_class(parse_rebar_text(record.text or "")) != "ACTIONABLE":
-            continue
-        point = _entity_insert(record)
-        if point is None:
-            continue
-        if not region_contains(tuple(box), tuple(bent_around), point[0], point[1]):
-            continue
-        обхванати += 1
-        if kind != KIND_BEAM:
-            continue
-        index = assign_point_to_frame(point[0], point[1], list(frames))
-        if index is None:
-            continue
-        assignment = _assign_beam_label(point[0], point[1], int(index), labels)
-        if assignment is None:
-            continue
-        if assignment.label.handle == title_handle:
-            continue
-        текст = re.sub(r"\s+", " ", str(record.text or "")).strip() or str(record.handle)
-        премествани.append((текст, assignment.label.title))
+    обхванати = sum(1 for член in членове if член.verdict in ПРИЕТИ)
+    премествани = [
+        (член.text or член.handle, член.from_title or "")
+        for член in членове
+        if член.verdict == ПРЕМЕСТЕН
+    ]
     return обхванати, премествани
 
 
 
+
+
+class _UchebenCikal(QObject):
+    """Учебният цикъл в отделна нишка — за да не блокира прозореца.
+
+    Нищо от Qt не влиза в ``learning/`` — тук е единственото място, където
+    двете се срещат.
+    """
+
+    done = Signal(object)
+
+    def __init__(self, status, bridge, entities, drawing,
+                 source_sha256: str = "") -> None:
+        super().__init__()
+        self._status = status
+        self._bridge = bridge
+        self._entities = entities
+        self._drawing = drawing
+        self._source_sha256 = source_sha256
+
+    def run(self) -> None:
+        from lion_rebar.learning.integration import run_cycle_after_analysis
+
+        състояние = run_cycle_after_analysis(
+            status=self._status, bridge_report=self._bridge,
+            entities=self._entities, drawing=self._drawing,
+            family=self._drawing, source_sha256=self._source_sha256,
+        )
+        self.done.emit(състояние)
 
 
 class MainWindow(QMainWindow):
@@ -487,6 +518,13 @@ class MainWindow(QMainWindow):
         self.logger = logger
         self.project_manager = ProjectManager()
         self.session_service = session_service or SessionService(AppPaths.default())
+        # Заявеното име на оператора. Чете се веднъж при старта; нечетими
+        # настройки НЕ спират програмата и НЕ дават име.
+        try:
+            self.operator_name = claimed_operator(self._operator_settings_file())
+        except Exception as exc:  # noqa: BLE001 - помощен път
+            self.logger.warning("Името на оператора не беше прочетено: %s", exc)
+            self.operator_name = ""
         self.project: ProjectModel | None = None
         self.import_result: DxfImportResult | None = None
         self.scene_result: SceneBuildResult | None = None
@@ -518,9 +556,18 @@ class MainWindow(QMainWindow):
         self._manual_geometry_guard_error: str | None = None
         self._loaded_source_generation_id: str | None = None
 
-        self.setWindowTitle(f"{APP_NAME} v{APP_VERSION}")
+        self.setWindowTitle(
+            f"{APP_NAME} — {APP_EDITION} · v{APP_VERSION}"
+            if APP_EDITION
+            else f"{APP_NAME} v{APP_VERSION}"
+        )
         self.resize(1500, 900)
-        self._ui_settings = QSettings("LION REBAR", "LION REBAR DESKTOP")
+        # Отделни настройки на прозореца за тестовата линия: иначе двете
+        # версии делят един ключ в регистъра (размери, отворени панели).
+        self._ui_settings = QSettings(
+            "LION REBAR",
+            f"LION REBAR DESKTOP — {APP_EDITION}" if APP_EDITION else "LION REBAR DESKTOP",
+        )
         self.drawing_view = DrawingView()
         self.drawing_view.operatorBoxDrawn.connect(self._operator_box_drawn)
         self.setCentralWidget(self.drawing_view)
@@ -548,6 +595,7 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.cursor_label, 1)
 
         self._create_actions()
+        self._create_edition_banner()
         self._create_toolbar()
         self._create_menus()
         self._refresh_engine_label()
@@ -626,11 +674,33 @@ class MainWindow(QMainWindow):
         )
         self.action_operator_areas.triggered.connect(self.manage_operator_areas)
 
+        self.action_withdraw_decision = QAction(
+            "Оттегляне на инженерно решение…", self
+        )
+        self.action_withdraw_decision.setToolTip(
+            "Записано инженерно решение, което се е оказало грешно. "
+            "Оттеглянето иска автор и мотив, НЕ трие историята и обезсилва "
+            "всяко предложение, което стъпва на това решение."
+        )
+        self.action_withdraw_decision.triggered.connect(
+            self.withdraw_engineer_decision
+        )
+
         self.action_final_integrity = QAction("Финален контрол", self)
         self.action_final_integrity.triggered.connect(self.run_final_integrity_control)
 
         self.action_learning_report = QAction("Отчет за конвенциите", self)
         self.action_learning_report.triggered.connect(self.show_learning_report)
+
+        self.action_ownership_conflicts = QAction("Спорно владение на геометрия…", self)
+        self.action_ownership_conflicts.setToolTip(
+            "Един начертан обект е първи кандидат на няколко надписа. Реши кой "
+            "го владее или заяви, че е общ по замисъл. Решението се записва с "
+            "автор, време и одитна следа."
+        )
+        self.action_ownership_conflicts.triggered.connect(
+            self.open_ownership_conflicts
+        )
 
         self.action_drawing_passport = QAction("Паспорт на чертежа…", self)
         self.action_drawing_passport.setToolTip(
@@ -639,6 +709,14 @@ class MainWindow(QMainWindow):
             "доказателство и с контрола, и иска потвърждение."
         )
         self.action_drawing_passport.triggered.connect(self.open_drawing_passport)
+
+        self.action_operator = QAction("Оператор…", self)
+        self.action_operator.setToolTip(
+            "Кой работи сега. Името влиза като автор във всяко ново решение. "
+            "То е ЗАЯВЕНО, не удостоверено — програмата не проверява самоличност. "
+            "Смяната не променя вече записаните решения."
+        )
+        self.action_operator.triggered.connect(self.change_operator_name)
 
         self.action_session_summary = QAction("Състояние на сесията", self)
         self.action_session_summary.setShortcut(QKeySequence("Ctrl+Shift+S"))
@@ -669,6 +747,35 @@ class MainWindow(QMainWindow):
 
         self.action_exit = QAction("Изход", self)
         self.action_exit.triggered.connect(self.close)
+
+    def _create_edition_banner(self) -> None:
+        """Оранжева лента най-горе: тестовата линия не се бърка с основната.
+
+        Само при ``APP_EDITION``. Показва и папката с данни, защото тя е
+        разликата, която има значение — отделен engine и отделни сесии.
+        """
+
+        if not APP_EDITION:
+            return
+        надпис = QLabel(
+            f"  {APP_EDITION} — не е основната програма LION REBAR.   "
+            f"Данни: {getattr(getattr(self.session_service, 'paths', None), 'root', '—')}"
+        )
+        надпис.setObjectName("EditionBannerLabel")
+        надпис.setStyleSheet(
+            "QLabel { background: #ea580c; color: white; font-weight: bold;"
+            " padding: 5px 8px; }"
+        )
+        лента = QToolBar("Тестова версия", self)
+        лента.setObjectName("EditionBanner")
+        лента.setMovable(False)
+        лента.setFloatable(False)
+        # Лентата е през цялата ширина: видима е и при тесен прозорец.
+        надпис.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        лента.addWidget(надпис)
+        self.addToolBar(Qt.TopToolBarArea, лента)
+        self.addToolBarBreak(Qt.TopToolBarArea)
+        self.edition_banner = надпис
 
     def _create_toolbar(self) -> None:
         toolbar = QToolBar("Основни действия")
@@ -761,16 +868,112 @@ class MainWindow(QMainWindow):
         analysis_menu.addAction(self.action_operator_box)
         analysis_menu.addAction(self.action_operator_areas)
         analysis_menu.addAction(self.action_learning_report)
+        analysis_menu.addAction(self.action_ownership_conflicts)
+        analysis_menu.addAction(self.action_withdraw_decision)
         analysis_menu.addAction(self.action_drawing_passport)
         analysis_menu.addAction(self.action_export_excel)
         analysis_menu.addAction(self.action_layer_report)
         session_menu = self.menuBar().addMenu("Сесия")
+        session_menu.addAction(self.action_operator)
+        session_menu.addSeparator()
         session_menu.addAction(self.action_session_summary)
         session_menu.addAction(self.action_end_session)
         master_menu = self.menuBar().addMenu("MASTER")
         master_menu.addAction(self.action_shape_builder)
         master_menu.addAction(self.action_form_editor)
         master_menu.addAction(self.action_engine_studio)
+        self._refresh_operator_action()
+
+    # --- Кой работи сега -----------------------------------------------------
+    #
+    # Решение на собственика, 01.10.2026: при първото записано решение се
+    # въвежда име и то се запомня; текущият оператор се вижда и може да се
+    # сменя; всяко решение пази автора КЪМ МОМЕНТА НА ЗАПИСА, а смяната не
+    # пренаписва историята. Името е заявено, не удостоверено.
+
+    def _operator_settings_file(self) -> Path:
+        return Path(self.session_service.paths.settings_file)
+
+    def _operator_for_record(self) -> str:
+        """Авторът, който влиза в новите записи.
+
+        Незаявеното име е ``НЕЗАЯВЕН``, а НЕ историческото „оператор": старите
+        записи остават с неизвестен автор и не се приписват със задна дата на
+        никого, затова новите трябва да са различими от тях.
+        """
+
+        return self.operator_name or НЕЗАЯВЕН
+
+    def _refresh_operator_action(self) -> None:
+        име = self.operator_name or "незаявен"
+        action = getattr(self, "action_operator", None)
+        if action is not None:
+            action.setText("Оператор: %s…" % име)
+
+    def _ask_operator_name(self, *, prompt: str) -> str:
+        """Пита за име и го запомня. Връща заявеното или празен низ."""
+
+        текущо = self.operator_name
+        име, ок = QInputDialog.getText(
+            self, "Кой работи", prompt, text=текущо
+        )
+        if not ок:
+            return ""
+        try:
+            declare_operator(self._operator_settings_file(), име)
+        except OperatorIdentityError as error:
+            QMessageBox.warning(self, "Името не беше прието", str(error))
+            return ""
+        except Exception as error:  # noqa: BLE001 - помощен път
+            self._error(f"Името не беше записано.\n\n{error}")
+            return ""
+        self.operator_name = claimed_operator(self._operator_settings_file())
+        self._refresh_operator_action()
+        if self._review_center is not None:
+            self._review_center.set_operator_name(self.operator_name)
+        return self.operator_name
+
+    def change_operator_name(self) -> None:
+        заявено = self._ask_operator_name(
+            prompt=(
+                "Име на оператора, което да влиза като автор в новите решения.\n\n"
+                "Името е ЗАЯВЕНО, не удостоверено — програмата не проверява\n"
+                "самоличност. Смяната НЕ променя вече записаните решения, а\n"
+                "записите от преди въвеждането остават с неизвестен автор."
+            )
+        )
+        if заявено:
+            self.statusBar().showMessage(
+                "Оператор: %s. Авторът на вече записаните решения не е променян."
+                % заявено,
+                10000,
+            )
+
+    def _ensure_operator_declared(self) -> bool:
+        """Пита веднъж, преди първото записано решение. Отказът не блокира.
+
+        Ако операторът не иска да каже име, работата продължава и записът носи
+        ``НЕЗАЯВЕН``. Да спрем инженерната работа заради име би било по-лошо от
+        видимата празнота; измислено име би било най-лошото.
+        """
+
+        if self.operator_name:
+            return True
+        заявено = self._ask_operator_name(
+            prompt=(
+                "Това е първото решение, което се записва на този компютър.\n"
+                "Кой работи? Името влиза като автор в записа на решението.\n\n"
+                "Името е ЗАЯВЕНО, не удостоверено. Може да се откажеш — тогава\n"
+                "авторът остава незаявен, а решението се записва."
+            )
+        )
+        if not заявено:
+            self.statusBar().showMessage(
+                "Решението се записва с НЕЗАЯВЕН автор. "
+                "Името се въвежда от Сесия → Оператор.",
+                10000,
+            )
+        return bool(заявено)
 
     def new_project(self) -> None:
         parent = QFileDialog.getExistingDirectory(self, "Избери папка за новия проект")
@@ -936,13 +1139,77 @@ class MainWindow(QMainWindow):
             kind=resolution.kind,
             title_handle=resolution.title_handle,
         )
-        обхванати, премествани = self._operator_area_preview(resolution, огънато)
+        # § 6.1: всеки член минава СВОЯ проверка и присъдата му се вижда преди
+        # записа, а после се записва с рамката. Дотук преценката се правеше и
+        # се изхвърляше: след записа нито един член не можеше да се провери.
+        from lion_rebar.export.operator_area_members import (
+            БЕЗ_ТОЧКА,
+            НЕ_Е_ПОЗИЦИЯ,
+            ПОТВЪРДЕН_ДРУГАДЕ,
+            ПРИЕТИ,
+            ordered_for_review,
+            summarise,
+        )
+
+        try:
+            членове = self._operator_area_members(resolution, огънато)
+        except Exception as error:  # noqa: BLE001 - помощен път
+            self._error(
+                "Членовете на рамката не можаха да бъдат проверени, затова тя "
+                f"НЕ е записана.\n\n{error}"
+            )
+            return
+        сводка = summarise(членове)
+        обхванати = сводка["accepted"]
+        # Подредени за преглед: пръв е случаят, в който автоматиката е била
+        # най-уверена. Показателите само подреждат — праг няма.
+        премествани = [
+            (член.text or член.handle, член.from_title or "")
+            for член in ordered_for_review(членове)
+        ]
+        за_преглед = [член for член in членове if член.verdict == БЕЗ_ТОЧКА]
+        потвърдени_другаде = [
+            член for член in членове if член.verdict == ПОТВЪРДЕН_ДРУГАДЕ
+        ]
+        не_позиции = [член for член in членове if член.verdict == НЕ_Е_ПОЗИЦИЯ]
         редове = [
             f"Всичко в рамката ще се отнесе към {purpose}",
             f"„{resolution.title_text}“.",
             "",
             f"Позиции в рамката: {обхванати}.",
         ]
+        if не_позиции:
+            # Дотук се пропускаха мълчаливо и броят не се връзваше с видяното.
+            редове.append(
+                f"В рамката има и {len(не_позиции)} обекта, които не са позиции "
+                "(бележки и заглавия) — те не стават нейни."
+            )
+        if потвърдени_другаде:
+            # Състояние 3 от таблицата на собственика: очертаването на рамка не
+            # отменя предишно потвърдено решение.
+            редове.append("")
+            редове.append(
+                f"НЕ СЕ МЕСТЯТ: {len(потвърдени_другаде)} позиции с вече "
+                "ПОТВЪРДЕНО решение за друга греда."
+            )
+            редове.append("Остават за изрично решение:")
+            for член in потвърдени_другаде[:5]:
+                редове.append(
+                    f"    {член.text or член.handle}: потвърдена за "
+                    f"„{член.from_title or член.from_handle}“"
+                )
+            if len(потвърдени_другаде) > 5:
+                редове.append(f"    … и още {len(потвърдени_другаде) - 5}")
+        if за_преглед:
+            редове.append("")
+            редове.append(
+                f"ЗА ПРЕГЛЕД: {len(за_преглед)} позиции без точка на вмъкване —"
+            )
+            редове.append("не може да се реши дали са в рамката:")
+            for член in за_преглед[:5]:
+                редове.append(f"    {член.text or член.handle}")
+            if len(за_преглед) > 5:
+                редове.append(f"    … и още {len(за_преглед) - 5}")
         if огънато:
             съседни = sorted(
                 {
@@ -1018,9 +1285,10 @@ class MainWindow(QMainWindow):
                 title_handle=resolution.title_handle,
                 title_text=resolution.title_text,
                 frame_index=resolution.frame_index,
-                decided_by=getattr(self, 'operator_name', '') or 'оператор',
+                decided_by=self._operator_for_record(),
                 note=note,
                 identity=current_identity(self.project),
+                members=[член.to_dict() for член in членове],
             )
         except OperatorAreaError as error:
             QMessageBox.warning(self, "Областта не беше записана", str(error))
@@ -1030,7 +1298,15 @@ class MainWindow(QMainWindow):
             return
         self._session_project_event(
             "OPERATOR_AREA_RECORDED",
-            {"kind": area.kind, "title": area.title_text, "area_id": area.area_id},
+            {
+                "kind": area.kind,
+                "title": area.title_text,
+                "area_id": area.area_id,
+                # Сводката по присъди: едно групово решение не е N независими
+                # потвърждения и броят му трябва да се разчита без да се
+                # отваря файлът на областите.
+                "members": сводка,
+            },
         )
         # Преди съобщението, за да е вече на чертежа, щом го затвори.
         self._refresh_operator_areas()
@@ -1173,6 +1449,36 @@ class MainWindow(QMainWindow):
             0,
         )
 
+    def _operator_area_members(self, resolution, bent_around=()):
+        """Присъдата за ВСЕКИ член на рамката (§ 6.1).
+
+        Връща списък от ``ЧленНаОбласт``. Не прихваща грешки: рамка, за която
+        преценката не е минала, не бива да се записва като безпроблемна.
+        """
+
+        from lion_rebar.export.beam_decisions import load_beam_decisions
+        from lion_rebar.export.operator_area_members import area_member_verdicts
+        from lion_rebar.project.data_identity import current_identity
+
+        потвърдени: dict[str, str] = {}
+        if self.project is not None:
+            # Потвърдените принадлежности са ВХОД за присъдата: рамката не бива
+            # да мести позиция, за която операторът вече е решил друго.
+            потвърдени = dict(
+                load_beam_decisions(
+                    Path(self.project.root), current_identity(self.project)
+                )
+            )
+        return area_member_verdicts(
+            entities=list(self.import_result.entities),
+            policy=self._recognition_policy(),
+            box=resolution.box,
+            bent_around=bent_around,
+            kind=resolution.kind,
+            title_handle=resolution.title_handle,
+            confirmed_beams=потвърдени,
+        )
+
     def _operator_area_preview(self, resolution, bent_around=()):
         """Колко ПОЗИЦИИ обхваща рамката и кои от тях премества.
 
@@ -1276,7 +1582,7 @@ class MainWindow(QMainWindow):
             withdraw_operator_area(
                 Path(self.project.root),
                 area.area_id,
-                withdrawn_by=getattr(self, 'operator_name', '') or 'оператор',
+                withdrawn_by=self._operator_for_record(),
                 note=мотив,
             )
         except OperatorAreaError as error:
@@ -1298,6 +1604,160 @@ class MainWindow(QMainWindow):
                     "и от резултата.",
                 ]
             ),
+        )
+
+    def withdraw_engineer_decision(self) -> None:
+        """Оттегля записано инженерно решение — с автор, мотив и следа.
+
+        Защо е нужно. Щом едно решение може да стане ОСНОВАНИЕ за предложение
+        в друг случай, трябва да има и начин основанието да бъде обезсилено.
+        Дотук журналът можеше да отмени решение само с НОВО решение върху
+        същата позиция; нямаше изход „това беше грешно и го махам".
+
+        Какво прави оттеглянето:
+
+        * дописва събитие — НИЩО не се трие и историята остава четима;
+        * решението спира да бъде доказателство за предложение веднага;
+        * вече приетите решения, които стъпват на него, се ИЗБРОЯВАТ за
+          повторна проверка и се показват на оператора.
+        """
+
+        from lion_rebar.review.decision_reuse import (
+            зависими_за_повторна_проверка,
+        )
+        from lion_rebar.session.decision_contract import (
+            DecisionWithdrawError,
+            JOURNAL_NAME,
+            withdraw_project_decision,
+            withdrawn_decision_ids,
+        )
+
+        if self.project is None:
+            self._info("Първо отвори проект.")
+            return
+        журнал = Path(self.project.root) / "working" / JOURNAL_NAME
+        if not журнал.is_file():
+            self._info("Този проект още няма записани решения.")
+            return
+        вече_оттеглени = withdrawn_decision_ids(Path(self.project.root))
+        отменени: set[str] = set()
+        пликове: list[dict] = []
+        for ред in журнал.read_text(encoding="utf-8-sig").splitlines():
+            try:
+                плик = json.loads(ред)
+            except ValueError:
+                continue
+            if not isinstance(плик, dict):
+                continue
+            for ид in плик.get("supersedes_event_ids") or []:
+                отменени.add(str(ид))
+            пликове.append(плик)
+        живи = [
+            плик
+            for плик in пликове
+            if str(плик.get("event_type") or "").upper() == "ENGINEER_RESOLVED"
+            and bool(плик.get("active", True))
+            and str(плик.get("event_id") or "") not in вече_оттеглени
+            and str(плик.get("event_id") or "") not in отменени
+        ]
+        if not живи:
+            self._info(
+                "Няма живо инженерно решение за оттегляне.\n\n"
+                "Отменените и вече оттеглените остават в историята, но не могат"
+                " да бъдат оттеглени повторно."
+            )
+            return
+        живи.sort(key=lambda плик: str(плик.get("occurred_at") or ""), reverse=True)
+        редове = []
+        for плик in живи:
+            товар = плик.get("payload") or {}
+            # ПОЗИЦИЯТА е в текста нарочно: два записа за един и същ
+            # надпис, взети в една и съща секунда, иначе са неразличими и
+            # операторът не може да знае кой оттегля.
+            редове.append(
+                "{}  —  позиция {}  —  {} {}  ({})".format(
+                    str(товар.get("annotation_text") or "—"),
+                    str(товар.get("annotation_handle") or "—"),
+                    str(товар.get("action_class") or "—"),
+                    str(товар.get("reason_code") or "—"),
+                    str(плик.get("occurred_at") or "—"),
+                )
+            )
+        избор, прието = QInputDialog.getItem(
+            self,
+            "Оттегляне на инженерно решение",
+            "{} живи решения в този проект.\n"
+            "Избери решението, което ще оттеглиш, или откажи:".format(len(живи)),
+            редове,
+            0,
+            False,
+        )
+        if not прието or избор not in редове:
+            return
+        плик = живи[редове.index(избор)]
+        товар = плик.get("payload") or {}
+        мотив, прието = QInputDialog.getText(
+            self,
+            "Оттегляне на инженерно решение",
+            "Решението за „{}“ ще бъде оттеглено.\n\n"
+            "Историята НЕ се трие. Мотив:".format(
+                str(товар.get("annotation_text") or "—")
+            ),
+        )
+        if not прието:
+            return
+        try:
+            оттеглянето = withdraw_project_decision(
+                Path(self.project.root),
+                [str(плик.get("event_id") or "")],
+                actor=self._operator_for_record(),
+                reason=мотив,
+            )
+        except DecisionWithdrawError as грешка:
+            QMessageBox.warning(
+                self, "Решението не беше оттеглено", str(грешка)
+            )
+            return
+        self._session_project_event(
+            "ENGINEER_DECISION_WITHDRAWN",
+            {
+                "withdrawn_event_id": str(плик.get("event_id") or ""),
+                "annotation_text": str(товар.get("annotation_text") or ""),
+                "withdrawal_event_id": str(оттеглянето.get("event_id") or ""),
+            },
+        )
+        зависими = зависими_за_повторна_проверка(Path(self.project.root))
+        редове_за_показване = [
+            "Решението за „{}“ е оттеглено.".format(
+                str(товар.get("annotation_text") or "—")
+            ),
+            "",
+            "Записано е като ново събитие: историята е цяла.",
+            "Предложенията, които стъпваха на него, вече не са в сила.",
+        ]
+        if зависими:
+            редове_за_показване += [
+                "",
+                "ЗА ПОВТОРНА ПРОВЕРКА — {} вече приети решения стъпват на "
+                "оттегленото:".format(len(зависими)),
+            ]
+            for запис in зависими[:12]:
+                редове_за_показване.append(
+                    "  • {} (позиция {})".format(
+                        запис.get("annotation_text") or "—",
+                        запис.get("annotation_handle") or "—",
+                    )
+                )
+            if len(зависими) > 12:
+                редове_за_показване.append(
+                    "  … и още {}".format(len(зависими) - 12)
+                )
+        редове_за_показване += [
+            "",
+            "Пусни анализа и Финалния контрол наново, за да се види в резултата.",
+        ]
+        QMessageBox.information(
+            self, "Оттеглено", "\n".join(редове_за_показване)
         )
 
     def _offer_unresolved_beam_resolution(self, handles) -> None:
@@ -1346,7 +1806,7 @@ class MainWindow(QMainWindow):
             beam_titles,
             Path(self.project.root),
             identity,
-            operator=getattr(self, "operator_name", "") or "оператор",
+            operator=self._operator_for_record(),
             parent=self,
         )
         accepted = dialog.exec()
@@ -1418,10 +1878,67 @@ class MainWindow(QMainWindow):
             return
         dialog = UnknownFrameDialog(
             frames, Path(self.project.root), identity,
-            operator=getattr(self, "operator_name", "") or "оператор", parent=self)
+            operator=self._operator_for_record(), parent=self)
         if dialog.exec() and dialog.decisions_made:
             self._session_project_event(
                 "FRAME_DECISIONS_RECORDED", {"count": dialog.decisions_made})
+
+    def open_ownership_conflicts(self) -> None:
+        """Операторският път за спорно владение на геометрия (§ 6.2).
+
+        Споровете идват от ПОСЛЕДНИЯ пакетен отчет, защото владението се решава
+        върху резултата от конкретен анализ: нов прогон може да даде други
+        кандидати и други спорове. Затова и решението носи ``analysis_run_id``.
+        """
+
+        from lion_rebar.ui.ownership_conflict_dialog import (
+            OwnershipConflictDialog,
+            conflict_clusters,
+        )
+
+        if self.project is None:
+            self._info("Първо отвори проект.")
+            return
+        report_path = self._find_latest_review_report()
+        if report_path is None or not report_path.is_file():
+            self._info(
+                "Няма пакетен отчет. Пусни „Анализ → Пакетен анализ + Excel“, "
+                "преди да решаваш спорове за владение."
+            )
+            return
+        try:
+            report = load_review_report(report_path)
+        except ReviewReportError as exc:
+            self._error(str(exc))
+            return
+        клъстери = conflict_clusters(report.rows)
+        if not клъстери:
+            self._info(
+                "В последния анализ няма спорно владение на геометрия — нито "
+                "един начертан обект не е първи кандидат на няколко надписа."
+            )
+            return
+        self._ensure_operator_declared()
+        dialog = OwnershipConflictDialog(
+            клъстери,
+            Path(self.project.root),
+            current_identity(self.project),
+            operator=self._operator_for_record(),
+            parent=self,
+        )
+        if dialog.exec() and dialog.decisions_made:
+            self._session_project_event(
+                "OWNERSHIP_DECISIONS_RECORDED",
+                {
+                    "count": dialog.decisions_made,
+                    "clusters": len(клъстери),
+                },
+            )
+            self.statusBar().showMessage(
+                "Записани решения за владение: %d. Пусни пакетния анализ наново."
+                % dialog.decisions_made,
+                12000,
+            )
 
     def open_drawing_passport(self) -> None:
         """Паспорт на чертежа: предложените роли по съдържание за потвърждение.
@@ -1462,7 +1979,7 @@ class MainWindow(QMainWindow):
             proposal,
             Path(self.project.root),
             identity,
-            getattr(self, 'operator_name', '') or 'оператор',
+            self._operator_for_record(),
             self,
         )
         dialog.exec()
@@ -2057,10 +2574,11 @@ class MainWindow(QMainWindow):
             # Политиката на engine-а, наслоена с потвърдения профил на
             # чертежа: обявените от оператора слоеве влизат в
             # разпознаването. Без профил се връща непроменена.
-            policy=policy_with_confirmed_profile(
-                engine.settings,
-                Path(self.project.root),
-                identity=data_identity,
+            # Една и съща логика с безинтерфейсния път: потвърденият профил
+            # плюс НАУЧЕНОТО. Виж ``learning/integration.prepare_policy``.
+            policy=self._политика_с_naucheno(
+                engine.settings, Path(self.project.root),
+                identity=data_identity, entities=analysis_entities,
             ),
             engine_metadata={
                 "engine_id": engine.engine_id,
@@ -2100,6 +2618,57 @@ class MainWindow(QMainWindow):
             10000,
         )
 
+    def _политика_с_naucheno(self, settings, project_root, *, identity, entities):
+        """Политиката за анализа, наслоена с наученото; пази състоянието за лентата."""
+
+        from lion_rebar.learning.integration import prepare_policy
+
+        име = self.project.name if self.project is not None else ""
+        policy, състояние, мост = prepare_policy(
+            settings, project_root, identity=identity,
+            entities=entities, drawing=име,
+        )
+        self._learning_status = състояние
+        self._learning_bridge = мост
+        self._learning_entities = list(entities)
+        if състояние.enabled:
+            self.statusBar().showMessage(състояние.short_line(), 12000)
+        return policy
+
+    def _pusni_uchebniya_cikal(self) -> None:
+        """Ученето СЛЕД анализа, в отделна нишка — интерфейсът не се блокира."""
+
+        състояние = getattr(self, "_learning_status", None)
+        if състояние is None or not състояние.enabled:
+            return
+        записи = getattr(self, "_learning_entities", None) or []
+        мост = getattr(self, "_learning_bridge", None) or {}
+        име = self.project.name if self.project is not None else ""
+
+        # Самоличността на изходния DXF: копие под друго име на проект НЕ е
+        # второ доказателство (вж. `auto_cycle.record_observation`).
+        сха = ""
+        if self.project is not None:
+            сха = str((self.project.extensions or {}).get("source_sha256") or "")
+
+        нишка = QThread(self)
+        обект = _UchebenCikal(състояние, мост, записи, име, сха)
+        обект.moveToThread(нишка)
+        нишка.started.connect(обект.run)
+        обект.done.connect(self._uchebniyat_cikal_zavurshi)
+        обект.done.connect(нишка.quit)
+        обект.done.connect(обект.deleteLater)
+        нишка.finished.connect(нишка.deleteLater)
+        # И ДВЕТЕ препратки се пазят: без тази към работния обект Python го
+        # събира, преди нишката да е тръгнала, и ``done`` никога не се обажда.
+        self._learning_thread = нишка
+        self._learning_worker = обект
+        нишка.start()
+
+    def _uchebniyat_cikal_zavurshi(self, състояние) -> None:
+        self._learning_status = състояние
+        self.statusBar().showMessage(състояние.short_line(), 15000)
+
     def _batch_progress_updated(self, current: int, total: int, label: str) -> None:
         if self._batch_progress is not None:
             if self._batch_progress.maximum() != total:
@@ -2134,6 +2703,11 @@ class MainWindow(QMainWindow):
             self._batch_progress.close()
             self._batch_progress.deleteLater()
             self._batch_progress = None
+
+        # Ученето тръгва ВЕДНАГА след анализа, в отделна нишка. Нарочно е тук, а
+        # не в края: по-долу има диалози към оператора и цикълът не бива да чака
+        # той да ги затвори.
+        self._pusni_uchebniya_cikal()
 
         destination_label = "Google Drive" if self._batch_using_cloud else "папката output на проекта"
         title = (
@@ -2503,15 +3077,22 @@ class MainWindow(QMainWindow):
             | QDockWidget.DockWidgetFeature.DockWidgetFloatable
         )
         review_dock.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-        dialog = ReviewCenterDialog(
-            resolved,
-            state_path=state_path,
-            approved_links=self._read_all_approved_geometry_links(),
-            embedded=True,
-            project_root=Path(self.project.root),
-            operator_name=getattr(self, "operator_name", "") or "",
-            parent=review_dock,
-        )
+        try:
+            dialog = ReviewCenterDialog(
+                resolved,
+                state_path=state_path,
+                approved_links=self._read_all_approved_geometry_links(),
+                embedded=True,
+                project_root=Path(self.project.root),
+                operator_name=self.operator_name,
+                parent=review_dock,
+            )
+        except ReviewStateError as exc:
+            # Нечетим файл със състоянието: прозорецът НЕ се отваря, за да не
+            # презапише единственото копие на операторската работа с празно.
+            review_dock.deleteLater()
+            self._error(str(exc))
+            return
         review_dock.setWidget(dialog)
         dialog.previewRequested.connect(self._review_preview_row)
         dialog.referenceGeometryRequested.connect(self._review_preview_reference_geometry)
@@ -2574,6 +3155,7 @@ class MainWindow(QMainWindow):
                 f"Пусни „Финален контрол“.\n\n{exc}"
             )
 
+    @_locked_project_file("working/approved_geometry_links.json")
     def _revoke_approved_geometry_link(
         self,
         annotation_handle: str,
@@ -2613,12 +3195,9 @@ class MainWindow(QMainWindow):
         payload["links"] = retained
         payload["history"] = history
         payload["updated_at"] = timestamp
-        temporary = output_path.with_suffix(".json.tmp")
-        temporary.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
+        atomic_write_text(
+            output_path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
         )
-        temporary.replace(output_path)
         return True
 
     def run_final_integrity_control(self) -> None:
@@ -2944,22 +3523,30 @@ class MainWindow(QMainWindow):
 
     def _export_progress_updated(self, percent: int, label: str) -> None:
         value = max(0, min(100, int(percent)))
-        if self._export_progress is not None:
-            self._export_progress.setValue(value)
-            self._export_progress.setLabelText(
-                f"{label}\nПрогрес: {value}%"
-            )
+        # ``QProgressDialog.setValue()`` върти цикъла на събитията, когато
+        # диалогът е модален. Докато го върти, може да пристигне сигналът за
+        # край, ``_export_finished`` да занули ``self._export_progress`` и
+        # следващият ред да пипне ``None``. Затова: местна препратка, и
+        # ``setValue`` последно — то е единственото, което върти цикъла.
+        диалог = self._export_progress
+        if диалог is not None:
+            диалог.setLabelText(f"{label}\nПрогрес: {value}%")
+            диалог.setValue(value)
         self.statusBar().showMessage(
             f"Excel + DXF export: {value}% — {label}",
             5000,
         )
 
     def _export_finished(self, result: PairedExportResult) -> None:
-        if self._export_progress is not None:
-            self._export_progress.setValue(100)
-            self._export_progress.close()
-            self._export_progress.deleteLater()
-            self._export_progress = None
+        # Полето се занулява ПРЕДИ да се пипне диалогът: ``setValue`` върти
+        # цикъла на събитията и без това второ влизане в същия обработчик би
+        # затворило диалога два пъти.
+        диалог = self._export_progress
+        self._export_progress = None
+        if диалог is not None:
+            диалог.setValue(100)
+            диалог.close()
+            диалог.deleteLater()
 
         excel_result = result.excel_result
         dxf_result = result.dxf_result
@@ -3358,6 +3945,12 @@ class MainWindow(QMainWindow):
         envelope = None
         human_decision = is_human_decision_event(event_type)
         if human_decision:
+            # Авторът влиза в записа КЪМ МОМЕНТА НА ЗАПИСА. Пита се веднъж, при
+            # първото решение на този компютър; отказът не блокира работата, а
+            # оставя автора незаявен. Подаден автор от самия път не се замества.
+            self._ensure_operator_declared()
+            enriched.setdefault("actor", self._operator_for_record())
+        if human_decision:
             try:
                 envelope = append_project_decision_event(
                     Path(self.project.root), event_type, enriched
@@ -3539,6 +4132,58 @@ class MainWindow(QMainWindow):
                 exc,
             )
             return None
+
+    def _reuse_index(self):
+        """Указателят за преизползване — пресглобява се при всяко отваряне.
+
+        Нарочно се чете наново: решение, записано или ОТТЕГЛЕНО току-що, трябва
+        да важи за следващия случай веднага. Проблем с четенето никога не спира
+        ръчната инженерна работа.
+        """
+
+        import os
+
+        from lion_rebar.review.decision_reuse import Указател, донорски_пътища
+
+        if self.project is None:
+            return None
+        if str(
+            os.environ.get("LION_REBAR_DECISION_MEMORY", "")
+        ).strip().lower() in {"off", "0", "false"}:
+            return None
+        донори = донорски_пътища()
+        try:
+            указател = Указател.от_проект(
+                Path(self.project.root), допълнителни=донори
+            )
+        except Exception as грешка:
+            self.logger.warning("Преизползването е недостъпно: %s", грешка)
+            return None
+        for предупреждение in указател.сводка.предупреждения:
+            self.logger.warning("Преизползване: %s", предупреждение)
+        return указател
+
+    def _reuse_proposal_for_row(self, row: dict, *, engine, index=None):
+        """Предложение с разделени етапи за ЕДИН ред. Нищо не се прилага."""
+
+        if index is None:
+            index = self._reuse_index()
+        if index is None or self.project is None:
+            return None, None
+        активни = {
+            str(форма.code).upper(): int(форма.revision or 1)
+            for форма in (getattr(engine, "shapes", ()) or ())
+            if bool(getattr(форма, "active", True))
+        }
+        try:
+            return index, index.предложи(
+                dict(row),
+                самоличност=current_identity(self.project),
+                активни_форми=активни or None,
+            )
+        except Exception as грешка:
+            self.logger.warning("Предложението за преизползване падна: %s", грешка)
+            return index, None
 
     def _review_preview_row(self, row: dict) -> None:
         analysis = geometry_analysis_from_report_row(row)
@@ -3848,6 +4493,10 @@ class MainWindow(QMainWindow):
         problem_decision = dialog.decision_payload(
             str(row.get("annotation_handle") or "")
         )
+        (
+            _указател_за_преизползване,
+            _предложение_за_преизползване,
+        ) = self._reuse_proposal_for_row(row, engine=engine)
         editor = EngineerDecisionDialog(
             row=dict(row),
             shapes=engine.shapes,
@@ -3860,6 +4509,8 @@ class MainWindow(QMainWindow):
                 row,
                 engine_version=engine.version,
             ),
+            reuse_index=_указател_за_преизползване,
+            reuse_proposal=_предложение_за_преизползване,
             parent=self,
         )
         saved = self._run_engineer_editor(
@@ -3895,6 +4546,10 @@ class MainWindow(QMainWindow):
                 "geometry": payload.get("geometry"),
                 "diagnostic_problem": payload.get("diagnostic_problem"),
                 "decision_suggestion": payload.get("decision_suggestion"),
+                # ОСНОВАНИЕТО на приетото предложение влиза в журнала:
+                # по него се намира какво да се провери наново, ако
+                # решението-донор бъде оттеглено.
+                "preizpolzvane": payload.get("preizpolzvane"),
                 "evidence": canonical_decision.get("evidence"),
                 "canonical_decision": canonical_decision,
             },
@@ -3959,10 +4614,18 @@ class MainWindow(QMainWindow):
             )
             имена = []
             for код, име, предложение in избрани:
-                чернова.shapes.append(
-                    build_draft_shape(предложение, code=код, name=име)
-                )
+                форма = build_draft_shape(предложение, code=код, name=име)
+                # Същата проверка, както при раждането от един случай: и тук
+                # черновата не бива да влиза със скрит двойник.
+                if not self._shape_duplicate_check_passes(
+                    форма, engine, заглавие="Формата %s прилича на съществуваща" % код
+                ):
+                    continue
+                чернова.shapes.append(форма)
                 имена.append(f"{код} „{име}“")
+            if not имена:
+                self._info("Нито една форма не беше записана.")
+                return
             път = self.engine_repository.save_draft(чернова)
         except ShapeFromCaseError as exc:
             self._error(str(exc))
@@ -4115,6 +4778,12 @@ class MainWindow(QMainWindow):
                 self._next_draft_version(engine), created_by="Review Center"
             )
             форма = build_draft_shape(предложение, code=код, name=str(име))
+            # Проверката за дублиране е ПРЕДИ записа. Нова форма няма право да
+            # ражда двусмислие точно там, където днес има еднозначност, а
+            # точната проверка по сигнатура не вижда разлика от един градус
+            # (`engine/shape_duplicates.py`).
+            if not self._shape_duplicate_check_passes(форма, engine):
+                return
             чернова.shapes.append(форма)
             път = self.engine_repository.save_draft(чернова)
         except ShapeFromCaseError as exc:
@@ -4134,6 +4803,48 @@ class MainWindow(QMainWindow):
             "случаите), да я одобриш и да публикуваш.\n\n%s"
             % (код, форма.name, чернова.version, len(форма.tests), път),
         )
+
+    def _shape_duplicate_check_passes(
+        self, форма, engine, *, заглавие: str = "Формата прилича на съществуваща",
+    ) -> bool:
+        """Показва присъдата за дублиране и пита, когато има сблъсък.
+
+        Досега сблъсъкът се откриваше чак при публикуване, а при записа на
+        чернова се изхвърляше мълчаливо: операторът виждаше „Черновата е
+        записана“ без дума за това, че ражда двойник. Тук присъдата идва ПРЕДИ
+        записа и точен дубликат не може да се запише изобщо.
+        """
+
+        from lion_rebar.engine import shape_duplicates as дубл
+
+        присъда = дубл.провери(форма, engine.shapes, policy=self._recognition_policy())
+        if присъда.вид == дубл.НОВА:
+            return True
+
+        редове = "\n".join(
+            "  • %s „%s“ — %s%s"
+            % (н.код, н.име, н.обяснение,
+               "" if н.разлика_deg is None else " (разлика %.2f°)" % н.разлика_deg)
+            for н in присъда.находки
+        )
+        if присъда.е_дубликат:
+            self._error(
+                "Формата НЕ е записана: тя дублира вече съществуваща.\n\n%s\n\n"
+                "Допускът е този на разпознаването (%.2f°): две форми, които "
+                "матчърът не може да различи, не са две форми. Ако все пак са "
+                "различни, разликата трябва да е в отношенията между рамената "
+                "и да е записана изрично." % (редове, присъда.допуск_deg)
+            )
+            return False
+        отговор = QMessageBox.question(
+            self,
+            заглавие,
+            "Новата форма не е дубликат, но се доближава до вече описана:\n\n%s\n\n"
+            "Да я запиша ли като чернова?" % редове,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return отговор == QMessageBox.StandardButton.Yes
 
     def _next_free_shape_code(self, engine) -> str:
         """Първият свободен код. Оттеглените кодове НЕ се преизползват."""
@@ -4714,6 +5425,10 @@ class MainWindow(QMainWindow):
             )
         existing = self._read_approved_geometry_link(annotation_handle) or {}
         problem_decision = dialog.decision_payload(annotation_handle)
+        (
+            _указател_за_преизползване,
+            _предложение_за_преизползване,
+        ) = self._reuse_proposal_for_row(selected_row, engine=engine)
         editor = EngineerDecisionDialog(
             row=selected_row,
             shapes=engine.shapes,
@@ -4726,6 +5441,8 @@ class MainWindow(QMainWindow):
                 selected_row,
                 engine_version=engine.version,
             ),
+            reuse_index=_указател_за_преизползване,
+            reuse_proposal=_предложение_за_преизползване,
             parent=self,
         )
         saved = self._run_engineer_editor(
@@ -4760,6 +5477,10 @@ class MainWindow(QMainWindow):
                 "geometry": payload.get("geometry"),
                 "diagnostic_problem": payload.get("diagnostic_problem"),
                 "decision_suggestion": payload.get("decision_suggestion"),
+                # ОСНОВАНИЕТО на приетото предложение влиза в журнала:
+                # по него се намира какво да се провери наново, ако
+                # решението-донор бъде оттеглено.
+                "preizpolzvane": payload.get("preizpolzvane"),
                 "evidence": canonical_decision.get("evidence"),
                 "canonical_decision": canonical_decision,
             },
@@ -4907,6 +5628,55 @@ class MainWindow(QMainWindow):
             return True
         return False
 
+    def _bulk_member_preview(self, rows: list[dict], *, approval_mode: str) -> str:
+        """Какво ТОЧНО ще се промени — преди прилагането (§ 6.3).
+
+        Дотук диалогът обещаваше „ще бъдат записани N връзки", където N беше
+        броят на подадените редове, а проверката по членове се случваше чак в
+        писача: операторът научаваше за пропуснатите СЛЕД записа. Присъдите тук
+        идват от същата функция, която писачът ползва, затова двете числа не
+        могат да се разминат.
+        """
+
+        from lion_rebar.review.bulk_member_verdicts import (
+            bulk_member_verdicts,
+            refusal_lines,
+            summarise,
+        )
+
+        links: list[dict] = []
+        try:
+            път = self._ledger_path()
+            # Под същата ключалка като писача: иначе четенето може да улови мига
+            # на ``os.replace`` и прегледът да покаже по-голямо число от това,
+            # което писачът после ще запише.
+            with exclusive_file_lock(път):
+                if път.is_file():
+                    данни = json.loads(път.read_text(encoding="utf-8-sig"))
+                    links = [
+                        стойност
+                        for стойност in (данни.get("links") or [])
+                        if isinstance(стойност, dict)
+                    ]
+        except Exception as exc:  # noqa: BLE001 - помощен път
+            self.logger.warning("Прегледът на масовото приемане чете без ledger: %s", exc)
+        присъди = bulk_member_verdicts(
+            rows, approval_mode=approval_mode, existing_links=links
+        )
+        сводка = summarise(присъди)
+        редове = [
+            "Ще бъдат записани %d от %d подадени."
+            % (сводка["accepted"], сводка["total"])
+        ]
+        if сводка["refused"]:
+            редове.append("")
+            редове.append(
+                "%d НЯМА да бъдат записани и остават за индивидуално решение:"
+                % сводка["refused"]
+            )
+            редове.extend(refusal_lines(присъди))
+        return "\n".join(редове)
+
     def _review_bulk_approve_rows(self, rows: list[dict]) -> None:
         dialog = self._review_center
         if dialog is None or not rows:
@@ -4917,7 +5687,8 @@ class MainWindow(QMainWindow):
             self,
             "Контролирано масово приемане",
             f"Контролната извадка е премината без маркиран проблем.\n\n"
-            f"Ще бъдат записани {len(rows)} силни връзки с потвърден Ø от DXF слоя.\n"
+            + self._bulk_member_preview(rows, approval_mode="STRONG")
+            + "\n\nВръзките са силни, с потвърден Ø от DXF слоя.\n"
             "Няма да се приемат геометрично силни, рискови, конфликтни или непълни позиции.\n\n"
             "Да запиша ли тези връзки?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -4957,7 +5728,8 @@ class MainWindow(QMainWindow):
             self,
             "Масово приемане — силни по геометрия",
             f"Поне 10 позиции от тази опашка са проверени и няма маркиран проблем.\n\n"
-            f"Ще бъдат записани {len(rows)} геометрично силни връзки.\n"
+            + self._bulk_member_preview(rows, approval_mode="GEOMETRY_STRONG")
+            + "\n\nВръзките са геометрично силни.\n"
             "Диаметърът се взема от ARM_N надписа, защото DXF слоят не го потвърждава.\n"
             "Рискови, конфликтни, непълни и невалидни MASTER форми няма да се приемат.\n\n"
             "Да запиша ли тези връзки?",
@@ -5000,7 +5772,8 @@ class MainWindow(QMainWindow):
             self,
             "Масово приемане — автоматично разпознати стремена F006",
             f"Поне 5 стремена F006 са проверени и няма маркиран проблем.\n\n"
-            f"Ще бъдат записани {len(rows)} строго разпознати съставни стремена.\n"
+            + self._bulk_member_preview(rows, approval_mode="F006_STRONG")
+            + "\n\nСтремената са строго разпознати съставни.\n"
             "Формата е четиристранен контур с два отделени ключа. Стойността след x "
             "в надписа не се използва като разгъната дължина; реалната L се пази от DXF.\n"
             "Конфликтни, рискови и различни геометрии няма да се приемат.\n\n"
@@ -5048,7 +5821,8 @@ class MainWindow(QMainWindow):
             self,
             "Потвърди останалите безопасни позиции",
             "Всички реални инженерни казуси са решени индивидуално.\n\n"
-            f"Ще бъдат потвърдени {len(rows)} останали CONTROL позиции без ownership/Master конфликт, "
+            + self._bulk_member_preview(rows, approval_mode="FINAL_USER_CONFIRMATION")
+            + "\n\nТова са останалите CONTROL позиции без ownership/Master конфликт, "
             "без блокирани размери и без data-quality флагове.\n\n"
             "Това е изрично USER потвърждение. Не променя Engine/Matcher.\n\n"
             "Да продължа ли?",
@@ -5112,7 +5886,7 @@ class MainWindow(QMainWindow):
             record_bulk_operation(
                 self.project.root,
                 mode=mode,
-                applied_by=getattr(self, "operator_name", "") or "оператор",
+                applied_by=self._operator_for_record(),
                 affected_handles=handles,
                 ledger_snapshot=ledger_snapshot,
                 state_snapshot=state_snapshot,
@@ -5123,6 +5897,7 @@ class MainWindow(QMainWindow):
                 "Bulk approval operation could not be journaled for undo"
             )
 
+    @_locked_project_file("working/approved_geometry_links.json")
     def _write_approved_geometry_links_from_report_rows(
         self,
         rows: list[dict],
@@ -5156,15 +5931,6 @@ class MainWindow(QMainWindow):
         existing_by_annotation = {
             str(link.get("annotation_handle") or ""): link for link in links
         }
-        geometry_owner: dict[tuple[str, ...], str] = {}
-        for link in links:
-            if is_position_key_legend_reference(link):
-                continue
-            key = tuple(sorted(str(value) for value in link.get("geometry_handles", []) if str(value)))
-            annotation = str(link.get("annotation_handle") or "")
-            if key and annotation:
-                geometry_owner[key] = annotation
-
         timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
         if identity.source_generation_id:
             stale_rows = [
@@ -5179,48 +5945,30 @@ class MainWindow(QMainWindow):
                 )
         new_links: list[dict] = []
         approved_handles: list[str] = []
-        batch_geometry_seen: dict[tuple[str, ...], str] = {}
         # ПРОБЛЕМНАТА ПОЗИЦИЯ СЕ ПРОПУСКА, ГРУПАТА ПРОДЪЛЖАВА.
         # По-ранната версия вдигаше изключение вътре в цикъла и отменяше
         # ЦЕЛИЯ пакет заради един конфликт — 21 годни позиции оставаха
         # неодобрени заради една чужда геометрия. Конфликтът е свойство на
         # позицията, не на групата.
-        skipped: list[tuple[str, str]] = []
-        for row in rows:
-            analysis = geometry_analysis_from_report_row(row)
-            if not analysis.candidates:
-                skipped.append((analysis.label or analysis.annotation_handle,
-                                "липсва кандидат"))
+        #
+        # Присъдите се смятат от ``review/bulk_member_verdicts.py`` — СЪЩАТА
+        # функция, която потвърждението показва преди записа (§ 6.3). Две
+        # реализации биха се разминали при първата промяна в едната.
+        verdicts = bulk_member_verdicts(
+            rows, approval_mode=approval_mode, existing_links=links
+        )
+        skipped = [
+            (член.label, член.reason) for член in verdicts if not член.accepted
+        ]
+        for член in verdicts:
+            if not член.accepted:
                 continue
-            candidate = analysis.candidates[0]
-            annotation = str(analysis.annotation_handle)
-            geometry_key = tuple(sorted(str(value) for value in candidate.handles))
-            if approval_mode == "GEOMETRY_STRONG":
-                validator = geometry_bulk_eligible
-            elif approval_mode == "F006_STRONG":
-                validator = f006_bulk_eligible
-            elif approval_mode == "FINAL_USER_CONFIRMATION":
-                validator = final_confirmation_eligible
-            else:
-                validator = bulk_eligible
-            if not validator(row):
-                skipped.append((analysis.label, "недопустим ред за масово приемане"))
-                continue
-            owner = geometry_owner.get(geometry_key)
-            shared_legend_reference = is_position_key_legend_reference(row)
-            if owner and owner != annotation and not shared_legend_reference:
-                skipped.append((
-                    analysis.label,
-                    f"геометрията вече е одобрена за друг надпис ({owner})"))
-                continue
-            batch_owner = batch_geometry_seen.get(geometry_key)
-            if batch_owner and batch_owner != annotation and not shared_legend_reference:
-                skipped.append((
-                    analysis.label,
-                    f"същата геометрия е подадена и от {batch_owner}"))
-                continue
-            if not shared_legend_reference:
-                batch_geometry_seen[geometry_key] = annotation
+            row = член.row
+            analysis = член.analysis
+            candidate = член.candidate
+            annotation = член.annotation_handle
+            geometry_key = член.geometry_key
+            shared_legend_reference = член.shared_legend_reference
             existing = existing_by_annotation.get(annotation)
             if existing is not None:
                 archived = dict(existing)
@@ -5307,8 +6055,6 @@ class MainWindow(QMainWindow):
             if identity.source_generation_id:
                 stamp_payload(link, identity)
             existing_by_annotation[annotation] = link
-            if not shared_legend_reference:
-                geometry_owner[geometry_key] = annotation
             new_links.append(link)
             approved_handles.append(annotation)
 
@@ -5331,12 +6077,9 @@ class MainWindow(QMainWindow):
             actor="MAIN_WINDOW",
             note="Променени одобрени геометрични връзки.",
         )
-        temporary = output_path.with_suffix(".json.tmp")
-        temporary.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
+        atomic_write_text(
+            output_path, json.dumps(data, ensure_ascii=False, indent=2) + "\n"
         )
-        temporary.replace(output_path)
         if skipped:
             # Пропуснатите се изброяват изрично: мълчаливо пропускане е
             # по-лошо от отказ, защото операторът не научава кои позиции
@@ -5353,6 +6096,7 @@ class MainWindow(QMainWindow):
             )
         return output_path, approved_handles
 
+    @_locked_project_file("working/approved_geometry_links.json")
     def _write_manual_form_assignment(self, payload: dict) -> Path:
         if self.project is None:
             raise RuntimeError("Няма отворен проект.")
@@ -5484,9 +6228,9 @@ class MainWindow(QMainWindow):
             actor="MAIN_WINDOW",
             note="Променени одобрени геометрични връзки.",
         )
-        temporary = output_path.with_suffix(".json.tmp")
-        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        temporary.replace(output_path)
+        atomic_write_text(
+            output_path, json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+        )
 
         if payload.get("save_training_example"):
             try:
@@ -5497,6 +6241,7 @@ class MainWindow(QMainWindow):
                     logger.warning("Manual training example was not saved: %s", exc)
         return output_path
 
+    @_locked_project_file("working/manual_shape_drafts.json")
     def _write_manual_shape_draft(
         self,
         payload: dict,
@@ -5567,13 +6312,18 @@ class MainWindow(QMainWindow):
         draft = dict(payload)
         draft["status"] = "DRAFT_REQUIRES_MASTER_APPROVAL"
         draft["created_at"] = timestamp
+        # Черновата е направена върху ЕДНА редакция на чертежа. Без печат на
+        # самоличността операторът не различава чия е тя, ако чертежът е внесен
+        # наново. Нищо в анализа не чете черновата, затова печатът е за
+        # проследимост, а не порта.
+        stamp_payload(draft, current_identity(self.project))
         retained.append(draft)
         data["updated_at"] = timestamp
         data["drafts"] = retained
         data["history"] = history
-        temporary = output_path.with_suffix(".json.tmp")
-        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        temporary.replace(output_path)
+        atomic_write_text(
+            output_path, json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+        )
         if payload.get("save_training_example"):
             try:
                 self._append_manual_training_example(payload, status="MISSING_MASTER_DRAFT")
@@ -5583,6 +6333,7 @@ class MainWindow(QMainWindow):
                     logger.warning("Manual draft training example was not saved: %s", exc)
         return output_path
 
+    @_locked_project_file("working/manual_shape_training_examples.json")
     def _append_manual_training_example(self, payload: dict, *, status: str) -> Path:
         if self.project is None:
             raise RuntimeError("Няма отворен проект.")
@@ -5607,12 +6358,13 @@ class MainWindow(QMainWindow):
             if isinstance(value, dict)
             and str((value.get("annotation") or {}).get("handle") or "") != annotation_handle
         ]
+        stamp_payload(example, current_identity(self.project))
         examples.append(example)
         data["updated_at"] = example["recorded_at"]
         data["examples"] = examples
-        temporary = output_path.with_suffix(".json.tmp")
-        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        temporary.replace(output_path)
+        atomic_write_text(
+            output_path, json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+        )
         return output_path
 
     def _close_review_center(self) -> None:
@@ -5967,6 +6719,7 @@ class MainWindow(QMainWindow):
             return result
         return None
 
+    @_locked_project_file("working/approved_geometry_links.json")
     def _write_approved_geometry_link(
         self,
         analysis: GeometryCandidateAnalysis,
@@ -6057,12 +6810,9 @@ class MainWindow(QMainWindow):
         data["links"] = retained_links
         data["history"] = history
 
-        temporary_path = output_path.with_suffix(".json.tmp")
-        temporary_path.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
+        atomic_write_text(
+            output_path, json.dumps(data, ensure_ascii=False, indent=2) + "\n"
         )
-        temporary_path.replace(output_path)
         return output_path
 
     def _clear_geometry_highlights(self) -> None:

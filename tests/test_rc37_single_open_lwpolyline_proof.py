@@ -199,6 +199,6 @@ def test_pipeline_classifies_frames_before_topology_and_before_dimension_fallbac
     topology_index = source.index(
         "_apply_single_open_lwpolyline_production_segments(rows, entities)"
     )
-    dimension_index = source.index("_apply_dimension_derived_production_sizes(rows, entities)")
+    dimension_index = source.index("_apply_dimension_derived_production_sizes(rows, entities")
 
     assert frame_index < topology_index < dimension_index

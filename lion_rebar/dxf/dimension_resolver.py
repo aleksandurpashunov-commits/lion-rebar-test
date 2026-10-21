@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import math
+import os
 import re
 from dataclasses import dataclass
 from typing import Iterable, Sequence
@@ -60,6 +61,60 @@ class _NumericDimension:
     measurement_axes_deg: tuple[float, ...] | None = None
 
 
+#: Допуск при проверката на ДОСМЕТНАТА стойност срещу начертания участък.
+#: Отпечатаната стойност е доказателство и не се проверява така — тя стои над
+#: чертежа. Досметнатата е аритметика и иска независимо потвърждение.
+#: Границата поема разширяването през радиуса на огъване и неточността на
+#: чертежа; над нея резолверът отказва, вместо да предположи.
+#: Избран по данни (rezultat/etap_6/DOPUSK.json): най-строгата граница, която
+#: пуска законния случай (начертано 66, произведено 61 — разширяване през
+#: радиуса на огъване) и спира всички спорни случаи на d-2. Допускът е
+#: АБСОЛЮТЕН: разширяването през радиуса е от порядъка на самия радиус и не
+#: зависи от дължината на участъка. Относителен допуск би направил дългия
+#: участък прекалено позволителен — точно там, където грешката е най-скъпа.
+_INFERRED_GEOMETRY_TOLERANCE_CM = 6.0
+
+
+def _inferred_tolerance_cm() -> float:
+    """Границата, с четене от средата при всяко извикване.
+
+    Диагностичен ключ `LION_REBAR_INFERRED_TOLERANCE_CM`: служи само за да се
+    измери кое пада заради границата и кое заради друго. Не е настройка за
+    собственика.
+    """
+
+    сурово = os.environ.get("LION_REBAR_INFERRED_TOLERANCE_CM")
+    if сурово:
+        try:
+            стойност = float(сурово)
+        except ValueError:
+            return _INFERRED_GEOMETRY_TOLERANCE_CM
+        if стойност >= 0:
+            return стойност
+    return _INFERRED_GEOMETRY_TOLERANCE_CM
+
+
+def _inferred_value_matches_drawing(
+    value: float,
+    governed_indices: tuple[int, ...],
+    raw_segment_lengths: tuple[float, ...],
+) -> bool:
+    """Потвърждава ли начертаното една досметната стойност.
+
+    Досметнатата стойност описва конкретни участъци от полилинията. Ако нито
+    един от тях не е с такава начертана дължина, стойността не е размер на този
+    прът, а остатък от аритметика.
+    """
+
+    for index in governed_indices:
+        if index < 0 or index >= len(raw_segment_lengths):
+            continue
+        drawn = raw_segment_lengths[index]
+        if abs(drawn - value) <= _inferred_tolerance_cm():
+            return True
+    return False
+
+
 def dimension_evidence_for_shape(
     points: Sequence[Point2D],
     shape: ShapeDefinition,
@@ -72,6 +127,7 @@ def dimension_evidence_for_shape(
     maximum_text_distance_raw: float = 60.0,
     maximum_orientation_difference_deg: float = 25.0,
     exclude_cross_axis_dimensions: bool = False,
+    annotation_layer: str = "",
 ) -> tuple[DimensionEvidence, ...]:
     """Resolve nearby numeric A-E values against one MASTER parameter formula.
 
@@ -112,6 +168,7 @@ def dimension_evidence_for_shape(
         excluded_handles=excluded,
         allowed_handles=allowed,
         maximum_text_distance_raw=maximum_text_distance_raw,
+        annotation_layer=annotation_layer,
     )
     if not numeric:
         return ()
@@ -218,6 +275,16 @@ def dimension_evidence_for_shape(
             values_by_code.update(inferred_values or {})
             if any(code not in values_by_code for code in parameter_codes):
                 return
+            # Досметнатата стойност не е доказателство — иска потвърждение от
+            # начертаната геометрия на участъка, който описва. Без него
+            # резолверът отказва: измисленият вектор е по-лош от липсващия.
+            for code, value in (inferred_values or {}).items():
+                if not _inferred_value_matches_drawing(
+                    float(value),
+                    governed_geometry_indices.get(code, ()),
+                    raw_segment_lengths,
+                ):
+                    return
             geometry_values = [0.0] * len(segments)
             for shape_position, code in enumerate(code_by_shape_position):
                 geometry_values[geometry_index_for_shape[shape_position]] = values_by_code[code]
@@ -395,11 +462,34 @@ def _nearby_numeric_dimensions(
     excluded_handles: set[str],
     allowed_handles: set[str] | None,
     maximum_text_distance_raw: float,
+    annotation_layer: str = "",
 ) -> tuple[_NumericDimension, ...]:
+    # СВОБОДЕН ТЕКСТ с голо число на СЪЩИЯ слой, на който стои позиционният
+    # надпис, е част от надписната система, не размер на пръта. ASD пише
+    # описанието на разпределението като два MTEXT-а — брой и надпис — със
+    # съседни handle-и. Измерено на d-2: точно това дава [601, 9] вместо
+    # 15 + 595 при поз. 9, и още три позиции (24, 25, 35).
+    #
+    # Правилото важи САМО за свободен текст. Обект DIMENSION е размер по
+    # устройство: носи измерена стойност и геометрия, която го връзва с онова,
+    # което мери. Контрапример, който наложи това стеснение: `Тест-003`,
+    # позиция `69F9B3`, където истинските DIMENSION обекти `69F9B1` и `69F9B2`
+    # стоят на слой `Text ARM.2` — същия, на който е и надписът.
+    #
+    # Слоят се познава по съдържание (носи обработвания надпис), не по име.
+    надписен_слой = str(annotation_layer or "").strip().casefold()
     rows: list[_NumericDimension] = []
     for record in entities:
         handle = str(record.handle)
         if handle in excluded_handles:
+            continue
+        if (
+            надписен_слой
+            and str(record.entity_type or "").strip().upper() != "DIMENSION"
+            and str(record.layer or "").strip().casefold() == надписен_слой
+            # Изричното разрешение на оператора стои над правилото.
+            and not (allowed_handles is not None and handle in allowed_handles)
+        ):
             continue
         if allowed_handles is not None and handle not in allowed_handles:
             continue

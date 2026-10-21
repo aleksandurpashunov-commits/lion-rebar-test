@@ -84,10 +84,17 @@ def test_shaibi_single_sheet_title_resolves_as_walls_frame() -> None:
     assert not unresolved_frames(frames)
 
 
-def test_columns_title_without_frame_insert_stays_unresolved() -> None:
-    """Fail-closed: the single-sheet fallback still requires real
-    corroborating evidence (a title-block INSERT), not the title text
-    alone -- unchanged safety property, just extended vocabulary."""
+def test_columns_title_bez_vmakvaniya_pravi_edin_list() -> None:
+    """РЕШЕНИЕ НА СОБСТВЕНИКА, 06.10.2026 — смяна на очакването.
+
+    Дотук правилото искаше и рамков ``INSERT``. Чертеж от бюро, което не чертае
+    рамков блок, оставаше с нула рамки и нула изнесени позиции. Сега едно
+    недвусмислено заглавие стига, когато в чертежа няма НИТО ЕДНО вмъкване —
+    виж докстринга на ``_detect_single_sheet_frame``.
+
+    Останалото от стария тест е запазено: категорията се извежда от речника на
+    заглавията (КОЛОНИ), а не от името на слоя.
+    """
 
     entities = [
         _text(
@@ -100,7 +107,10 @@ def test_columns_title_without_frame_insert_stays_unresolved() -> None:
 
     frames = detect_drawing_frames(entities)
 
-    assert frames == []
+    assert len(frames) == 1
+    assert frames[0].category_code == "COLUMNS"
+    assert frames[0].resolution_reason == "SINGLE_SHEET_TITLE_ONLY"
+    assert frames[0].confidence == "LOW"
 
 
 def test_existing_beams_and_verticals_titles_still_classify_unchanged() -> None:

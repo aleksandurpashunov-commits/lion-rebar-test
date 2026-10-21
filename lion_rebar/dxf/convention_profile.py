@@ -188,6 +188,9 @@ class ProfileRefusal:
     reason: str
     block_name: str = ""
     counts: dict[str, int] = field(default_factory=dict)
+    #: Примерни handle-и. Отказ без тях е твърдение; с тях операторът може да
+    #: намери обектите в чертежа и да провери сам.
+    sample_handles: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -197,6 +200,7 @@ class ProfileRefusal:
             "role": self.role,
             "reason": self.reason,
             "counts": dict(self.counts),
+            "sample_handles": list(self.sample_handles),
         }
 
 
@@ -250,6 +254,27 @@ def propose_convention_profile(
     )
     proposals.extend(геометрични)
     refusals.extend(геометрични_откази)
+
+    допълнителни_откази, отхвърлени = _geometry_evidence_verdicts(
+        записи,
+        policy=policy or DEFAULT_RECOGNITION_POLICY,
+        предложени={
+            proposal.layer
+            for proposal in proposals
+            if proposal.target_kind == "LAYER"
+        },
+        вече_отказани={
+            refusal.layer for refusal in refusals if refusal.target_kind == "LAYER"
+        },
+    )
+    # Присъдата ``not_rebar`` на разделителя бие правилото само по дължина:
+    # предложението се маха и на негово място остава отказът с доказателството.
+    proposals = [
+        proposal
+        for proposal in proposals
+        if not (proposal.role == "REBAR_GEOMETRY" and proposal.layer in отхвърлени)
+    ]
+    refusals.extend(допълнителни_откази)
 
     role_counts = Counter(proposal.role for proposal in proposals)
     return {
@@ -705,6 +730,100 @@ def _propose_rebar_geometry_layers(
                 )
             )
     return proposals, refusals
+
+
+def _geometry_evidence_verdicts(
+    записи: Sequence[DxfEntityRecord],
+    *,
+    policy: RecognitionPolicy,
+    предложени: set[str],
+    вече_отказани: set[str],
+) -> tuple[list[ProfileRefusal], set[str]]:
+    """Слоевете, които геометричният различител НЕ приема — на екрана.
+
+    Връща отказите за екрана и имената на слоевете с присъда ``not_rebar``,
+    чието предложение трябва да отпадне.
+
+    ЗАЩО. ``dxf/rebar_geometry_evidence.py`` мери всеки слой и връща три
+    присъди: ``rebar``, ``not_rebar`` и ``unknown``. Днес до разпознаването
+    стига САМО ``rebar`` (``learning/integration.discover_rebar_geometry_layers``
+    задържа него), а другите две се изхвърлят мълчаливо. Така операторът не
+    научава нито че геометрията Я ИМА, нито защо не е приета — а точно това е
+    екранът „Какво програмата НЕ разбра“. Самият модул го знае: докстрингът на
+    ``RebarGeometryEvidence.refused_layers`` казва „екранът на оператора има
+    нужда точно от тях“, но никой не го викаше.
+
+    Нищо не се предлага и нищо не се прилага. Присъдата, обяснението и
+    примерните handle-и са СМЕТНАТИ ОТ МОДУЛА — тук не се въвежда нов праг и
+    не се пише нов текст за доказателство.
+
+    Един ред на слой: за какво правилото в този модул вече е казало нещо, тук
+    се мълчи. ЕДНО изключение — присъдата ``not_rebar``. Правилото тук мери САМО
+    дължина и точно затова предлага ``d-2`` „Slab contour“ за армировъчен слой;
+    измерено, обявяването му влошава проекта (124 → 105 преминали позиции,
+    анализът от 6,3 s на 128,9 s). Структурната присъда бие мярката по дължина:
+    предложението отпада и на негово място застава отказът с доказателството.
+    Иначе екранът щеше да предлага за приемане точно слоя, който собственият
+    разделител на програмата отказва.
+
+    Измерено 2026-10-05 върху 13-те проекта в ``C:\\lr_exp\\proekti`` (11-те
+    чертежа на корпуса плюс ``s-1`` и ``т-1``): добавя **12 реда общо**, най-
+    много 5 в един чертеж (``Тест-003``), в седем проекта — нула. Разпределение:
+    1 ``not_rebar`` (``d-2`` „Slab contour“ — 74 надписа съвпадат по дължина, но
+    148 от 148 заявени обекта са звена от верига) и 11 ``unknown`` с тънко
+    доказателство. Отпада точно ЕДНО предложение в целия корпус — същият слой.
+    Заливане няма, защото ``evaluate_rebar_geometry`` изобщо не отчита слой без
+    нито едно съвпадение по дължина.
+    """
+
+    # Внасят се тук, а не горе: ``geometry_candidates`` внася този модул по
+    # друга линия и внасянето на ниво модул става кръгово.
+    from lion_rebar.dxf.geometry_candidates import _rebar_geometry_layer_role
+    from lion_rebar.dxf.rebar_geometry_evidence import (
+        VERDICT_NOT_REBAR,
+        VERDICT_REBAR,
+        evaluate_rebar_geometry,
+    )
+
+    доказателство = evaluate_rebar_geometry(записи, policy=policy)
+
+    откази: list[ProfileRefusal] = []
+    отхвърлени: set[str] = set()
+    for име, ред in sorted(доказателство.layers.items()):
+        if ред.verdict == VERDICT_REBAR:
+            continue
+        ако_отхвърлен = ред.verdict == VERDICT_NOT_REBAR
+        if ако_отхвърлен:
+            отхвърлени.add(име)
+        if име in вече_отказани:
+            continue
+        if име in предложени and not ако_отхвърлен:
+            continue
+        познат = _rebar_geometry_layer_role(име, policy) is not None
+        произход = (
+            "речникът вече познава слоя и разпознаването го ползва — "
+            "съдържанието на ТОЗИ чертеж не го потвърждава"
+            if познат
+            else "речникът не познава слоя — геометрията му не влиза в "
+            "разпознаването"
+        )
+        counts = {
+            ключ: int(стойност)
+            for ключ, стойност in (ред.signals or {}).items()
+            if isinstance(стойност, int) and not isinstance(стойност, bool)
+        }
+        counts["annotations_with_length"] = int(доказателство.annotations_with_length)
+        откази.append(
+            ProfileRefusal(
+                target_kind="LAYER",
+                layer=име,
+                role="REBAR_GEOMETRY",
+                reason=f"{ред.why}; {произход}",
+                counts=counts,
+                sample_handles=tuple(ред.sample_handles),
+            )
+        )
+    return откази, отхвърлени
 
 
 # --------------------------------------------------------------------------- #

@@ -42,6 +42,7 @@ from lion_rebar.project.convention_profile_decisions import (
     record_convention_profile,
 )
 from lion_rebar.project.data_identity import DataIdentity
+from lion_rebar.session.operator_identity import НЕЗАЯВЕН
 
 #: Какво стои в падащото меню. Стойността е (решение, роля-или-None).
 НЕ_СЕГА = ("", None)
@@ -74,7 +75,7 @@ class DrawingPassportDialog(QDialog):
         ]
         self._project_root = Path(project_root)
         self._identity = identity
-        self._operator = str(operator or "").strip() or "оператор"
+        self._operator = str(operator or "").strip() or НЕЗАЯВЕН
         self._verdict_boxes: list[QComboBox] = []
         self._note_edits: list[QLineEdit] = []
         self.decisions_made = 0
@@ -138,9 +139,11 @@ class DrawingPassportDialog(QDialog):
         layout.addWidget(
             QLabel(f"<b>Какво програмата НЕ разбра ({len(self._refusals)})</b>")
         )
-        self.refusal_table = QTableWidget(len(self._refusals), 3, self)
+        # Четвъртата колона са примерните handle-и: отказ без тях е твърдение,
+        # с тях операторът намира обектите в чертежа и проверява сам.
+        self.refusal_table = QTableWidget(len(self._refusals), 4, self)
         self.refusal_table.setHorizontalHeaderLabels(
-            ["Слой / блок", "Правило", "Защо отказва"]
+            ["Слой / блок", "Правило", "Защо отказва", "Примери (handle)"]
         )
         self.refusal_table.horizontalHeader().setSectionResizeMode(
             2, QHeaderView.ResizeMode.Stretch
@@ -154,6 +157,12 @@ class DrawingPassportDialog(QDialog):
             self.refusal_table.setItem(
                 row, 2, _само_за_четене(str(отказ.get("reason") or ""))
             )
+            примери = [
+                str(handle)
+                for handle in (отказ.get("sample_handles") or ())
+                if str(handle)
+            ]
+            self.refusal_table.setItem(row, 3, _само_за_четене(", ".join(примери)))
         layout.addWidget(self.refusal_table)
 
         buttons = QDialogButtonBox(

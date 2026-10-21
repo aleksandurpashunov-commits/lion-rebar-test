@@ -696,7 +696,49 @@ def _build_evidence(
             source="GLOBAL_GEOMETRY_OWNERSHIP",
         )
     )
+    if hooked_closure_is_confirmed_by_dimensions(candidate):
+        присъда = _read(
+            candidate, "f006_owned_dimension_confirmation"
+        ) or {}
+        evidence.append(
+            EvidenceItem(
+                code="HOOKED_CLOSURE_DIMENSIONS_CONFIRMED",
+                category="production",
+                band=EvidenceBand.EXACT,
+                message=(
+                    "Отворените крайни куки са потвърдени от собствените коти "
+                    "на контура: същият производствен вектор от два независими "
+                    "източника."
+                ),
+                value={
+                    "owner_geometry_handle": присъда.get("owner_geometry_handle"),
+                    "dimension_handles": присъда.get("dimension_handles"),
+                    "segments_from_owned_dimensions_cm": присъда.get(
+                        "segments_from_owned_dimensions_cm"
+                    ),
+                },
+                source="DXF_OWNED_DIMENSIONS",
+            )
+        )
     return evidence
+
+
+def hooked_closure_is_confirmed_by_dimensions(candidate: Any | None) -> bool:
+    """Има ли второ, независимо доказателство за вектора на стремето.
+
+    Присъдата се пише от ``batch_geometry_report._confirm_f006_hooked_closure_dimensions``
+    ПРЕДИ оценката на matcher-а. Липсващо поле значи „не".
+    """
+
+    from lion_rebar.dxf.f006_owned_dimension_confirmation import (
+        hooked_closure_is_confirmed,
+        ПОЛЕ,
+    )
+
+    присъда = _read(candidate, ПОЛЕ)
+    if присъда is None:
+        return False
+    return hooked_closure_is_confirmed({ПОЛЕ: присъда})
 
 
 def _safety_gates(
@@ -782,14 +824,23 @@ def _safety_gates(
             "Използвана е контролирана чертожна празнина; изисква потвърждение.",
         )
     if "HOOKED_CLOSURE" in reason_codes:
-        add(
-            "HOOKED_CLOSURE",
-            MatcherDisposition.MANUAL,
-            (
-                "Отворени крайни куки са сравнени със затворена MASTER форма; "
-                "връзката винаги изисква ръчно потвърждение."
-            ),
-        )
+        # Ръчното потвърждение се иска, защото затворената MASTER форма е
+        # сравнена при РАЗШИРЕН допуск на отношенията (0,20-0,25 вместо 0,05,
+        # `shape_recognition`). Когато проектантът сам е надписал котите ВЪРХУ
+        # същия контур и те независимо дават същия производствен вектор,
+        # решението вече не стъпва на разширения допуск, а на две съвпадащи
+        # независими доказателства. Само тогава спирачката не се слага; всяко
+        # друго състояние (разминаване, липса на коти, незатворено уравнение)
+        # я запазва. Останалите спирачки не се пипат.
+        if not hooked_closure_is_confirmed_by_dimensions(candidate):
+            add(
+                "HOOKED_CLOSURE",
+                MatcherDisposition.MANUAL,
+                (
+                    "Отворени крайни куки са сравнени със затворена MASTER форма; "
+                    "връзката винаги изисква ръчно потвърждение."
+                ),
+            )
     if bool(_read(candidate, "mirror_requires_review")) or "MIRROR_REVIEW" in reason_codes:
         add(
             "MIRROR_NOT_PERMITTED",

@@ -234,6 +234,37 @@ def positive_float(value: Any, *, field: str | None = None) -> float | None:
     return number
 
 
+#: Таван на ЗАЯВЕНАТА добавка за огъване. Не е инженерно правило, а защита от
+#: изпусната клавиша: самото число се приема само когато ТОЧНО затваря
+#: уравнението (``engine.bend_allowance.declared_allowance_closes``), затова
+#: таванът не решава нищо — той само спира безсмислено голяма стойност, преди
+#: да стигне до проверката. Най-големият измерен недостиг в корпуса е 8 cm
+#: (F006), а тук е оставен троен запас.
+DECLARED_BEND_ALLOWANCE_MAX_CM = 25.0
+
+
+def declared_bend_allowance(resolved: Mapping[str, Any]) -> float | None:
+    """Числото, което инженерът е заявил за добавката по ТОЗИ детайл.
+
+    ``None`` значи „не е заявено“ — тогава важат само измерените правила.
+    Празно поле е същото като незаявено; отрицателно, нула или извън тавана е
+    ГРЕШКА, а не мълчаливо пренебрегване: операторът е написал нещо и трябва да
+    узнае, че не е прието.
+    """
+
+    сурово = resolved.get("bend_allowance_cm")
+    if сурово is None or str(сурово).strip() == "":
+        return None
+    число = positive_float(сурово, field="Заявена добавка за огъване")
+    assert число is not None
+    if число > DECLARED_BEND_ALLOWANCE_MAX_CM:
+        raise ValueError(
+            f"Заявената добавка за огъване ({число:g} cm) надвишава защитния "
+            f"максимум {DECLARED_BEND_ALLOWANCE_MAX_CM:g} cm."
+        )
+    return число
+
+
 def parse_segment_text(value: str | Iterable[Any]) -> tuple[float, ...]:
     if isinstance(value, str):
         normalized = (
@@ -517,8 +548,25 @@ def save_engineer_decision(project_root, payload: Mapping[str, Any],
     if shape_code != "F001" and not segments:
         raise ValueError("Огъната форма е без производствени сегменти.")
     # Единен източник на истина за добавката за огъване.
-    if not segments_match_total(shape_code, sum(segments), length):
-        raise ValueError(explain_mismatch(shape_code, sum(segments), length))
+    #
+    # Заявената добавка се пита ЕДВА след като обикновените правила са отказали.
+    # Така числото на инженера не отслабва нито едно измерено правило и се
+    # записва само когато наистина е свършило работа — иначе в решението би
+    # стояло число, което нищо не е променило.
+    заявена_добавка = declared_bend_allowance(resolved)
+    добавката_е_нужна = not segments_match_total(shape_code, sum(segments), length)
+    if добавката_е_нужна and not segments_match_total(
+        shape_code, sum(segments), length, declared_allowance_cm=заявена_добавка
+    ):
+        raise ValueError(
+            explain_mismatch(
+                shape_code,
+                sum(segments),
+                length,
+                declared_allowance_cm=заявена_добавка,
+            )
+        )
+    записана_добавка = заявена_добавка if добавката_е_нужна else None
 
     shape_raw = payload.get("shape_definition")
     if isinstance(shape_raw, Mapping):
@@ -545,6 +593,7 @@ def save_engineer_decision(project_root, payload: Mapping[str, Any],
             segments,
             production_length_cm=length,
             turn_angles_deg=tuple(resolved.get("turn_angles_deg") or ()),
+            declared_allowance_cm=записана_добавка,
         )
     except ExcelExportError as exc:
         raise ValueError(f"Производствените размери не минават MASTER проверката на Engine: {exc}") from exc
@@ -683,6 +732,10 @@ def save_engineer_decision(project_root, payload: Mapping[str, Any],
             "diameter_mm": diameter,
             "production_length_cm": length,
             "segment_lengths_cm": list(segments),
+            # Прието или не — числото стои в одитната следа такова, каквото е
+            # БИЛО ПОЛЗВАНО. ``None`` значи, че решението е минало по
+            # измерените правила и заявка не е била нужна.
+            "bend_allowance_cm": записана_добавка,
         }
     )
     audit_context = _project_audit_context(root)
@@ -742,6 +795,9 @@ def save_engineer_decision(project_root, payload: Mapping[str, Any],
         "production_length_cm": length,
         "production_length_source": "OWNER_ENGINEER_DECISION",
         "production_segment_lengths_cm": list(segments),
+        # Заявената добавка пътува С решението. Без нея експортът би отказал
+        # същата позиция по-късно — проверката там се прави наново.
+        "production_bend_allowance_cm": записана_добавка,
         "canonical_segment_lengths_cm": list(segments),
         "canonical_turn_angles_deg": list(resolved.get("turn_angles_deg") or []),
         "geometry_handles": list(geometry_handles),
@@ -774,6 +830,7 @@ def save_engineer_decision(project_root, payload: Mapping[str, Any],
             "diameter_mm": diameter,
             "production_length_cm": length,
             "production_segment_lengths_cm": list(segments),
+            "production_bend_allowance_cm": записана_добавка,
             "turn_angles_deg": list(resolved.get("turn_angles_deg") or []),
             "reason_code": reason_code,
             "note": note,

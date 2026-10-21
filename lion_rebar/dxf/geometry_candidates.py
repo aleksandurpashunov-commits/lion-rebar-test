@@ -432,6 +432,11 @@ class GeometryCandidate:
     uniform_scale_factor: float | None = None
     mirror_requires_review: bool = False
     review_reason_codes: tuple[str, ...] = field(default_factory=tuple)
+    #: Причини, които ОБЯСНЯВАТ, но не решават одобрение. Отделно поле, защото
+    #: пътят за повишаване се задейства от „няма нито един код в
+    #: review_reason_codes"; смесването им там отнема повишаването на 819
+    #: правомерно излизащи позиции.
+    review_info_codes: tuple[str, ...] = field(default_factory=tuple)
     effective_geometry_length_cm: float | None = None
     raw_numeric_difference: float | None = None
     contextual_rule_code: str | None = None
@@ -442,6 +447,9 @@ class GeometryCandidate:
     near_gap_bridge_points: tuple[Point2D, Point2D] = field(default_factory=tuple)
     canonical_segment_lengths_cm: tuple[float, ...] = field(default_factory=tuple)
     canonical_turn_angles_deg: tuple[float, ...] = field(default_factory=tuple)
+    #: Преднина спрямо НАЙ-СИЛНИЯ друг кандидат (може да е отрицателна).
+    #: Само доказателство — нито едно решение не стъпва на него.
+    strongest_rival_score_gap: float | None = None
     geometry_representation: str | None = None
     geometry_layer_role: str | None = None
     source_curve_count: int = 0
@@ -1044,6 +1052,11 @@ def find_geometry_candidates(
 
         notes: list[str] = []
         review_reason_codes: list[str] = []
+        # Причини, които ОБЯСНЯВАТ, но не решават одобрение. Пазят се отделно,
+        # защото пътят за повишаване до „изричен именуван контекст" се задейства
+        # от „няма НИТО ЕДИН код в review_reason_codes". Смесването им там
+        # отнема повишаването на 819 правомерно излизащи позиции — измерено.
+        review_info_codes: list[str] = []
         for primitive in shape:
             for note in primitive.geometry_notes:
                 if note not in notes:
@@ -1087,6 +1100,7 @@ def find_geometry_candidates(
                 f"MASTER топология (междина {_fmt(hooked_closure_gap or 0.0)})"
             )
         if layer_diameter is None:
+            review_info_codes.append("LAYER_WITHOUT_DIAMETER")
             notes.append("Армировъчен слой без кодиран диаметър — Ø остава за ръчна проверка")
         if len(shape) > 1:
             notes.append(f"Съставна геометрия от {len(shape)} свързани DXF обекта")
@@ -1235,6 +1249,7 @@ def find_geometry_candidates(
                 "contextual_rule_code": proportion_rule_code,
                 "contextual_rule_note": proportion_rule_note,
                 "review_reason_codes": tuple(review_reason_codes),
+                "review_info_codes": tuple(review_info_codes),
                 "schematic_scale": schematic_scale,
                 "uniform_scale_factor": scale_factor,
                 "near_gap_bridge": near_gap_bridge,
@@ -1346,14 +1361,43 @@ def find_geometry_candidates(
     candidates: list[GeometryCandidate] = []
     for index, row in enumerate(raw_rows):
         next_row = raw_rows[index + 1] if index + 1 < len(raw_rows) else None
+        # Преднината се мери до ИСТИНСКИЯ съперник, не до следващия по-лош.
+        #
+        # Защо: подредбата не е последната дума. `_prefer_annotation_axis_candidate`
+        # и `_promote_ownership_alternative` изкарват напред кандидат, който НЕ е
+        # първи, а той носеше преднината, измерена на старото му място — спрямо
+        # по-слаб съперник или изобщо липсваща. Измерено на `Тест-002/702024`:
+        # обявени 0,518 по резултат и 78,05 по разстояние спрямо ДАЛЕЧЕН кандидат
+        # (81 единици), докато истинският съперник `701FB3` е с 0,0085 по-добър и
+        # с 2,55 по-близо — и позицията минаваше автоматично.
+        #
+        # Отрицателна стойност значи „има по-силен конкурент" и това трябва да
+        # личи. За водещия кандидат по резултат нищо не се мени: най-силният
+        # друг е точно следващият.
+        другите = [друг for позиция, друг in enumerate(raw_rows) if позиция != index]
+        най_силен = min(другите, key=lambda р: float(р["score"])) if другите else None
+        # Пространственият съперник трябва да е ДРУГ обект. Под-път или над-път
+        # на същата верига стои на същото разстояние по построение — преднина
+        # спрямо част от самия себе си е 0 и не доказва нищо. Измерено на
+        # `d-2/2076`: най-близкият друг кандидат е `['205F','2060']` — под-път
+        # на избрания `['205E','205F','2060']` при същото разстояние 0,5868.
+        свои = {str(дръжка) for дръжка in (row.get("handles") or ())}
+        отделни = [
+            друг for друг in другите
+            if not ({str(д) for д in (друг.get("handles") or ())} & свои)
+        ]
+        най_близък = (
+            min(отделни, key=lambda р: float(р["distance_raw"])) if отделни else None
+        )
         score_gap = (
-            math.inf if next_row is None else float(next_row["score"]) - float(row["score"])
+            math.inf if най_силен is None
+            else float(най_силен["score"]) - float(row["score"])
         )
         distance_gap = (
-            math.inf
-            if next_row is None
-            else float(next_row["distance_raw"]) - float(row["distance_raw"])
+            math.inf if най_близък is None
+            else float(най_близък["distance_raw"]) - float(row["distance_raw"])
         )
+        strongest_rival_gap = None if math.isinf(score_gap) else score_gap
         forced_confidence = row.get("forced_confidence")
         reason_codes = tuple(row.get("review_reason_codes") or ())
         candidate_notes = list(row.get("notes") or ())
@@ -1474,6 +1518,7 @@ def find_geometry_candidates(
                 diameter_layer_match=row["diameter_layer_match"],
                 score=row["score"],
                 score_gap=None if math.isinf(score_gap) else score_gap,
+                strongest_rival_score_gap=strongest_rival_gap,
                 distance_gap_raw=None if math.isinf(distance_gap) else distance_gap,
                 confidence=confidence,
                 basis=row["basis"],
@@ -1499,6 +1544,7 @@ def find_geometry_candidates(
                     master_match.mirror_requires_review if master_match else False
                 ),
                 review_reason_codes=reason_codes,
+                review_info_codes=tuple(row.get("review_info_codes") or ()),
                 effective_geometry_length_cm=row.get("effective_geometry_length_cm"),
                 raw_numeric_difference=row.get("raw_numeric_difference"),
                 contextual_rule_code=(
@@ -1647,6 +1693,7 @@ def _resolve_unique_master_dimensions(
         excluded_handles=(annotation_handle, *tuple(excluded_dimension_handles)),
         allowed_handles=allowed_dimension_handles,
         exclude_cross_axis_dimensions=exclude_cross_axis_dimensions,
+        annotation_layer=_layer_of_handle(entities, annotation_handle),
     )
     resolved_rows: list[tuple[float, ShapeMatch, DimensionEvidence]] = []
     for evidence in evidence_rows[:8]:
@@ -1959,6 +2006,7 @@ def _resolve_dimension_master_ambiguity(
                 excluded_handles=(annotation_handle, *tuple(excluded_dimension_handles)),
                 allowed_handles=allowed_dimension_handles,
                 exclude_cross_axis_dimensions=exclude_cross_axis_dimensions,
+                annotation_layer=_layer_of_handle(entities, annotation_handle),
             )[:8]
         )
     if not evidence_rows:
@@ -2507,6 +2555,7 @@ def _f006_rounded_composite_candidate_rows(
                 "canonical_segment_lengths_cm": tuple(canonical),
                 "canonical_turn_angles_deg": (90.0, 90.0, 90.0, 90.0),
                 "review_reason_codes": (),
+                "review_info_codes": (),
                 "schematic_scale": False,
                 "uniform_scale_factor": None,
                 "near_gap_bridge": None,
@@ -3452,7 +3501,19 @@ def _contextual_shape_override(
         note=(
             "Приложено е одобрено проектно правило за средно желязо N8 в греда: "
             f"{_fmt(expected_long)} + {_fmt(hook)} cm, винкел 90°. "
-            "Наклонът на късото рамо в DXF се приема за символично изчертаване."
+            "Наклонът на късото рамо в DXF се приема за символично изчертаване. "
+            # ЗАЩО се записва НАЧЕРТАНИЯТ завой: правилото го ЗАМЕНЯ с 90°, а в
+            # отчета оставаха само каноничните 90° — заменената стойност не се
+            # виждаше никъде и заместването не можеше да бъде проверено.
+            # Измерено върху корпуса (16 позиции в `s-9` и `тест-006`): и 16-те
+            # са начертани схематично — 27,2°, 28,6°, 151,4° или 152,8° — нито
+            # една близо до 90°, тоест предпоставката на правилото се потвърждава.
+            # Но прозорецът приема 10°–170°, тоест е по-широк от доказаното: ако
+            # в този клас се появи начертан истински завой (напр. 135°), той ще
+            # бъде заменен с 90° без следа. Затова измереното число стои тук.
+            f"Начертаният завой е {_fmt(raw_turn)}°, приет за схематичен "
+            f"(прозорец {_fmt(float(policy.beam_n8_min_raw_turn_deg))}°–"
+            f"{_fmt(float(policy.beam_n8_max_raw_turn_deg))}°)."
         ),
         points=canonical_points,
         effective_length_cm=float(declared_length_cm),
@@ -3729,6 +3790,22 @@ def _diameter_from_layer(layer: str) -> float | None:
         return None
 
 
+def _layer_of_handle(entities: Sequence[DxfEntityRecord], handle: str) -> str:
+    """Слоят на обекта с този handle, или празно.
+
+    Нужен е, за да знае размерният резолвер на кой слой стои самият надпис:
+    голо число на същия слой е част от надписната система, не размер.
+    """
+
+    цел = str(handle or "")
+    if not цел:
+        return ""
+    for запис in entities:
+        if str(запис.handle) == цел:
+            return str(запис.layer or "")
+    return ""
+
+
 def _rebar_geometry_layer_role(
     layer: str,
     policy: RecognitionPolicy | None = None,
@@ -3745,6 +3822,17 @@ def _rebar_geometry_layer_role(
     }
     if declared and str(layer or "").strip().upper() in declared:
         return "DECLARED_REBAR_LAYER"
+    # Намереният автоматично слой е СЛЕД обявения от човек (неговата дума бие) и
+    # ПРЕДИ речника от корени, защото речникът за него дава None по устройство.
+    # Открива се от `dxf/rebar_geometry_evidence.py` по измерими признаци, не по
+    # име; попълва се в `learning/integration.prepare_policy`.
+    discovered = {
+        str(name).strip().upper()
+        for name in getattr(resolved, "discovered_rebar_geometry_layers", ())
+        if str(name).strip()
+    }
+    if discovered and str(layer or "").strip().upper() in discovered:
+        return "DISCOVERED_REBAR_LAYER"
     normalized = (layer or "").upper().replace("_", " ").replace("-", " ")
     if _diameter_from_layer(layer) is not None:
         return "DIAMETER_LAYER"

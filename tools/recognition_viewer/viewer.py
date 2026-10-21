@@ -198,6 +198,10 @@ class Картина:
     height: int
     summary: dict[str, int]
     инфо: dict[str, dict[str, Any]]
+    # handle → текст за всичко, на което операторът може да остави бележка:
+    # позициите от отчета и надписите по чертежа. Сървърът приема бележка само
+    # за ключ оттук — бележка без обект в чертежа не може да се проследи.
+    известни: dict[str, str] = field(default_factory=dict)
 
 
 def построй(
@@ -248,6 +252,7 @@ def построй(
     слоеве: dict[str, list[str]] = {к: [] for к in ВИДОВЕ}
     броене = {к: 0 for к in ВИДОВЕ}
     чертежни_надписи: list[str] = []
+    известни: dict[str, str] = {}
     for н in нарисувани:
         вид = цвят_на_handle.get(н.handle, "несвързано")
         ключ = html.escape(инфо_на_handle.get(н.handle, ""))
@@ -264,9 +269,13 @@ def построй(
                 else ""
             )
             цвят = ВИДОВЕ[вид][1] if вид != "несвързано" else "#475569"
+            # ``data-e`` е собственият handle на надписа: по него се оставя
+            # бележка и за надпис, който програмата не е приела за позиция.
+            if н.handle:
+                известни[str(н.handle)] = н.text[:200]
             чертежни_надписи.append(
                 f'<text x="{x:.3f}" y="{y:.3f}" font-size="{н.size:.3f}" '
-                f'fill="{цвят}" data-h="{ключ}"{завъртане}>'
+                f'fill="{цвят}" data-h="{ключ}" data-e="{html.escape(str(н.handle or ""))}"{завъртане}>'
                 f"{html.escape(н.text[:60])}</text>"
             )
             continue
@@ -333,10 +342,13 @@ def построй(
     части.append("</g></svg>")
 
     инфо = {п.handle: п.to_dict() for п in позиции}
+    for п in позиции:
+        известни[п.handle] = п.text
     return Картина(
         svg="".join(части),
         width=ширина,
         height=височина,
         summary=броене,
         инфо=инфо,
+        известни=известни,
     )

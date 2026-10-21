@@ -227,6 +227,71 @@ def _git_head() -> str:
         return ""
 
 
+def _политика_за_анализ(settings, target, *, identity, entities, drawing, summary):
+    """Политиката на анализа — СЪЩАТА обща логика, която ползва и прозорецът.
+
+    Виж ``lion_rebar/learning/integration.py``. Тук няма отделно поведение:
+    разликата между двата пътя е само коя нишка вика цикъла.
+
+    Средата решава режима:
+    ``LION_REBAR_LEARNING=off`` не ползва паметта (режим Б);
+    ``LION_REBAR_AUTOCYCLE=off`` спира ученето след анализа;
+    ``LION_REBAR_NAUCHENO`` сочи към друго хранилище (за честен пренос);
+    ``LION_REBAR_HARDCODED_ALIASES=off`` изпразва изброените в кода имена.
+    """
+
+    import os
+
+    from lion_rebar.learning.integration import (
+        prepare_policy, run_cycle_after_analysis,
+    )
+
+    policy, състояние, мост = prepare_policy(
+        settings, target, identity=identity, entities=entities, drawing=drawing)
+    # Наблюдението НЕ се записва тук: това място е ПРЕДИ анализа. Цикълът се
+    # затваря в `_zatvori_ucheben_cikal` след успешния анализ — както прави
+    # прозорецът в `_batch_finished`. Версията на паметта, с която анализът
+    # работи, е фиксирана точно сега.
+    summary["learning"] = {
+        **състояние.to_dict(),
+        "bridge": {к: v for к, v in (мост or {}).items() if к != "profile_summary"},
+        "policy_in_use": {
+            поле: list(getattr(policy, поле, ()) or ())
+            for поле in ("position_key_circle_layer_aliases",
+                         "position_key_table_layer_aliases",
+                         "position_key_spec_layer_aliases",
+                         "declared_rebar_geometry_layers")
+        },
+    }
+    return policy, състояние, мост
+
+
+def _zatvori_ucheben_cikal(състояние, мост, *, entities, drawing, summary,
+                           source_sha256=""):
+    """Записва наблюдението СЛЕД успешния анализ — редът на прозореца.
+
+    Раздел 6 на заданието: наблюдението се записва след успешно ТЕХНИЧЕСКО
+    завършване на анализа, а новоприетото важи от СЛЕДВАЩИЯ анализ. Затова
+    тази стъпка е тук, а не при подготовката на политиката.
+    """
+
+    import os
+
+    from lion_rebar.learning.integration import run_cycle_after_analysis
+
+    ново = run_cycle_after_analysis(
+        status=състояние, bridge_report=мост, entities=entities,
+        drawing=drawing, family=drawing, source_sha256=source_sha256,
+        locked_families=tuple(
+            с for с in str(os.environ.get("LION_REBAR_LOCKED_FAMILIES") or "").split(";")
+            if с.strip()),
+    )
+    предишно = dict(summary.get("learning") or {})
+    summary["learning"] = {**предишно, **ново.to_dict(),
+                           "cycle_closed_after_analysis": True}
+    return ново
+
+
 def run_chain(source: Path, target: Path, summary: dict[str, Any]) -> None:
     # Никакви прозорци на екрана на собственика.
     os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -360,6 +425,18 @@ def run_chain(source: Path, target: Path, summary: dict[str, Any]) -> None:
     output_parent = target / "output" / "04_REVIEW_REPORTS"
     output_parent.mkdir(parents=True, exist_ok=True)
     approved_links = _read_links(target / "working" / "approved_geometry_links.json")
+    # Самоличността на прогона: без нея резултатът не сочи към конкретно
+    # изпълнение и сравненията не са възпроизводими (етап 4 направи цяла
+    # таблица „с памет" с празно хранилище, без това да личи никъде).
+    from lion_rebar.diagnostics.run_registry import begin_run, finish_run
+
+    _източен_dxf = manager.source_dxf_path(project)
+    summary["run"] = begin_run(
+        code_root=RELEASE_ROOT,
+        inputs=[_източен_dxf] if _източен_dxf else (),
+        label=project.name,
+    )
+
     try:
         identity = begin_analysis_run(project)
     except ValueError as exc:
@@ -367,6 +444,12 @@ def run_chain(source: Path, target: Path, summary: dict[str, Any]) -> None:
     manager.save(project)
     summary["project"]["identity"] = identity.to_dict()
 
+    # Политиката се готви ПРЕДИ анализа: версията на паметта, с която анализът
+    # работи, се фиксира сега и не се мени по време на прогона.
+    политика_за_анализа, учебно_състояние, учебен_мост = _политика_за_анализ(
+        engine.settings, target, identity=identity,
+        entities=analysis_entities, drawing=project.name, summary=summary,
+    )
     worker = BatchGeometryWorker(
         entities=analysis_entities,
         output_parent=output_parent,
@@ -376,9 +459,7 @@ def run_chain(source: Path, target: Path, summary: dict[str, Any]) -> None:
         control_tests=engine.tests,
         # Както в прозореца: политиката на engine-а, наслоена с
         # потвърдения профил на чертежа (обявени слоеве).
-        policy=policy_with_confirmed_profile(
-            engine.settings, target, identity=identity,
-        ),
+        policy=политика_за_анализа,
         engine_metadata={
             "engine_id": engine.engine_id,
             "engine_version": engine.version,
@@ -425,7 +506,18 @@ def run_chain(source: Path, target: Path, summary: dict[str, Any]) -> None:
     summary["auto_approval"] = _jsonable(auto) if auto is not None else None
     summary["auto_approval_error"] = str(batch.auto_approval_error or "")
     if batch.cancelled:
+        finish_run(summary["run"], outcome="BATCH_CANCELLED")
         raise Stop("BATCH_CANCELLED")
+
+    # Анализът завърши технически успешно -> едва сега се записва наблюдението.
+    # Новоприетото важи от СЛЕДВАЩИЯ анализ, не от този.
+    _zatvori_ucheben_cikal(
+        учебно_състояние, учебен_мост,
+        entities=analysis_entities, drawing=project.name, summary=summary,
+        # Самоличността на ИЗХОДНИЯ DXF, не името на проекта: копие под друго
+        # име не бива да се брои като второ доказателство.
+        source_sha256=str(getattr(identity, "source_sha256", "") or ""),
+    )
 
     # --- авторитетният брой (auto_approval.py, auto_approve_gate_positions) -
     started = time.perf_counter()
@@ -454,7 +546,14 @@ def run_chain(source: Path, target: Path, summary: dict[str, Any]) -> None:
                     "text": blocker.annotation_text,
                     "reasons": list(blocker.reason_codes),
                 }
-                for blocker in context.blockers[:50]
+                # Отрязването беше на 50 и точно то направи невъзможна поименната
+                # база: `Тест-002` има 98 спрени, `d-2` — 54, затова 52 позиции
+                # изобщо не се явяваха в отчета. Полето `blocked` носи верния
+                # брой, но списъкът — не, и всяко броене по списъка се насищаше
+                # (обобщението на прогоните даваше 197 вместо 249).
+                # 500 е с голям запас над най-лошия измерен чертеж, а целият
+                # списък е по-малък от един ред геометрия.
+                for blocker in context.blockers[:500]
             ],
             "manual_links": len(manual_links),
             "all_links": len(links_after),
@@ -803,6 +902,16 @@ def main(argv: list[str] | None = None) -> int:
                 summary["status"] = "SAFETY_VIOLATION"
         summary["finished_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
         summary["exit_code"] = exit_code
+        # Затваря самоличността на прогона: памет СЛЕД анализа и изход. Прави се
+        # тук, за да важи и когато прогонът е спрян от порта.
+        if isinstance(summary.get("run"), dict):
+            try:
+                from lion_rebar.diagnostics.run_registry import finish_run
+
+                finish_run(summary["run"],
+                           outcome=str(summary.get("status") or ""))
+            except Exception as грешка:   # noqa: BLE001 — регистърът не вали прогон
+                summary["run"]["error"] = "%s: %s" % (type(грешка).__name__, грешка)
         work_root.mkdir(parents=True, exist_ok=True)
         text = json.dumps(_jsonable(summary), ensure_ascii=False, indent=2)
         summary_path.write_text(text, encoding="utf-8")

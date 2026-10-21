@@ -874,16 +874,101 @@ def _detect_declared_area_frames(
     return result
 
 
+def _title_second_line(
+    title_record: DxfEntityRecord,
+    text_records: list[DxfEntityRecord],
+) -> str:
+    """Вторият ред на СЪЩОТО заглавие, ако го има — иначе празно.
+
+    Собственик, 06.10.2026: „Долу в чертежа ясно пише към коя рамка се отнася
+    «долна армировка на кота …».“ Заглавието на листа е на два реда и вторият
+    носи котата.
+
+    ЗАЩО НЕ Е „НАЙ-БЛИЗКИЯТ НАДПИС ОТДОЛУ“. Точно това е повтарящият се дефект
+    в проекта — близост, приета за принадлежност. Тук се иска съвпадение по
+    ТРИ независими признака, всичките измерени на
+    ``S-_H01-1001_Bottom_Reinforcement``:
+
+    * **същият слой** — и двата реда са на ``A User Elements 1 (0.20mm)``;
+    * **същата височина на буквите** — 25,0 и при двата;
+    * **точно един ред по-долу** — отстояние 38,1 при височина 25,0, тоест
+      1,52 пъти височината, и хоризонтално отместване 65,5 = 2,6 пъти.
+
+    И последното условие, без което правилото е догадка: кандидатът трябва да е
+    **ТОЧНО ЕДИН**. Нула или два реда отдолу е празен подкрепящ текст, не избор
+    между тях.
+    """
+
+    височина = _text_height(title_record)
+    котва = _xy(title_record)
+    if not височина or котва is None:
+        return ""
+    tx, ty = котва
+    слой = _normalize(str(getattr(title_record, "layer", "") or ""))
+    намерени: list[tuple[float, str]] = []
+    for record in text_records:
+        if getattr(record, "handle", None) == getattr(title_record, "handle", None):
+            continue
+        if _normalize(str(getattr(record, "layer", "") or "")) != слой:
+            continue
+        собствена = _text_height(record)
+        if not собствена or abs(собствена - височина) > 0.25 * височина:
+            continue
+        точка = _xy(record)
+        if точка is None:
+            continue
+        cx, cy = точка
+        надолу = ty - cy
+        if not (0.6 * височина <= надолу <= 2.5 * височина):
+            continue
+        if abs(cx - tx) > 4.0 * височина:
+            continue
+        текст = decode_dxf_text(record.text).strip()
+        if текст:
+            намерени.append((надолу, текст))
+    if len(намерени) != 1:
+        return ""
+    return намерени[0][1]
+
+
 def _detect_single_sheet_frame(
     records: list[DxfEntityRecord],
     text_records: list[DxfEntityRecord],
 ) -> list[DrawingFrame]:
     """Resolve one frameless sheet from one unambiguous explicit title.
 
-    This is not a largest-rectangle or nearest-text guess. The unique title
-    must also have independent single-sheet evidence: exactly one frame INSERT,
-    or (for a vertical schedule) explicit scheme plus column/wall headings.
-    Anything weaker remains fail-closed and returns no frame.
+    This is not a largest-rectangle or nearest-text guess. The title must be the
+    ONLY one in the drawing that matches ``SINGLE_SHEET_TITLE_PATTERNS``.
+
+    РЕШЕНИЕ НА СОБСТВЕНИКА, 06.10.2026
+    ----------------------------------
+    Дотук се искаше и втори свидетел: точно един рамков ``INSERT``, или (при
+    вертикали) схема плюс заглавия на колони/шайби. Измерено на
+    ``S-_H01-1001_Bottom_Reinforcement`` — чертеж от бюро, с което не е работено:
+    заглавието е налице и е единствено („Долна армировка“, а точно под него „на
+    кота -0,13/ -0,28/ -0,70“), но в целия чертеж **няма нито един ``INSERT``**.
+    Това бюро не чертае рамков блок. Резултатът беше нула рамки, нула изнесени
+    позиции — и нито един операторски изход, защото обявяването на категория
+    работи само върху вече НАМЕРЕНА рамка.
+
+    Собственик, 06.10.2026: „Да, стига. Долу в чертежа ясно пише към коя рамка се
+    отнася «долна армировка на кота …».“
+
+    Затова: при **НУЛА** рамкови ``INSERT``-а едно недвусмислено заглавие стига
+    само̀ за себе си. Разхлабването е тясно и нарочно:
+
+    * важи само когато в чертежа изобщо НЯМА рамков блок. Два или повече
+      ``INSERT``-а си остават отказ — там чертежът е многолистов и едно заглавие
+      не казва кой лист е;
+    * заглавието пак трябва да е ЕДИНСТВЕНОТО съвпадение. Две заглавия са отказ,
+      както преди;
+    * това правило се вика ПОСЛЕДНО — след обявените области, след заглавията и
+      след номерата на листа (виж ``detect_drawing_frames``). Разхлабва се
+      последната инстанция, не първата;
+    * произходът се вижда: ``resolution_reason="SINGLE_SHEET_TITLE_ONLY"`` и
+      ``confidence="LOW"``, тоест категорията НЕ се брои за потвърдена и
+      операторът я потвърждава преди Excel (``confirmed = confidence == "HIGH"``
+      в ``export/batch_auto_output.py``).
     """
 
     candidates: list[tuple[DxfEntityRecord, str]] = []
@@ -906,6 +991,9 @@ def _detect_single_sheet_frame(
         return []
 
     title_record, category = candidates[0]
+    any_inserts = any(
+        str(record.entity_type or "").upper() == "INSERT" for record in records
+    )
     frame_inserts = [
         record
         for record in records
@@ -915,6 +1003,7 @@ def _detect_single_sheet_frame(
     ]
     marker_record: DxfEntityRecord
     resolution_reason: str
+    confidence = "MEDIUM"
     if len(frame_inserts) == 1:
         marker_record = frame_inserts[0]
         resolution_reason = "SINGLE_SHEET_TITLE_AND_FRAME_INSERT"
@@ -924,6 +1013,19 @@ def _detect_single_sheet_frame(
     ):
         marker_record = title_record
         resolution_reason = "SINGLE_SHEET_TITLE_AND_VERTICAL_SECTIONS"
+    elif not any_inserts:
+        # Решението на собственика от 06.10.2026 — виж докстринга. По-слабо
+        # доказателство, затова и по-ниска увереност: категорията стига до
+        # оператора, но не се брои за потвърдена.
+        #
+        # Условието е „в чертежа НЯМА нито един ``INSERT``“, а НЕ „няма INSERT на
+        # рамков слой“. Разликата е измерена: чертеж с вмъкване на подвеждащо
+        # наречен слой (``NO_FRAME``, ``KEYFRAME``, ``RAMKADOOR``) има блокове и
+        # просто не ги държи на рамков слой — там мълчанието остава правилно.
+        # Чертежът, който отвори въпроса, няма нито едно вмъкване изобщо.
+        marker_record = title_record
+        resolution_reason = "SINGLE_SHEET_TITLE_ONLY"
+        confidence = "LOW"
     else:
         return []
 
@@ -939,10 +1041,10 @@ def _detect_single_sheet_frame(
             anchor_x=anchor_x,
             anchor_y=anchor_y,
             title_text=title,
-            supporting_text="",
+            supporting_text=_title_second_line(title_record, text_records),
             category_code=category,
             suggested_sheet_name=CATEGORY_SHEET_NAMES[category],
-            confidence="MEDIUM",
+            confidence=confidence,
             resolution_reason=resolution_reason,
             title_handle=title_record.handle,
             title_distance=round(math.hypot(title_x - anchor_x, title_y - anchor_y), 3),

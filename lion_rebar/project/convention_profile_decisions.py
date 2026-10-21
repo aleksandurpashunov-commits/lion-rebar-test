@@ -46,6 +46,7 @@ from typing import Any, Iterable, Mapping
 from lion_rebar.dxf.convention_profile import PROPOSABLE_ROLES
 from lion_rebar.dxf.recognition_policy import RecognitionPolicy
 from lion_rebar.project.data_identity import DataIdentity, mismatch_reason
+from lion_rebar.session.operator_identity import НЕЗАЯВЕН
 
 PROFILE_NAME = "convention_profile.json"
 AUDIT_NAME = "convention_profile_audit.jsonl"
@@ -204,7 +205,7 @@ def record_convention_profile(
         invalidate_final_control(
             Path(project_root),
             event="CONVENTION_PROFILE_DECISION",
-            actor=str(confirmed_by).strip() or "оператор",
+            actor=str(confirmed_by).strip() or НЕЗАЯВЕН,
             note=(
                 "Потвърден профил на чертожната конвенция: "
                 + ", ".join(
