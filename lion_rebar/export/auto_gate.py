@@ -15,6 +15,7 @@ from lion_rebar.engine.shape_from_case import (
     symmetry_pattern,
 )
 from lion_rebar.engine.shape_index import APPROVED_SHAPE_STATES
+from lion_rebar.export import schedule_witness
 from lion_rebar.export.engine_shape_parameters import (
     EngineShapeParameterError,
     expected_segment_codes,
@@ -110,6 +111,7 @@ _PRODUCTION_SEGMENT_EVIDENCE_SOURCES = frozenset(
         _PRINTED_REPEATED_LABEL_DIMENSION_SOURCE,
         _PROXY_ARC_VERIFIED_SOURCE,
         _BORN_FROM_CASE_PRINTED_SOURCE,
+        schedule_witness.STRAIGHT_SOURCE,
     }
 )
 
@@ -305,6 +307,8 @@ def validate_production_segment_evidence(
         return _proxy_arc_verified_evidence_is_owned(row, evidence, segments, total)
     if source == _BORN_FROM_CASE_PRINTED_SOURCE:
         return _born_from_case_evidence_is_owned(row, evidence, segments, shape)
+    if source == schedule_witness.STRAIGHT_SOURCE:
+        return schedule_witness.evidence_is_owned(row, evidence)
     return False
 
 
@@ -1238,6 +1242,15 @@ def is_deterministic_production_source(
 
     handle = str(row.get("annotation_handle") or "")
     if "::BJ-FI-L" in handle:
+        return validate_production_segment_evidence(row, shape=shape)
+    # Права форма от начертаната ведомост (собственик, 22.10.2026): Ø и
+    # дължина от надписа, формата и размерът — от ведомостта на проектанта.
+    # Matcher-ът няма какво да каже: чертежът няма прът за този надпис.
+    _evidence = row.get("production_segment_evidence")
+    if (
+        isinstance(_evidence, Mapping)
+        and str(_evidence.get("source") or "") == schedule_witness.STRAIGHT_SOURCE
+    ):
         return validate_production_segment_evidence(row, shape=shape)
     if not handle.startswith("PXANN_"):
         return False

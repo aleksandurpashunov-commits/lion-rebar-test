@@ -43,6 +43,7 @@ from lion_rebar.export.auto_gate import (
     is_deterministic_production_source,
     validate_production_segment_evidence,
 )
+from lion_rebar.export import schedule_witness as _schedule_witness
 from lion_rebar.export.printed_dimension_guard import (
     ПОЛЕ as _PRINTED_GUARD_FIELD,
     ПРОТИВОРЕЧИ as _PRINTED_GUARD_BLOCK,
@@ -449,7 +450,20 @@ def build_batch_export_context(
                 )
             )
 
-        if not geometry_handles and not bool(approved_link.get("geometry_optional_by_engineer")):
+        # Без DXF геометрия позиция минава само с изрично решение на инженер
+        # или с правата форма от начертаната ведомост, доказана наново тук
+        # (собственик, 22.10.2026). Друго „няма прът“ остава отказ.
+        geometry_from_schedule = bool(
+            not geometry_handles
+            and str(row.get("geometry_provenance") or "")
+            == _schedule_witness.GEOMETRY_PROVENANCE
+            and validate_production_segment_evidence(row, shape=shape)
+        )
+        if (
+            not geometry_handles
+            and not bool(approved_link.get("geometry_optional_by_engineer"))
+            and not geometry_from_schedule
+        ):
             reasons.append(("MISSING_GEOMETRY", "липсва еднозначна геометрия"))
 
         # Заявената добавка за огъване се чете САМО от одобрената връзка, тоест
@@ -587,6 +601,22 @@ def build_batch_export_context(
                 row[_PRINTED_GUARD_FIELD] = _пазач
                 if str(_пазач.get("status") or "") == _PRINTED_GUARD_BLOCK:
                     reasons.append((_PRINTED_GUARD_BLOCK, str(_пазач.get("reason") or "")))
+            # Начертаната ведомост като втори свидетел: противоречи ли на
+            # ИЗНАСЯНИЯ вектор, автоматиката спира и показва двата варианта.
+            # Решение на инженер не се спира — той е видял позицията.
+            _ведомост = row.get(_schedule_witness.WITNESS_FIELD)
+            if not approved_in_project and _schedule_witness.contradicts(
+                _ведомост, segment_lengths_cm
+            ):
+                reasons.append((
+                    _schedule_witness.CONTRADICTS,
+                    "ведомостта (марка %s) казва %s cm, а се изнася %s cm"
+                    % (
+                        _ведомост.get("mark"),
+                        " + ".join("%g" % v for v in _ведомост.get("shape_dimensions") or []),
+                        " + ".join("%g" % v for v in segment_lengths_cm),
+                    ),
+                ))
 
         if reasons:
             blockers.append(

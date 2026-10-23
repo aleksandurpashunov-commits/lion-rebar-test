@@ -62,6 +62,9 @@ _LINK_FIELDS = (
     "distance_raw",
     "effective_geometry_length_cm",
     "geometry_length_raw",
+    # Позиция без DXF геометрия носи откъде идва (правата форма от
+    # начертаната ведомост) — без това Финалният контрол я обезсилва.
+    "geometry_provenance",
     "master_shape_code",
     "master_shape_name",
     "numeric_difference",

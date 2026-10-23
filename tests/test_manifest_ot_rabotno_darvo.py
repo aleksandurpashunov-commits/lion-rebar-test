@@ -98,8 +98,15 @@ def test_manifestut_ne_hashira_sebe_si_i_v_marsen_rezhim(monkeypatch):
     assert "SHA256_MANIFEST.json" not in манифест["files"]
 
 
-def test_dostaveniyat_manifest_e_v_marsen_rezhim_i_nosi_versiyata():
-    """Манифестът В ПАКЕТА казва, че комитът е само база."""
+def test_dostaveniyat_manifest_e_ot_chisto_darvo_i_nosi_versiyata():
+    """Манифестът В ПАКЕТА е снет от комитнат код, не от работно дърво.
+
+    Дотук тук стоеше обратното: rc46 се доставяше от некомитнато работно
+    дърво и манифестът трябваше да казва, че комитът е само база. На
+    21.10.2026 rc46 е комитната (``d17a201``), а на 22.10 манифестът е снет
+    наново от чистото дърво (``06a04c8``) — полетата за мръсен режим отпаднаха,
+    както предвиждаше бележката тук.
+    """
 
     from lion_rebar.config.constants import APP_VERSION
 
@@ -107,8 +114,7 @@ def test_dostaveniyat_manifest_e_v_marsen_rezhim_i_nosi_versiyata():
         (КОРЕН / "SHA256_MANIFEST.json").read_text(encoding="utf-8")
     )
     assert данни["version"] == f"v{APP_VERSION}"
-    # Тази версия се доставя от работно дърво; ако някога бъде комитвана,
-    # полетата отпадат и тогава този тест трябва да се обнови СЪЗНАТЕЛНО.
-    assert данни.get("uncommitted_changes") is True
-    assert данни.get("commit_is_base_only") is True
+    assert "uncommitted_changes" not in данни
+    assert "commit_is_base_only" not in данни
+    # Модулът, който на 07.10 беше непроследен, сега е в хешираните файлове.
     assert "lion_rebar/review/decision_reuse.py" in данни["files"]

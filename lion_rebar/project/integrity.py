@@ -10,7 +10,11 @@ from pathlib import Path
 from typing import Sequence, Any, Iterable
 
 from lion_rebar.dxf.models import DxfEntityRecord
-from lion_rebar.export.auto_gate import auto_classification_gate_passes
+from lion_rebar.export import schedule_witness
+from lion_rebar.export.auto_gate import (
+    auto_classification_gate_passes,
+    validate_production_segment_evidence,
+)
 from lion_rebar.project.approval_origin import is_auto_approval, is_manual_approval
 from lion_rebar.project.final_control_lifecycle import (
     STATUS_VALID as FREEZE_STATUS_VALID,
@@ -1334,7 +1338,17 @@ def reconcile_project_integrity(
             return "LINK_GEOMETRY_NOT_IN_CURRENT_SOURCE"
         if not geometry_handles:
             _count, provenance = _geometry_provenance(link)
-            if provenance not in {"NONE_ENGINEER_OVERRIDE", "NONE_ENGINEER_CORRECTION"}:
+            # Правата форма от начертаната ведомост важи само докато ТЕКУЩИЯТ
+            # отчет още я доказва — маркерът на връзката сам не стига.
+            schedule_straight = bool(
+                provenance == schedule_witness.GEOMETRY_PROVENANCE
+                and row is not None
+                and validate_production_segment_evidence(row)
+            )
+            if (
+                provenance not in {"NONE_ENGINEER_OVERRIDE", "NONE_ENGINEER_CORRECTION"}
+                and not schedule_straight
+            ):
                 return "LINK_WITHOUT_GEOMETRY_PROVENANCE"
 
         if current_data_identity is not None:
@@ -1686,6 +1700,29 @@ def reconcile_project_integrity(
                     "supported only by an explicit owner engineer decision."
                 ),
                 details={"count": engineer_resolved_without_geometry_count},
+            )
+        )
+    # Видимо и в отчета на контрола: колко позиции излизат без DXF обект,
+    # само по реда на начертаната ведомост.
+    schedule_straight_without_geometry = sorted(
+        str(link.get("annotation_handle") or "")
+        for link in links
+        if _geometry_provenance(link)
+        == (0, schedule_witness.GEOMETRY_PROVENANCE)
+    )
+    if schedule_straight_without_geometry:
+        issues.append(
+            IntegrityIssue(
+                code="SCHEDULE_STRAIGHT_WITHOUT_GEOMETRY",
+                severity="WARNING",
+                message=(
+                    "Production positions without DXF geometry are present; their "
+                    "straight form comes from the drawn bar schedule row."
+                ),
+                details={
+                    "count": len(schedule_straight_without_geometry),
+                    "annotation_handles": schedule_straight_without_geometry,
+                },
             )
         )
 

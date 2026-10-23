@@ -22,7 +22,8 @@
   с ясна причина, тоест са ОТДЕЛЕНИ, а не решени;
 * при `SHARED` всички членове я изнасят, всеки със своето количество;
 * спорът е по свързани компоненти: А–Б и Б–В са ЕДИН спор;
-* решение от друг анализ не се наследява;
+* решение от друга редакция на чертежа не се наследява (нов анализ на
+  същата го запазва — решение на собственика от 22.10.2026);
 * оттеглянето връща спора.
 """
 from __future__ import annotations
@@ -236,10 +237,19 @@ def test_reshenie_varhu_drug_sastav_ne_reshava_tozi_spor(tmp_path):
         assert ред["global_conflict"] is True, ред["annotation_handle"]
 
 
-def test_reshenie_ot_drug_analiz_ne_se_nasledyava(tmp_path):
-    _запиши(tmp_path, вид=ВИД_СОБСТВЕНИК, собственик="A", run="R1")
+def test_reshenie_ot_druga_redakciya_ne_se_nasledyava(tmp_path):
+    """Дотук тук стоеше „решение от друг АНАЛИЗ не се наследява“. Собственик,
+    22.10.2026: решението преживява нов анализ на същата редакция, както
+    рамките (`test_vladenieto_prezhivyava_analiza.py`). Ненаследимо остава
+    решението от друга редакция на чертежа."""
 
-    assert load_ownership_decisions(tmp_path, _самоличност("R2")) == {}
+    _запиши(tmp_path, вид=ВИД_СОБСТВЕНИК, собственик="A", run="R1")
+    друга_редакция = DataIdentity(
+        project_id="P", source_sha256="S2", source_generation_id="G2",
+        analysis_run_id="R2",
+    )
+
+    assert load_ownership_decisions(tmp_path, друга_редакция) == {}
 
 
 def test_ottegliane_varshta_spora(tmp_path):

@@ -26,6 +26,7 @@ from lion_rebar.dxf.disagreement_report import (
     build_disagreement_report,
     disagreement_summary_lines,
 )
+from lion_rebar.dxf.drawn_schedule import read_drawn_schedule
 from lion_rebar.export.frame_detection import assign_point_to_frame, detect_drawing_frames
 from lion_rebar.export.ownership_decisions import ВИД_СПОДЕЛЕНА
 from lion_rebar.export.excel_export import (
@@ -655,6 +656,13 @@ def build_batch_geometry_report(
         rows,
         shape_definitions=shape_definitions,
         policy=resolved_policy,
+    )
+    # Начертаната ведомост — втори свидетел и източник на правата форма там,
+    # където чертежът няма прът (собственик, 22.10.2026, вариант „Б“). СЛЕД
+    # решенията на matcher-а, за да не ги презапише нищо след нея; портата
+    # доказва правата форма наново от реда.
+    _apply_drawn_schedule_witness(
+        rows, read_drawn_schedule(entities), shape_definitions=shape_definitions
     )
     _apply_review_groups(rows)
     counts = _status_counts(rows)
@@ -3341,6 +3349,68 @@ def _apply_decision_reuse_proposals(
                  % str(getattr(предложение, "обяснение", ""))),
             ]
     return сметка
+
+
+def _apply_drawn_schedule_witness(
+    rows: Sequence[dict],
+    schedule: Any,
+    *,
+    shape_definitions: Sequence[ShapeDefinition] = (),
+) -> int:
+    """Начертаната ведомост до всяка позиция; права форма там, където няма прът.
+
+    Правилата са в ``lion_rebar/export/schedule_witness.py`` — тук само се
+    прилагат. Без ведомост в чертежа нищо не се пише: редовете остават
+    буква по буква същите. Връща броя позиции, получили права форма.
+    """
+
+    if schedule is None or not getattr(schedule, "rows", ()):
+        return 0
+    from lion_rebar.export import schedule_witness as свидетел
+
+    имена = {
+        str(shape.code).strip().upper(): shape.name for shape in shape_definitions
+    }
+    дадени = 0
+    for row in rows:
+        if str(row.get("annotation_class") or "") != "ACTIONABLE":
+            continue
+        показание = свидетел.witness_for(row, schedule)
+        if показание is None:
+            continue
+        row[свидетел.WITNESS_FIELD] = показание
+        доказателство = свидетел.straight_evidence(row, показание)
+        if доказателство is not None:
+            дължина = доказателство["segments"][0]
+            row["master_shape_code"] = свидетел.STRAIGHT_SHAPE_CODE
+            if свидетел.STRAIGHT_SHAPE_CODE in имена:
+                row["master_shape_name"] = имена[свидетел.STRAIGHT_SHAPE_CODE]
+            row["production_segments_cm"] = [дължина]
+            row["canonical_segment_lengths_cm"] = [дължина]
+            row["segment_count"] = 1
+            row["production_segment_evidence"] = доказателство
+            row["geometry_provenance"] = свидетел.GEOMETRY_PROVENANCE
+            бележка = (
+                "ВЕДОМОСТТА ДАВА ПРАВА ФОРМА: чертежът няма прът за надписа; "
+                "марка %s във ведомостта, Ø%g, единична %g cm, един потвърден "
+                "размер %g cm."
+                % (показание.get("mark"), показание.get("diameter_mm"),
+                   показание.get("single_length_cm"), дължина)
+            )
+            дадени += 1
+        elif свидетел.contradicts(показание, row.get("production_segments_cm") or ()):
+            бележка = (
+                "ВЕДОМОСТТА ПРОТИВОРЕЧИ: марка %s казва %s cm, позицията носи %s cm."
+                % (показание.get("mark"), показание.get("shape_dimensions"),
+                   row.get("production_segments_cm"))
+            )
+        else:
+            continue
+        бележки = list(row.get("candidate_notes") or [])
+        if бележка not in бележки:
+            бележки.append(бележка)
+        row["candidate_notes"] = бележки
+    return дадени
 
 
 def _apply_printed_dimension_guard(rows: Sequence[dict]) -> dict[str, int]:
