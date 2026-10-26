@@ -1,7 +1,7 @@
 {
   "schema": "lion-rebar-manifest/v1",
   "version": "v0.1.44.23-rc46",
-  "commit": "1606fabb3fc1ae64987d5504477a396007ac88a7",
+  "commit": "c364a23b0bc83acb8a331f2cea6d6d49d1caaebc",
   "files": {
     ".claude/settings.json": "b4a2c0bf87d7d33496f4d4f129b58e6f11d31551a0f03ed826c5b77cf973689e",
     ".claude/skills/lion-rebar-full-path/SKILL.md": "1a6d2d48e199a22daae172e23949233b452eec2f26cac64d8f03309c4522cd2f",
@@ -28,7 +28,7 @@
     ".claude/skills/run-lion-rebar/start_app.ps1": "7977d600b3bd9b9d0987810beac4c26c79960254df55238f42390e2b19f8a08a",
     ".gitignore": "4aeab05dd3a06bbce1e891097f9e95365a61369384940d364655337b9487bd9d",
     "BUILD_EXE.bat": "48708844ee8c6dcfbadc1afeeb840be887e302e35cbe03bcb24b832b5b3feb9a",
-    "CHANGELOG.md": "258615e707f29da90c1a461a0e2b216b7b9d2a36c00b29b8ad712a84c5b8776c",
+    "CHANGELOG.md": "fbfe6d6091f7588e06c58b7afd4511fbf693f14bcbc227ac9d93d94201545606",
     "CLAUDE.md": "e15d8ff1c13da05922c60b9c8a058e46bef2720c7e5c4b45a4e4b973cf9eea79",
     "INSTALL_LION_REBAR.bat": "0a47ff5182a4c2cfde53e5c9dadf59376828ce18219f3ee0741d609b972182a5",
     "OTCHET_06_10_2026_BG.md": "e6c59f4b28632a257a60e5bd6447c064b9c50c0a2753704ae7a42841f25ab6b6",
@@ -268,7 +268,7 @@
     "lion_rebar/export/export_paths.py": "7791238e8c87e2225d79737b54a202e591061c1963254136cbb9c97d5bec9c80",
     "lion_rebar/export/final_export_manifest.py": "06b4c1a1d4f46e9208d0b86085cdf94a22e464f4c002f3a247eb46f6a7c7aee4",
     "lion_rebar/export/frame_decisions.py": "d18279f74d69dabb00d633a5be50aff888fc251c751d4eb99d9a563eec508ae7",
-    "lion_rebar/export/frame_detection.py": "b119d93de1527fbf13f902c68e1231f1d67573a2bfb4299e778f3525663a6eb7",
+    "lion_rebar/export/frame_detection.py": "3fbb4d88fe3ac5deb8e88e692495f99ff39222a53cc114853cbaaaaf18a96c73",
     "lion_rebar/export/frozen_export_config.py": "6cfc8b2dd8e2e22b759a46c48c4161f0161b422e7dac1e6a7eedd8b368a32715",
     "lion_rebar/export/master_engine_v031.py": "d7ed943cce85590e0e801c303126e94ce5ee20ff1e74a3ac00ef3c81ef3b8752",
     "lion_rebar/export/operator_area_members.py": "79a0d1b6ddb092b0840b831dd8063b6595c9c96c593108d5d27629e2fbbe43dd",
@@ -448,6 +448,7 @@
     "tests/test_engine_validation.py": "554a7208bdfe9f106f87bc0b7dde4c56dab928fc75f76a051a1feae9992eb86f",
     "tests/test_engineer_decision.py": "fd8fbc54c425edcb85dc5aacdfec5e3ca4717b66c6228b42355a54b8e030693f",
     "tests/test_engineer_decision_system.py": "4a54308d04ef98117aafcea9404bcd4e1a9625609c0f20853ee4fb76b522eae0",
+    "tests/test_etiketat_e_do_nadpisa.py": "02d74ca569e456952706d17d2d6b5653814b585d95dce946f1e7df81b55b1350",
     "tests/test_every_active_shape_is_usable.py": "5aa5a60469483076cfcc6ecaf641afdfc3f303ec75129181d13829b2cac75a94",
     "tests/test_evidence_tiebreak_v01443.py": "e75a6958a13ed7ec81c892ccd10e96befe455e62fe9e29e728292fa8b42520f9",
     "tests/test_excel_column_group_layout.py": "b2fdc1190938c60609154bb0d05a15cfab8eabcecdabfb2093a31c14e16dd75a",
@@ -499,6 +500,7 @@
     "tests/test_legend_dimension_tiebreak.py": "27092c8ccad90fb560db5d8d70ab2ea625a358aa78c6734ef5362d2f05ba1166",
     "tests/test_legend_key_resolver.py": "18ab132168d8cdcbab04aea6a61324a01193d9f09aa57375e4361be07393a157",
     "tests/test_line_chain_regressions.py": "75bb051149736304ce4ee52e8f04a8d73a885f91fc12e9432a88b8d9c8f878ea",
+    "tests/test_list_ot_ramkata_na_shtempela.py": "c8c58c498a087f598faf47176f462b733233984ac267df1312766ffc77c26581",
     "tests/test_list_ot_zaglavie_bez_ramka.py": "def5171d363b7c0bbd2e5b47d1c7d01646ccc56853ad388117a8e9884cb61ce4",
     "tests/test_local_detail_fiba_rounded_f006.py": "b5f1d0bcbd3cf3c58110df35681e50d71f784f66c7e452912394a2c8461a0b65",
     "tests/test_manifest_ot_rabotno_darvo.py": "2018888dba0b5cefd890a44027ba3e8c9ec41874659cd7f473fa667ca1f54915",
@@ -726,7 +728,7 @@
     "tools/recognition_viewer/geometry.py": "f313a91fb112b9184bcb86e0471bc0efb36ab1b1f41b0d2cc17844b7fed5dc1a",
     "tools/recognition_viewer/html_template.py": "af902b56b98e0f7041d3ea3106f17a79d1a31c6bc50627e93cd1b70dff9d435b",
     "tools/recognition_viewer/sverka.py": "4ab1f552177e05116a8422c10549d22b5670b06fa8256e7a7fa0e91f08facc54",
-    "tools/recognition_viewer/viewer.py": "0cd858df03f878405b11a6162ddc90c2f63971c8bf313d4ce09912729a7e1042",
+    "tools/recognition_viewer/viewer.py": "c5c3c259df961a81500a7fa06171ea9f190615d04fb3aa7638de2bcce31bd421",
     "tools/recover_auto_gate_rc31.py": "efc94378f324881f6941d5c9d769fc4420dd36354d47cb5bd3c0ce244b43b2f7",
     "tools/refresh_auto_production_dimensions_rc32.py": "464d20a3d5b348ab80f456af6ef5c4808a00a8755869d539727d6b62e5cbfc03",
     "tools/repair_shared_legend_links_rc30.py": "d598dc19f99b2b039f510ec737b9e5aa259c4d6f786f6466fd5838fec716a1df",
@@ -749,12 +751,12 @@
     "docs/OPIT_11_PROTOKOL_BG.md"
   ],
   "tests": {
-    "tests": 2796,
+    "tests": 2803,
     "errors": 0,
     "failures": 0,
     "skipped": 18,
-    "passed": 2778,
-    "timestamp": "2026-10-23T09:06:58.832162+03:00",
-    "seconds": 151.018
+    "passed": 2785,
+    "timestamp": "2026-10-23T10:48:29.783280+03:00",
+    "seconds": 191.76
   }
 }
