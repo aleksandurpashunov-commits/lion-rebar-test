@@ -225,13 +225,19 @@ def построй(
                 инфо_на_handle[handle] = позиция.handle
 
     точка_на_handle: dict[str, tuple[float, float]] = {}
+    # Височината на буквите на всеки надпис: в нея се мери колко над надписа
+    # стои етикетът. Мярката на ЦЕЛИЯ чертеж не става — един далечен обект я
+    # раздува и етикетът отива над чужд прът (Тест-002, 23.10.2026: 543 ед.).
+    височина_на_handle: dict[str, float] = {}
     for запис in записи:
         g = getattr(запис, "geometry", None) or {}
         т = g.get("insert") or g.get("position")
         if isinstance(т, (list, tuple)) and len(т) >= 2:
             try:
-                точка_на_handle[str(getattr(запис, "handle", ""))] = (
-                    float(т[0]), -float(т[1])
+                handle = str(getattr(запис, "handle", ""))
+                точка_на_handle[handle] = (float(т[0]), -float(т[1]))
+                височина_на_handle[handle] = float(
+                    g.get("char_height") or g.get("height") or 0.0
                 )
             except (TypeError, ValueError):
                 pass
@@ -322,7 +328,6 @@ def построй(
 
     # Етикети САМО върху проблемните позиции: иначе картината става нечетима.
     етикети = []
-    размер = max(w, h) / 110.0
     for позиция in позиции:
         if позиция.вид not in {"червено", "жълто"}:
             continue
@@ -331,7 +336,8 @@ def построй(
             continue
         цвят = ВИДОВЕ[позиция.вид][1]
         текст = html.escape(позиция.text[:18])
-        x, y = т[0], т[1] - размер * 0.6
+        # Точно над собствения надпис: една височина на буквите му по-горе.
+        x, y = т[0], т[1] - височина_на_handle.get(позиция.handle, 0.0) * 1.2
         общо = f'x="{x:.2f}" y="{y:.2f}" text-anchor="middle" data-h="{html.escape(позиция.handle)}"'
         # Ореолът е ОТДЕЛЕН надпис под цветния: ``paint-order`` не се поддържа
         # навсякъде и при един надпис белият контур застава ОТГОРЕ.

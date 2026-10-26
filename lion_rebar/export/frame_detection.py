@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import itertools
 import math
 import re
 from typing import Iterable, Sequence
@@ -381,7 +382,22 @@ def detect_drawing_frames(entities: Iterable[DxfEntityRecord]) -> list[DrawingFr
         )
     bands = _frame_bands(records, result)
     if bands is None:
-        return result
+        # Щемпели един над друг: лентите по x не ги делят. Тогава листът е
+        # начертаната му рамка, ако такава има за ВСЕКИ щемпел — иначе
+        # остава старото правило (най-близкият щемпел).
+        borders = _frame_borders(records, result)
+        if borders is None:
+            return result
+        return [
+            replace(
+                frame,
+                x_min=borders[frame.index][0],
+                x_max=borders[frame.index][1],
+                y_min=borders[frame.index][2],
+                y_max=borders[frame.index][3],
+            )
+            for frame in result
+        ]
     return [
         replace(frame, x_min=bands[frame.index][0], x_max=bands[frame.index][1])
         if frame.index in bands
@@ -1192,6 +1208,72 @@ def classify_title(title: str, supporting_text: str = "") -> tuple[str, str]:
     if "КОЛОН" in normalized:
         return "COLUMNS", "HIGH"
     return "UNKNOWN", "LOW"
+
+
+def _frame_borders(
+    records: Sequence[DxfEntityRecord],
+    frames: Sequence[DrawingFrame],
+) -> dict[int, tuple[float, float, float, float]] | None:
+    """Начертаната граница на всеки лист: правоъгълник с ТОЧНО ЕДИН щемпел.
+
+    Собственик, 23.10.2026, върху „S-SR+27,82“ (``Тест-002``): трите листа
+    стоят един над друг, щемпелът е долу вдясно на своя лист. По най-близкия
+    щемпел горната част на всеки лист отиваше към листа над него — 59 позиции
+    от горната армировка в кофража, 88 от долната скара в горната. Листовете
+    обаче са начертани: двоен затворен правоъгълник около всеки (слоеве
+    ``STANDARD`` и ``S-DETL`` — името на слоя НЕ се гледа, гледа се кой щемпел
+    е вътре).
+
+    Отказ, т.е. ``None`` и старото правило: щемпел без такъв правоъгълник,
+    правоъгълник с два щемпела, застъпени граници. От правоъгълниците на един
+    щемпел се взима най-големият — външната линия на двойната рамка; кутийката
+    на самия щемпел също съдържа котвата, но е по-малка.
+    """
+
+    кутии: list[tuple[float, float, float, float]] = []
+    for record in records:
+        if record.entity_type.upper() not in {"LWPOLYLINE", "POLYLINE"}:
+            continue
+        geometry = record.geometry or {}
+        points = geometry.get("points") or []
+        if not geometry.get("closed") or len(points) != 4:
+            continue
+        try:
+            xs = sorted({round(float(point[0]), 6) for point in points})
+            ys = sorted({round(float(point[1]), 6) for point in points})
+        except (TypeError, ValueError, IndexError):
+            continue
+        if len(xs) != 2 or len(ys) != 2:
+            continue  # не е правоъгълник по осите
+        кутии.append((xs[0], xs[1], ys[0], ys[1]))
+
+    def вътре(кутия, frame) -> bool:
+        return (
+            кутия[0] <= float(frame.anchor_x) <= кутия[1]
+            and кутия[2] <= float(frame.anchor_y) <= кутия[3]
+        )
+
+    граници: dict[int, tuple[float, float, float, float]] = {}
+    for frame in frames:
+        свои = [
+            кутия
+            for кутия in кутии
+            if вътре(кутия, frame)
+            and sum(1 for other in frames if вътре(кутия, other)) == 1
+        ]
+        if not свои:
+            return None
+        граници[frame.index] = max(
+            свои, key=lambda к: (к[1] - к[0]) * (к[3] - к[2])
+        )
+    избрани = list(граници.values())
+    for първа, втора in itertools.combinations(избрани, 2):
+        if (
+            първа[0] < втора[1] and втора[0] < първа[1]
+            and първа[2] < втора[3] and втора[2] < първа[3]
+        ):
+            return None  # застъпени граници не делят листове
+    return граници
 
 
 def _frame_bands(
