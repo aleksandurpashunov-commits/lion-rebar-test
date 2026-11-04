@@ -1,7 +1,7 @@
 {
   "schema": "lion-rebar-manifest/v1",
   "version": "v0.1.44.23-rc46",
-  "commit": "c364a23b0bc83acb8a331f2cea6d6d49d1caaebc",
+  "commit": "989a37db0982ed2368fd273a9313569e9bad60d3",
   "files": {
     ".claude/settings.json": "b4a2c0bf87d7d33496f4d4f129b58e6f11d31551a0f03ed826c5b77cf973689e",
     ".claude/skills/lion-rebar-full-path/SKILL.md": "1a6d2d48e199a22daae172e23949233b452eec2f26cac64d8f03309c4522cd2f",
@@ -28,7 +28,7 @@
     ".claude/skills/run-lion-rebar/start_app.ps1": "7977d600b3bd9b9d0987810beac4c26c79960254df55238f42390e2b19f8a08a",
     ".gitignore": "4aeab05dd3a06bbce1e891097f9e95365a61369384940d364655337b9487bd9d",
     "BUILD_EXE.bat": "48708844ee8c6dcfbadc1afeeb840be887e302e35cbe03bcb24b832b5b3feb9a",
-    "CHANGELOG.md": "fbfe6d6091f7588e06c58b7afd4511fbf693f14bcbc227ac9d93d94201545606",
+    "CHANGELOG.md": "5a7b7b8f69c6c9978bf883570f621f48bd84cb3760924c6843a93cb59d30a924",
     "CLAUDE.md": "e15d8ff1c13da05922c60b9c8a058e46bef2720c7e5c4b45a4e4b973cf9eea79",
     "INSTALL_LION_REBAR.bat": "0a47ff5182a4c2cfde53e5c9dadf59376828ce18219f3ee0741d609b972182a5",
     "OTCHET_06_10_2026_BG.md": "e6c59f4b28632a257a60e5bd6447c064b9c50c0a2753704ae7a42841f25ab6b6",
@@ -277,7 +277,7 @@
     "lion_rebar/export/ownership_decisions.py": "891d4b707af07dd58c33490c4b5840d44b50d38a6f6171e0ddf8f64e58e78cc0",
     "lion_rebar/export/ownership_neutrality.py": "9b8052e334428dde3cdcad47d934b66cea170ae67ec171661d041ec4da0c0581",
     "lion_rebar/export/printed_dimension_guard.py": "bccd06c52723ce4a70058586302fc3c533d9c6bda0e095c90893c2933275b62e",
-    "lion_rebar/export/proven_form.py": "e328f48f16253b56eb91522411ad854c59592c16a4f6855124d52d682f73af4b",
+    "lion_rebar/export/proven_form.py": "9948cfd6b6552972331725843331d789be23ca7c450defeb59b04bee08bfdccf",
     "lion_rebar/export/schedule_witness.py": "4a906716ba7015b52f60dd445d041dae13888601eea75ba8da22818d1fd161c1",
     "lion_rebar/export/shape_image.py": "03f9c9f0a13afbf422dd98ccd8c1bb93cd44ff65416facc94a4ae1be6e04095c",
     "lion_rebar/export/silent_wrong_metrics.py": "b38bcaa90d412d5fc826e9af0a984ecdfaaf6bf738fdc74dcbdc3c536127d5fa",
@@ -430,7 +430,7 @@
     "tests/test_drawn_schedule.py": "698d154ce5bc5b58af00e066a84134c2052702872b00e021da7f602234d08d7f",
     "tests/test_dxf_importer.py": "74bcc873fe8e93cc22e6b1b0eb5f42d14a0d4d0c662ec4366219f63dde2abd44",
     "tests/test_dxf_position_export.py": "33f36959ac32db5f77e7f1865da11b51f5530f755512e090523b41999d8d358e",
-    "tests/test_edno_opisanie_na_formata.py": "e14f1765a41c812816946cf6f882c7d354dcd8f8d37478a5817703c2e46be1fd",
+    "tests/test_edno_opisanie_na_formata.py": "c7c0bd8d316a93a97b0cbaa556f9586969d9eb3ea47612bb3826c56893a885fd",
     "tests/test_engine_bundle.py": "ae69ec73983bc351986b0f2ef0a2a90f2af241d3a466a0ba79b214d4f4e66d53",
     "tests/test_engine_draft_render.py": "03ee317c8a237735d8edf5a2eddbcc732764dbd5cb99e809f9b507da3dcc5bd4",
     "tests/test_engine_repository.py": "7c73826c3506ccc4b970e2f3f792d9ca5a80102adc0a22cfda7c3c2767a64d8c",
@@ -543,7 +543,7 @@
     "tests/test_pamet_v_analiza.py": "dbad0fa022579690fcecb212deeceb28217083b218100c24fd6781a1b0abba0f",
     "tests/test_position_key_legend_resolver.py": "8ed51079179978c974d43c192de1d4a64f0eb03f3486c0d305f2771419f1c762",
     "tests/test_povredeni_ramki_ne_sa_prazni.py": "7944f227d1d25de7c4e4fa055a1f92881f6eea6e050f518589102d2a4b238a58",
-    "tests/test_pravilo_ot_zaklyuchenata_forma.py": "941a7da825655573cf823315c63fdb79b93e36073d82ea04ef32b4ef4be66577",
+    "tests/test_pravilo_ot_zaklyuchenata_forma.py": "2774daa551d433fb9d59d1b660ceb96c6bd7fcc813e136bd2048e504bc37e12e",
     "tests/test_predpolagaem_agal.py": "d99af6a6ade4385f9daf7229d484be5dddbfb1fdd2d9834318786b7d48ff6a43",
     "tests/test_pregled_belezhki.py": "8c43798dd2f322355353c194395665b17837210b521d3a1997614e54ae20a174",
     "tests/test_preizpolzvane_na_resheniya.py": "bf32e04d8d46afd56b7c7d9713f1f1b92f20b06eb14ea4d605d344f2366d81a8",
@@ -622,6 +622,7 @@
     "tests/test_shape_duplicates.py": "db135beb77ac1f7cd3c07fb9ec558a1193591c4ab6eb520528d04b946baac037",
     "tests/test_shape_from_case.py": "1c534a12f43db3a175ba53d7c549bec8de0ce9ac814c2d698172522aa28b3812",
     "tests/test_silent_wrong_metrics.py": "8e6a988667ebad80b651e7330994b2c83b004bdbf6c88e0c83c1a9d7cb24918b",
+    "tests/test_simvolna_kuka_f004.py": "a7baa9052a25586996afeb7a2485e82b35a47555f370e3b763ef9c92cce2f8dd",
     "tests/test_sloyat_stiga_do_ekrana.py": "49f0d2bc629e013fc0e7df01fbd89a36ca8f9c09bec3672cd55ca5fdb0516cf3",
     "tests/test_stirrup_group_resolver.py": "ccca74384a47cc573482206eb9e80ba4d1d31b99da7d49d69988fcd584b6e06b",
     "tests/test_suggestion_needs_printed_segments.py": "65713452f852ae844be5c27837ab13af5932b84cfca4fdbbcfae3364eeb75ee1",
@@ -751,12 +752,12 @@
     "docs/OPIT_11_PROTOKOL_BG.md"
   ],
   "tests": {
-    "tests": 2803,
+    "tests": 2813,
     "errors": 0,
     "failures": 0,
     "skipped": 18,
-    "passed": 2785,
-    "timestamp": "2026-10-23T10:48:29.783280+03:00",
-    "seconds": 191.76
+    "passed": 2795,
+    "timestamp": "2026-11-02T15:33:17.348926+02:00",
+    "seconds": 187.868
   }
 }
