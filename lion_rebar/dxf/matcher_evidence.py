@@ -182,7 +182,7 @@ class MatcherDecisionContext:
             layer_noise_detected=bool(row.get("layer_noise_detected"))
             or any("ШУМ" in value.upper() for value in notes),
             quantity_review_required=bool(row.get("quantity_review_required")),
-            alternative_count=len(_sequence(row.get("alternative_candidates"))),
+            alternative_count=competing_alternative_count(row),
             data_quality_flags=_string_tuple(row.get("data_quality_flags")),
             rejection_counts=(
                 dict(row.get("rejection_counts") or {})
@@ -348,6 +348,31 @@ def evaluate_matcher_candidate(
         geometry_ownership_evidence=ownership_evidence,
         transforms=transforms,
         calibration_id=calibration.calibration_id if calibration else None,
+    )
+
+
+def competing_alternative_count(row: Mapping[str, Any]) -> int:
+    """Алтернативите, които още спорят за надписа.
+
+    Кандидат, който е първият кандидат на друг доказано силен надпис
+    (``rivals_owned_elsewhere``, вж.
+    ``batch_geometry_report._izklyuchi_saparnitsi_s_vladelets``), не спори.
+    """
+
+    чужди = {
+        tuple(str(handle) for handle in _sequence(value))
+        for value in _sequence(row.get("rivals_owned_elsewhere"))
+    }
+    return sum(
+        1
+        for alternative in _sequence(row.get("alternative_candidates"))
+        if tuple(
+            str(handle)
+            for handle in _sequence(
+                alternative.get("handles") if isinstance(alternative, Mapping) else ()
+            )
+        )
+        not in чужди
     )
 
 

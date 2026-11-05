@@ -41,6 +41,7 @@ from lion_rebar.export.master_engine_v031 import (
 )
 from lion_rebar.dxf.matcher_evidence import (
     build_review_group_key,
+    competing_alternative_count,
     evaluate_report_row,
     review_group_components,
 )
@@ -6578,6 +6579,204 @@ def _resolve_global_geometry_ownership(
             overlap=overlap,
             winner_labels=winner_labels,
         )
+    _izklyuchi_saparnitsi_s_vladelets(rows, policy)
+
+
+# Състояния, при които първият кандидат на реда може да е СОБСТВЕНИК на
+# геометрията за целите на `_izklyuchi_saparnitsi_s_vladelets`.
+_SILNI_SASTOYANIYA = frozenset(
+    {"СИЛЕН", "СИЛЕН ПО ГЕОМЕТРИЯ", "СИЛНО СТРЕМЕ F006", "ОДОБРЕНА ВРЪЗКА"}
+)
+
+
+def _izklyuchi_saparnitsi_s_vladelets(
+    rows: Sequence[dict],
+    policy: RecognitionPolicy,
+) -> None:
+    """Съперник, който е първият кандидат на друг силен надпис, не е съперник.
+
+    `SS-1`, „7N12x950": прът 950 до надписа, а на 14,7 единици втори прът
+    950 — първият кандидат на съседния „39N12x950", ясно отделен сам по
+    себе си. Преднината се мереше и срещу чуждия прът (0,007) и позицията
+    спираше с ``WEAK_CANDIDATE_SEPARATION``. Същото правило вече важи при
+    пренасочването (`_promote_ownership_alternative`): мери се само срещу
+    кандидатите, които остават ВЪЗМОЖНИ за този надпис.
+
+    Собственик е само ред, силен БЕЗ това правило — силно състояние, точна
+    L, еднозначен MASTER, собствена ясна преднина. Собствениците се снемат
+    преди промените, затова двама слаби не се освобождават взаимно.
+    Изключеният съперник само мести преднината; позицията става силна
+    единствено ако L, Ø от слоя и разстоянието стигат както в
+    ``geometry_candidates._confidence_for``.
+    """
+
+    # Флагът за двойно владение се поставя едва в
+    # `_apply_global_geometry_conflicts`, затова тук се брои наново: прът,
+    # който е в първия кандидат на два надписа, не е ничий доказан прът.
+    първи_кандидати: dict[str, int] = {}
+    for row in rows:
+        if row.get("annotation_class") != "ACTIONABLE":
+            continue
+        if bool(row.get("ownership_reference_only")):
+            continue
+        for handle in {str(value) for value in row.get("candidate_handles", []) if str(value)}:
+            първи_кандидати[handle] = първи_кандидати.get(handle, 0) + 1
+    собственици: dict[str, set[str]] = {}
+    for row in rows:
+        if _e_dokazan_sobstvenik(row, policy) and all(
+            първи_кандидати.get(str(handle), 0) == 1
+            for handle in row.get("candidate_handles", [])
+        ):
+            for handle in row.get("candidate_handles", []):
+                собственици.setdefault(str(handle), set()).add(
+                    str(row.get("annotation_handle") or "")
+                )
+    if not собственици:
+        return
+
+    for row in rows:
+        if row.get("annotation_class") != "ACTIONABLE":
+            continue
+        if bool(row.get("ownership_reference_only")):
+            continue
+        if row.get("batch_status") == "ОДОБРЕНА ВРЪЗКА":
+            continue
+        свои = [str(value) for value in row.get("candidate_handles", []) if str(value)]
+        if not свои:
+            continue
+        # Само позиция, която СЕГА спира на разделянето. Ясно отделената не
+        # се пипа: преднината ѝ е мерена срещу следващия кандидат и
+        # пресмятането наново не бива да я мести.
+        if _yasna_prednina(row, policy):
+            continue
+        аз = str(row.get("annotation_handle") or "")
+        чужди: list[Mapping[str, Any]] = []
+        свободни: list[Mapping[str, Any]] = []
+        for alternative in row.get("alternative_candidates", []):
+            if not isinstance(alternative, Mapping):
+                continue
+            handles = [str(value) for value in alternative.get("handles", []) if str(value)]
+            if not handles or handles == свои:
+                continue
+            владеят = set.intersection(
+                *(собственици.get(handle, set()) for handle in handles)
+            ) - {аз}
+            (чужди if владеят else свободни).append(alternative)
+        if not чужди:
+            continue
+        избран = {"score": row.get("candidate_score"), "distance_raw": row.get("distance_raw")}
+        преднина = _prednina_do_ostanalite(свободни, избран, "score")
+        пространствена = _prednina_do_ostanalite(свободни, избран, "distance_raw")
+        проба = {
+            **row,
+            "rivals_owned_elsewhere": [list(value.get("handles", [])) for value in чужди],
+            "candidate_score_gap": преднина,
+            "candidate_distance_gap_raw": пространствена,
+        }
+        # Без чуждите съперници разделянето трябва да стане ясно; иначе
+        # редът остава, както е — свободният съперник продължава да спори.
+        if not _yasna_prednina(проба, policy):
+            continue
+        row["rivals_owned_elsewhere"] = проба["rivals_owned_elsewhere"]
+        row["candidate_score_gap"] = преднина
+        row["candidate_distance_gap_raw"] = пространствена
+        бележка = (
+            "СЪПЕРНИК С ДОКАЗАН СОБСТВЕНИК: "
+            + "; ".join(", ".join(value) for value in row["rivals_owned_elsewhere"])
+            + " е първият кандидат на друг силен надпис с точна L; преднината "
+            "е мерена само срещу свободните кандидати."
+        )
+        notes = [str(value) for value in row.get("candidate_notes", [])]
+        if бележка not in notes:
+            notes.append(бележка)
+        row["candidate_notes"] = notes
+        if (
+            row.get("batch_status") == "ЗА РЪЧЕН ПРЕГЛЕД"
+            and row.get("candidate_confidence") == "КАНДИДАТ ЗА РЪЧНА ПРОВЕРКА"
+        ):
+            _povishi_bez_chuzhd_saparnik(row, policy)
+
+
+def _e_dokazan_sobstvenik(row: Mapping[str, Any], policy: RecognitionPolicy) -> bool:
+    if row.get("annotation_class") != "ACTIONABLE":
+        return False
+    if bool(row.get("ownership_reference_only")) or not row.get("candidate_handles"):
+        return False
+    if row.get("batch_status") not in _SILNI_SASTOYANIYA:
+        return False
+    if row.get("global_conflict") or row.get("geometry_owner_conflict"):
+        return False
+    if row.get("master_conflict") or row.get("master_ambiguous_shape_codes"):
+        return False
+    if _ownership_length_band(row, policy) > 0:
+        return False
+    if row.get("batch_status") == "ОДОБРЕНА ВРЪЗКА":
+        return True
+    return _yasna_prednina(row, policy)
+
+
+def _yasna_prednina(row: Mapping[str, Any], policy: RecognitionPolicy) -> bool:
+    """Същите три пътя като ``matcher_evidence._separation_band``."""
+
+    if "DIMENSION_CANDIDATE_TIEBREAK" in {
+        str(value) for value in row.get("review_reason_codes", [])
+    }:
+        return True
+    score_gap = row.get("candidate_score_gap")
+    distance_gap = row.get("candidate_distance_gap_raw")
+    if score_gap is None and distance_gap is None:
+        return competing_alternative_count(row) == 0
+    generic = row.get("layer_diameter_mm") is None
+    score_limit = (
+        policy.generic_layer_strong_score_gap if generic else policy.strong_score_gap
+    )
+    distance_limit = (
+        policy.generic_layer_strong_distance_advantage_raw
+        if generic
+        else policy.strong_distance_advantage_raw
+    )
+    try:
+        if score_gap is not None and float(score_gap) >= float(score_limit):
+            return True
+        if distance_gap is not None and float(distance_gap) >= float(distance_limit):
+            return True
+    except (TypeError, ValueError):
+        return False
+    return False
+
+
+def _povishi_bez_chuzhd_saparnik(row: dict[str, Any], policy: RecognitionPolicy) -> None:
+    """Силно състояние по законите на ``_confidence_for`` — без чуждия съперник."""
+
+    if row.get("contextual_rule_code") or row.get("master_conflict"):
+        return
+    if row.get("master_ambiguous_shape_codes") or row.get("review_reason_codes"):
+        return
+    declared = _positive_float(row.get("declared_length_cm"))
+    try:
+        difference = abs(float(row.get("numeric_difference")))
+        distance = float(row.get("distance_raw"))
+    except (TypeError, ValueError):
+        return
+    if declared is None:
+        return
+    master_code = str(row.get("master_shape_code") or "")
+    if difference > policy.exact_length_tolerance_for_master(declared, master_code):
+        return
+    if distance > policy.strong_distance_limit(declared):
+        return
+    if not _yasna_prednina(row, policy):
+        return
+    if bool(row.get("diameter_layer_match")):
+        row["batch_status"] = "СИЛЕН"
+        row["candidate_confidence"] = "СИЛЕН КАНДИДАТ — НЕОДОБРЕН"
+    elif (
+        row.get("layer_diameter_mm") is None
+        and policy.generic_layer_strong_enabled
+        and master_code
+    ):
+        row["batch_status"] = "СИЛЕН ПО ГЕОМЕТРИЯ"
+        row["candidate_confidence"] = "СИЛЕН ПО ГЕОМЕТРИЯ — Ø ОТ НАДПИСА"
 
 
 def _same_band_ownership_winner(
