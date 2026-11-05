@@ -1,7 +1,7 @@
 {
   "schema": "lion-rebar-manifest/v1",
   "version": "v0.1.44.23-rc46",
-  "commit": "989a37db0982ed2368fd273a9313569e9bad60d3",
+  "commit": "a7e615e5f637094a82295ed6f05730c1434fa20a",
   "files": {
     ".claude/settings.json": "b4a2c0bf87d7d33496f4d4f129b58e6f11d31551a0f03ed826c5b77cf973689e",
     ".claude/skills/lion-rebar-full-path/SKILL.md": "1a6d2d48e199a22daae172e23949233b452eec2f26cac64d8f03309c4522cd2f",
@@ -28,7 +28,7 @@
     ".claude/skills/run-lion-rebar/start_app.ps1": "7977d600b3bd9b9d0987810beac4c26c79960254df55238f42390e2b19f8a08a",
     ".gitignore": "4aeab05dd3a06bbce1e891097f9e95365a61369384940d364655337b9487bd9d",
     "BUILD_EXE.bat": "48708844ee8c6dcfbadc1afeeb840be887e302e35cbe03bcb24b832b5b3feb9a",
-    "CHANGELOG.md": "5a7b7b8f69c6c9978bf883570f621f48bd84cb3760924c6843a93cb59d30a924",
+    "CHANGELOG.md": "433666dad6693dc1132966ff489324acf6d16967124e98bc6861329c87cf390d",
     "CLAUDE.md": "e15d8ff1c13da05922c60b9c8a058e46bef2720c7e5c4b45a4e4b973cf9eea79",
     "INSTALL_LION_REBAR.bat": "0a47ff5182a4c2cfde53e5c9dadf59376828ce18219f3ee0741d609b972182a5",
     "OTCHET_06_10_2026_BG.md": "e6c59f4b28632a257a60e5bd6447c064b9c50c0a2753704ae7a42841f25ab6b6",
@@ -205,7 +205,7 @@
     "lion_rebar/domain/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "lion_rebar/dxf/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "lion_rebar/dxf/asd_schedule.py": "861474fcbc321e3e3644c717eea86e8f214dbef8e33bde6e7b4378ea33ba35ae",
-    "lion_rebar/dxf/batch_geometry_report.py": "c6a8144d97474a7e8e6cbacfe5074fce7aa3e14a37f3fa630d60d84ede6990c2",
+    "lion_rebar/dxf/batch_geometry_report.py": "af51805faca438e1193875943f4a1e7b72c341a0b46efcdaed23b83633e5696c",
     "lion_rebar/dxf/chain_printed_dimensions.py": "25877b66b96815aefefda4b416f61304241a41538913a4f206ad74617dcbd353",
     "lion_rebar/dxf/convention_profile.py": "2a6e3860caa67948d86b58b2a09d385460fc437405e81fa87ee0b06209310ff3",
     "lion_rebar/dxf/curved_centreline_proof.py": "dad4556d401680126c9973748ac11e139c6db7faf389abf68eb9c3d5752fd711",
@@ -221,7 +221,7 @@
     "lion_rebar/dxf/legend_key_resolver.py": "6e3185f633a6af4f046e13518617a5804602cff501e9007921ba50ff1fd63e71",
     "lion_rebar/dxf/line_chain_v015.py": "d45d7015ee01599a03f30ddbff9ae40a5856469e675bd7fb6b014999e5e414f3",
     "lion_rebar/dxf/local_detail_resolver.py": "b362ce678bd41ea47f2e951e044a4e5fc2b191fb397f998fb0df3c0142a9d8d3",
-    "lion_rebar/dxf/matcher_evidence.py": "abf44f325f2fffe7d2aa6d8b27f191e67bdc7c7688d56a0cc6f27a68dce149c4",
+    "lion_rebar/dxf/matcher_evidence.py": "e04af8fcd6742fb30320c0020d5641a139a5921f23e0bee79a6790e161251079",
     "lion_rebar/dxf/models.py": "e9f56b28b4fd49e95f162141c0b75996888873143822fab0fffd9b20f2d29370",
     "lion_rebar/dxf/ole_schedule.py": "a330fb25c81443b4f161a78a2bcb9b3627c766757dd6e778f6516492489cb982",
     "lion_rebar/dxf/position_key_resolver.py": "19efae928f34328a42a9700509efb1a4d726519dda55acc91b24a67c1c732e71",
@@ -616,6 +616,7 @@
     "tests/test_review_selection_mode.py": "ba7bf78066fe2ce44ab4d4ae37f21aed2b556ea8b751d36aeacbdfdfa16f8db3",
     "tests/test_review_work_queues.py": "ce8508077a9a7331b8a541391f0ed8d4f05074d55c382825054f5873c370d2fa",
     "tests/test_rule_activation.py": "410891a3d8155acee8084117dd79bf256248f2a8dedd2a335d2e663ed8c98b94",
+    "tests/test_saparnik_s_vladelec.py": "9fbab86ade06ccf500ef73898736bc98723c0f13a58d14e2de32ed59215d573c",
     "tests/test_score_gap_strongest_rival.py": "50c844b1831f9336f3f3f110084dceeca7fd987446001d4756090fc63beb46b1",
     "tests/test_section_title_styles.py": "cb5c45ca3d2ba48073c761af49bc1db88d7f88a5bc92e61ff0f325c3b7e5dac7",
     "tests/test_session_database.py": "962cce8ef190bc926bd0da856ba69e842730fa3971ddb7397cae9f37514534e2",
@@ -752,12 +753,12 @@
     "docs/OPIT_11_PROTOKOL_BG.md"
   ],
   "tests": {
-    "tests": 2813,
+    "tests": 2826,
     "errors": 0,
     "failures": 0,
     "skipped": 18,
-    "passed": 2795,
-    "timestamp": "2026-11-02T15:33:17.348926+02:00",
-    "seconds": 187.868
+    "passed": 2808,
+    "timestamp": "2026-11-04T11:09:38.233143+02:00",
+    "seconds": 139.224
   }
 }
