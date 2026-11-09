@@ -808,6 +808,9 @@ def save_engineer_decision(project_root, payload: Mapping[str, Any],
         "segment_count": len(segments),
         "geometry_length_raw": original.get("geometry_length_raw"),
         "effective_geometry_length_cm": length,
+        # Каквото е НАЧЕРТАНО, преди решението да го замени с производственото:
+        # без него Excel не може да покаже отклонението от чертежа.
+        "drawn_geometry_length_cm": original.get("effective_geometry_length_cm"),
         "numeric_difference": 0.0,
         "raw_numeric_difference": original.get("raw_numeric_difference"),
         "diameter_layer_match": False,

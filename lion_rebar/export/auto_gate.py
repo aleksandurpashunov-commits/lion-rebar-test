@@ -18,7 +18,7 @@ from lion_rebar.engine.shape_from_case import (
     symmetry_pattern,
 )
 from lion_rebar.engine.shape_index import APPROVED_SHAPE_STATES
-from lion_rebar.export import schedule_witness
+from lion_rebar.export import label_over_drawing, schedule_witness
 from lion_rebar.export.engine_shape_parameters import (
     EngineShapeParameterError,
     expected_segment_codes,
@@ -115,6 +115,7 @@ _PRODUCTION_SEGMENT_EVIDENCE_SOURCES = frozenset(
         _PROXY_ARC_VERIFIED_SOURCE,
         _BORN_FROM_CASE_PRINTED_SOURCE,
         schedule_witness.STRAIGHT_SOURCE,
+        label_over_drawing.SOURCE,
     }
 )
 
@@ -312,6 +313,8 @@ def validate_production_segment_evidence(
         return _born_from_case_evidence_is_owned(row, evidence, segments, shape)
     if source == schedule_witness.STRAIGHT_SOURCE:
         return schedule_witness.evidence_is_owned(row, evidence)
+    if source == label_over_drawing.SOURCE:
+        return label_over_drawing.evidence_is_owned(row, evidence)
     return False
 
 
@@ -1262,7 +1265,8 @@ def is_deterministic_production_source(
     _evidence = row.get("production_segment_evidence")
     if (
         isinstance(_evidence, Mapping)
-        and str(_evidence.get("source") or "") == schedule_witness.STRAIGHT_SOURCE
+        and str(_evidence.get("source") or "")
+        in {schedule_witness.STRAIGHT_SOURCE, label_over_drawing.SOURCE}
     ):
         return validate_production_segment_evidence(row, shape=shape)
     if not handle.startswith("PXANN_"):

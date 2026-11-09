@@ -17,6 +17,7 @@ from typing import Any, Sequence
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
 from openpyxl.drawing.image import Image as ExcelImage
+from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Border, PatternFill, Side
 from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
 from openpyxl.drawing.xdr import XDRPositiveSize2D
@@ -30,6 +31,7 @@ from lion_rebar.dxf.text_parser import parse_rebar_text
 from lion_rebar.engine.models import EnginePackage, ShapeDefinition
 from lion_rebar.export.frame_detection import DrawingFrame, assign_point_to_frame, detect_drawing_frames, sanitize_sheet_name
 from lion_rebar.export.shape_image import render_shape_png
+from lion_rebar.export.label_over_drawing import deviation_note
 from lion_rebar.export.errors import ExcelExportError, F006AsymmetricHookError
 from lion_rebar.export.engine_shape_parameters import (
     EngineShapeParameterError,
@@ -132,6 +134,11 @@ class ExportPosition:
     #: working sheet -- deliberately NOT part of ``group_key``, so "Общо"
     #: keeps aggregating one row per production identity across all columns.
     column_group_label: str = ""
+    #: Собственик, 08–09.11.2026: правият прът, начертан с друга дължина,
+    #: излиза по надписа в ЖЪЛТ ред с обосновка
+    #: (``label_over_drawing.deviation_note``). Само за показване — не е част
+    #: от ``group_key`` и не мени нито едно число.
+    drawing_deviation_note: str = ""
 
     @property
     def production_length_mm(self) -> int:
@@ -1120,6 +1127,7 @@ def load_export_context(
                 vertical_assignment_margin=vertical_assignment_margin,
                 column_group_label=str(row.get("column_group_label") or ""),
                 bend_allowance_cm=declared_allowance_cm,
+                drawing_deviation_note=deviation_note(link),
             )
         )
     _validate_beam_assignments(frames, beam_labels, positions)
@@ -1756,6 +1764,7 @@ def _write_group_row(sheet, row: int, group: ExportGroup, *, shape: ShapeDefinit
     sheet.cell(row, 11).value = f"=J{row}*I{row}"
     _write_hidden_trace(sheet, row, group, engine, source_title)
     _add_shape_image(sheet, row, group, shape, image_dir)
+    _mark_drawing_deviation(sheet, row, group)
 
 
 def _write_total_group_row(sheet, row: int, group: ExportGroup, *, source_refs, shape: ShapeDefinition, image_dir: Path, engine: EnginePackage) -> None:
@@ -1779,6 +1788,34 @@ def _write_total_group_row(sheet, row: int, group: ExportGroup, *, source_refs, 
     )
     _write_hidden_trace(sheet, row, group, engine, "Общо")
     _add_shape_image(sheet, row, group, shape, image_dir)
+    _mark_drawing_deviation(sheet, row, group)
+
+
+#: Жълтото на ред, чиито числа идват от надписа, а чертежът се разминава.
+DRAWING_DEVIATION_FILL = "FFFF00"
+
+
+def _mark_drawing_deviation(sheet, row: int, group: ExportGroup) -> None:
+    """Жълт ред и обосновка в клетката на дължината (F).
+
+    Собственик, 09.11.2026: „за всички разлики (отклонения от чертежа), като
+    да има обосновка за това защо е в жълто". Обосновката е бележка на
+    клетката, за да не се мени утвърдената структура на листа (колони A:K).
+    """
+
+    бележки = []
+    for position in group.positions:
+        бележка = str(position.drawing_deviation_note or "").strip()
+        if бележка:
+            бележки.append(f"{position.annotation_text}: {бележка}")
+    if not бележки:
+        return
+    for column in range(1, 12):
+        sheet.cell(row, column).fill = PatternFill("solid", fgColor=DRAWING_DEVIATION_FILL)
+    коментар = Comment("ОТКЛОНЕНИЕ ОТ ЧЕРТЕЖА\n" + "\n".join(dict.fromkeys(бележки)), "LION REBAR")
+    коментар.width = 420
+    коментар.height = 40 + 30 * len(бележки)
+    sheet.cell(row, 6).comment = коментар
 
 
 def _write_hidden_trace(sheet, row: int, group: ExportGroup, engine: EnginePackage, source_title: str) -> None:

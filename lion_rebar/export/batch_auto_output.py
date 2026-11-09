@@ -44,6 +44,7 @@ from lion_rebar.export.auto_gate import (
     validate_production_segment_evidence,
 )
 from lion_rebar.export import schedule_witness as _schedule_witness
+from lion_rebar.export.label_over_drawing import deviation_note
 from lion_rebar.export.printed_dimension_guard import (
     ПОЛЕ as _PRINTED_GUARD_FIELD,
     ПРОТИВОРЕЧИ as _PRINTED_GUARD_BLOCK,
@@ -695,6 +696,9 @@ def build_batch_export_context(
                 beam_assignment_method=beam_assignment_method,
                 beam_assignment_score=beam_assignment_score,
                 beam_assignment_margin=beam_assignment_margin,
+                drawing_deviation_note=deviation_note(
+                    approved_link if approved_in_project else row
+                ),
             )
         )
 

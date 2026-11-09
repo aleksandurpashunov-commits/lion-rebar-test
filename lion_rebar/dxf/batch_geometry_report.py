@@ -670,6 +670,10 @@ def build_batch_geometry_report(
     _apply_drawn_schedule_witness(
         rows, read_drawn_schedule(entities), shape_definitions=shape_definitions
     )
+    # Прав прът, начертан с друга дължина: по надписа, с обосновка за жълтия
+    # ред в Excel (собственик, 08–09.11.2026). СЛЕД ведомостта, за да чуе
+    # нейното противоречие; правилата са в ``export/label_over_drawing``.
+    _apply_label_over_drawing(rows)
     _apply_review_groups(rows)
     counts = _status_counts(rows)
     decision_counts = _matcher_decision_counts(rows)
@@ -3355,6 +3359,32 @@ def _apply_decision_reuse_proposals(
                  % str(getattr(предложение, "обяснение", ""))),
             ]
     return сметка
+
+
+def _apply_label_over_drawing(rows: Sequence[dict]) -> int:
+    """Прав прът, спрян само на дължината: производството е по надписа.
+
+    Правилата и защо — в ``lion_rebar/export/label_over_drawing.py``. Връща
+    броя позиции, получили вектора ``[L]`` с обосновка.
+    """
+
+    from lion_rebar.export import label_over_drawing as по_надписа
+
+    дадени = 0
+    for row in rows:
+        доказателство = по_надписа.evidence_for(row)
+        if доказателство is None:
+            continue
+        отклонение = доказателство[по_надписа.FIELD]
+        row["production_segments_cm"] = list(доказателство["segments"])
+        row["canonical_segment_lengths_cm"] = list(доказателство["segments"])
+        row["production_segment_evidence"] = доказателство
+        row[по_надписа.FIELD] = отклонение
+        бележка = "ОТКЛОНЕНИЕ ОТ ЧЕРТЕЖА: " + отклонение["note"]
+        row["candidate_notes"] = [*list(row.get("candidate_notes", [])), бележка]
+        row["analysis_warnings"] = [*list(row.get("analysis_warnings", [])), бележка]
+        дадени += 1
+    return дадени
 
 
 def _apply_drawn_schedule_witness(

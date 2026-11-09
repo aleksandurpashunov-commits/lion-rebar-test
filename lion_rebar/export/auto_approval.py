@@ -60,6 +60,8 @@ _LINK_FIELDS = (
     "diameter_layer_match",
     "diameter_mm",
     "distance_raw",
+    # Обосновката на жълтия ред в Excel (``export/label_over_drawing``).
+    "drawing_deviation",
     "effective_geometry_length_cm",
     "geometry_length_raw",
     # Позиция без DXF геометрия носи откъде идва (правата форма от

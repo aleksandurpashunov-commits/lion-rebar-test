@@ -1650,6 +1650,9 @@ class EngineerDecisionDialog(QDialog):
                 "review_reason_codes": list(self.row.get("review_reason_codes") or []),
                 "geometry_length_raw": self.row.get("geometry_length_raw"),
                 "raw_numeric_difference": self.row.get("raw_numeric_difference"),
+                # Начертаната дължина в cm ПРЕДИ решението — за жълтия ред в
+                # Excel (``export/label_over_drawing.deviation_note``).
+                "effective_geometry_length_cm": self.row.get("effective_geometry_length_cm"),
             },
             "resolved": {
                 "count": values["count"],
