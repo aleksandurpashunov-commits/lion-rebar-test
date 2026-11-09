@@ -45,7 +45,10 @@ from lion_rebar.dxf.matcher_evidence import (
     evaluate_report_row,
     review_group_components,
 )
-from lion_rebar.dxf.local_detail_resolver import build_local_detail_index
+from lion_rebar.dxf.local_detail_resolver import (
+    build_local_detail_index,
+    stolche_captions,
+)
 from lion_rebar.dxf.models import DxfEntityRecord
 from lion_rebar.dxf.printed_detail_dimensions import (
     PrintedShape,
@@ -497,6 +500,8 @@ def build_batch_geometry_report(
             for т in (getattr(resolved_policy, "learned_segment_dimension_styles", ())
                       or ())
         },
+        stolche=stolche_captions(annotations, entities, policy=resolved_policy),
+        shape_definitions=shape_definitions,
     )
     # Beam staircase subtypes must be normalized to their approved
     # ЗАБЕЛЕЖКА: присъдата за производствената форма (``_apply_proven_form_verdict``)
@@ -3839,6 +3844,9 @@ def _apply_chain_printed_production_segments(
     rows: Sequence[dict],
     entities: Sequence[DxfEntityRecord],
     learned_styles: Mapping[str, Mapping[str, Any]] | None = None,
+    *,
+    stolche: Mapping[str, Any] | None = None,
+    shape_definitions: Sequence[ShapeDefinition] | None = None,
 ) -> dict[str, int]:
     """Каноничният вектор от ЦЯЛАТА начертана верига и собствените ѝ коти.
 
@@ -3853,10 +3861,16 @@ def _apply_chain_printed_production_segments(
     съвпада с кандидата, тук се записва само доказателство — числата остават
     чужда работа. При разминаване без добавена геометрия правилото НЕ избира
     победител.
+
+    ``stolche`` са надписите под изрично заглавие „столч…"
+    (``local_detail_resolver.stolche_captions``). Само при тях веригата може да
+    мине без проверката на реда, а потвърденото столче става F008 — виж
+    ``_install_axonometric_stolche``.
     """
 
     from lion_rebar.dxf import chain_printed_dimensions as верига
 
+    stolche = stolche or {}
     указател = верига.ВериженУказател(entities)
     присъди: dict[str, верига.ВерижноДоказателство] = {}
     for индекс, row in enumerate(rows):
@@ -3872,6 +3886,7 @@ def _apply_chain_printed_production_segments(
         присъда = верига.присъда(
             handles, указател, обявена, изключени_надписи=[собствен],
             научени_стилове=learned_styles or None, дневник=дневник,
+            столче=str(row.get("annotation_handle") or "") in stolche,
         )
         if присъда is not None:
             присъди[str(индекс)] = присъда
@@ -3898,6 +3913,18 @@ def _apply_chain_printed_production_segments(
             ]
             continue
         row[верига.ПОЛЕ] = присъда.as_dict()
+        if присъда.аксонометрично_столче:
+            заглавие = stolche.get(str(row.get("annotation_handle") or ""))
+            if _install_axonometric_stolche(
+                row, присъда, заглавие, shape_definitions=shape_definitions,
+            ):
+                сметка["STOLCHE_F008"] = сметка.get("STOLCHE_F008", 0) + 1
+            else:
+                # Без смяната на формата присъдата не значи нищо: тя е
+                # приета САМО защото детайлът е столче.
+                row.pop(верига.ПОЛЕ, None)
+                сметка["STOLCHE_REFUSED"] = сметка.get("STOLCHE_REFUSED", 0) + 1
+            continue
         каноничен = [
             стойност
             for стойност in (row.get("canonical_segment_lengths_cm") or ())
@@ -3950,6 +3977,108 @@ def _apply_chain_printed_production_segments(
             ),
         ]
     return сметка
+
+
+#: Състояния, при които предишният кандидат вече е ОТКАЗАН и столчето може
+#: да заеме мястото му. Силен или одобрен ред не се пипа.
+_STOLCHE_REPLACEABLE_STATUSES = frozenset({"РИСК", "ЗА РЪЧЕН ПРЕГЛЕД"})
+
+
+def _install_axonometric_stolche(
+    row: dict,
+    присъда: Any,
+    заглавие: Any,
+    *,
+    shape_definitions: Sequence[ShapeDefinition] | None,
+) -> bool:
+    """F008 от начертаното столче и котите до всеки негов участък.
+
+    Собственик, 08.11.2026: „Оправи това да разпознава столчетата. Нелепо е
+    постоянно да ги потвърждавам." Измерено: s-8, s-9, тест-006, SS-1 и
+    „Греди +6.50" — matcher-ът взима само средната линия на столчето (78 при
+    L=97) и отказва за дължина, а пълната верига от пет отсечки носи пет
+    надписани размера, всеки до своя участък, със сбор точно L.
+
+    Пише само когато:
+
+    * формата на реда е празна или F001 и редът е отказан (РИСК / ръчен
+      преглед) — тоест не отменя доказано;
+    * MASTER има активна F008 с пет участъка;
+    * заглавието „столч…" е свързано едно към едно с надписа;
+    * размерите са в реда на столчето — крачетата равни, височините равни.
+    """
+
+    from lion_rebar.dxf import chain_printed_dimensions as верига
+
+    if заглавие is None:
+        return False
+    сегашна = str(row.get("master_shape_code") or "").strip().upper()
+    if сегашна not in {"", "F001"}:
+        return False
+    if str(row.get("batch_status") or "") not in _STOLCHE_REPLACEABLE_STATUSES:
+        return False
+    if row.get("production_segments_cm") or row.get("master_conflict"):
+        return False
+    if str(row.get("contextual_rule_code") or "").strip():
+        return False
+    форма = next(
+        (
+            кандидат
+            for кандидат in (shape_definitions or ())
+            if str(кандидат.code).strip().upper() == "F008" and кандидат.active
+        ),
+        None,
+    )
+    участъци = [float(с) for с in присъда.участъци_cm]
+    if форма is None or len(форма.segments) != 5:
+        return False
+    if not верига.симетрично_столче(участъци):
+        return False
+
+    row["stolche_previous_shape_code"] = сегашна
+    row["stolche_previous_canonical_segment_lengths_cm"] = list(
+        row.get("canonical_segment_lengths_cm") or ()
+    )
+    row["stolche_caption_handle"] = str(заглавие.label_handle)
+    row["stolche_caption_text"] = str(заглавие.label_text)
+    row["stolche_caption_distance_raw"] = float(заглавие.label_distance_raw)
+    row[верига.ПОЛЕ] = {
+        **dict(row.get(верига.ПОЛЕ) or {}),
+        "stolche_caption_handle": str(заглавие.label_handle),
+        "stolche_caption_text": str(заглавие.label_text),
+    }
+    row["master_shape_code"] = "F008"
+    row["master_shape_name"] = форма.name
+    row["master_ambiguous_shape_codes"] = []
+    # Изричното заглавие е правилото, което определя формата — както ``стр.:``
+    # за F006 и ``фиби`` за F005. Затова ъглите са на заключената F008, а не
+    # начертаните в аксонометрията (``proven_form``: правило в обхват).
+    row["contextual_rule_code"] = заглавие.rule_code
+    row["contextual_rule_note"] = заглавие.note
+    row["canonical_segment_lengths_cm"] = участъци
+    # Начертаните завои на аксонометрията не са производствени: ъглите идват
+    # от MASTER формата (``_apply_chain_printed_production_vector``).
+    row["canonical_turn_angles_deg"] = []
+    row["chain_geometry_handles"] = list(присъда.геометрия_handles)
+    row["candidate_handles"] = list(присъда.геометрия_handles)
+    обявена = float(row.get("declared_length_cm") or 0.0)
+    if not _apply_chain_printed_production_vector(
+        row, обявена, shape_definitions=shape_definitions,
+    ):
+        return False
+    row["candidate_notes"] = [
+        *list(row.get("candidate_notes", [])),
+        (
+            "STOLCHE_FROM_CHAIN_PRINTED: заглавие "
+            f"{заглавие.label_handle} ({заглавие.label_text!r}) на "
+            f"{заглавие.label_distance_raw:.0f} чертожни единици; столчето е "
+            "начертано в аксонометрия, затова редът идва от присвояването "
+            "рамо ↔ кота, а не от начертаните дължини; "
+            f"{' + '.join(f'{с:g}' for с in участъци)} = {sum(участъци):g} cm "
+            f"при L={обявена:g} cm (предишна форма: {сегашна or '—'})"
+        ),
+    ]
+    return True
 
 
 def _apply_grid_rounded_production_segments(

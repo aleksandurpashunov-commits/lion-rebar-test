@@ -4,7 +4,10 @@ import math
 import re
 from typing import Any, Mapping, Sequence
 
-from lion_rebar.dxf.local_detail_resolver import local_detail_shape_code
+from lion_rebar.dxf.local_detail_resolver import (
+    local_detail_shape_code,
+    stolche_caption_text,
+)
 from lion_rebar.engine.bend_allowance import segments_match_total
 from lion_rebar.dxf.proxy_adapter import three_leg_shape_from_directions
 from lion_rebar.engine.models import ShapeDefinition
@@ -578,6 +581,16 @@ def _chain_printed_evidence_is_owned(
         return False
     if височини > верига.ОБХВАТ_ВИСОЧИНИ:
         return False
+    if присъда.get("axonometric_stolche"):
+        # Проверката на реда е отстъпила само заради столчето. Тук се иска
+        # наново всичко, което го прави столче: формата, изричното заглавие и
+        # реда краче–височина–горе–височина–краче.
+        if str(row.get("master_shape_code") or "").strip().upper() != "F008":
+            return False
+        if not stolche_caption_text(str(присъда.get("stolche_caption_text") or "")):
+            return False
+        if not верига.симетрично_столче(подадени):
+            return False
     return True
 
 

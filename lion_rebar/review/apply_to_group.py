@@ -317,6 +317,46 @@ def build_group_plan(
     return plan
 
 
+#: Решения, чиито форма и участъци са ИНЖЕНЕРНО решени и могат да се пренесат.
+_TRANSFERABLE_DECISIONS = frozenset({"ENGINEER_RESOLVED"})
+
+
+def group_changes_for(
+    row: Mapping[str, Any],
+    decision: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Какво пренася груповото действие от представителя.
+
+    Собственик, 08.11.2026: „досадно е да цъкам 10 вместо 1 път". Шестте фиби
+    ``32N8x94`` бяха F005 БЕЗ участъци в отчета; груповото действие четеше само
+    реда и отказваше с „Огъната форма е без производствени сегменти", макар
+    че решението на представителя вече носеше ``40 + 14 + 40``.
+
+    Затова решението на представителя е източникът, когато го има: неговата
+    форма, участъци и производствена дължина. Без решение — каквото е на реда,
+    както досега. Строгият подпис на членовете не се променя.
+    """
+
+    if (
+        isinstance(decision, Mapping)
+        and str(decision.get("decision") or "") in _TRANSFERABLE_DECISIONS
+        and _text(decision.get("shape_code"))
+    ):
+        changes: dict[str, Any] = {"master_shape_code": _upper(decision.get("shape_code"))}
+        segments = decision.get("production_segment_lengths_cm")
+        if isinstance(segments, (list, tuple)) and segments:
+            changes["production_segments_cm"] = [float(value) for value in segments]
+        length = decision.get("production_length_cm")
+        if length not in (None, ""):
+            changes["production_length_cm"] = float(length)
+        return changes
+    changes = {"master_shape_code": _text(row.get("master_shape_code"))}
+    segments = row.get("production_segments_cm")
+    if segments:
+        changes["production_segments_cm"] = list(segments)
+    return changes
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 

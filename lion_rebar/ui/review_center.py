@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 from lion_rebar.config.constants import APP_VERSION
 from lion_rebar.engine.shape_from_case import can_seed_new_shape
 from lion_rebar.project.data_identity import IDENTITY_KEY, DataIdentity
+from lion_rebar.review.apply_to_group import group_changes_for
 from lion_rebar.project.non_production import (
     is_valid_non_production_decision,
 )
@@ -2625,20 +2626,30 @@ class ReviewCenterDialog(QDialog):
                 "Груповото решение изисква отворен проект с валидна "
                 "data-identity.")
             return
-        shape_code = str(row.get("master_shape_code") or "").strip()
+        changes = group_changes_for(
+            row,
+            (self._state.get("decisions") or {}).get(
+                str(row.get("annotation_handle") or "")),
+        )
+        shape_code = str(changes.get("master_shape_code") or "").strip()
         if not shape_code:
             QMessageBox.warning(
                 self, "Няма форма",
                 "Позицията няма разпозната MASTER форма. Реши я поотделно "
                 "с „Инженерно решение“, преди да прилагаш към група.")
             return
+        if shape_code.upper() != "F001" and not changes.get("production_segments_cm"):
+            # Отказът идваше едва след потвърждението, с „Огъната форма е без
+            # производствени сегменти" (собственик, 08.11.2026, фибите 32N8x94).
+            QMessageBox.warning(
+                self, "Няма участъци",
+                "Огънатата форма още няма производствени участъци. Реши тази "
+                "позиция с „Инженерно решение“ и после натисни „Приложи към "
+                "групата“ — участъците ѝ ще се пренесат на останалите.")
+            return
 
         from lion_rebar.ui.apply_to_group_dialog import ApplyToGroupDialog
 
-        changes = {"master_shape_code": shape_code}
-        segments = row.get("production_segments_cm")
-        if segments:
-            changes["production_segments_cm"] = list(segments)
         dialog = ApplyToGroupDialog(
             row, list(self._rows), changes, Path(project_root), identity,
             operator=self._operator_for_record(),

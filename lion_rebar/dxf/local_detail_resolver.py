@@ -51,6 +51,8 @@ class LocalDetailAssignment:
             return "LOCAL_DETAIL_LABEL_F005"
         if self.shape_code == "F006":
             return "LOCAL_DETAIL_LABEL_F006"
+        if self.shape_code == "F008":
+            return "LOCAL_DETAIL_LABEL_F008"
         return "LOCAL_DETAIL_LABEL"
 
     @property
@@ -274,6 +276,81 @@ def local_detail_shape_code(text: str) -> str | None:
     ):
         return "F006"
     return None
+
+
+#: Надпис на детайл „столче" — „Монтажни столчета", „Столчета:".
+_STOLCHE_CAPTION_RE = re.compile(r"СТОЛЧ")
+
+
+def stolche_caption_text(text: str) -> bool:
+    """Обявява ли текстът детайл „столче"."""
+
+    return bool(_STOLCHE_CAPTION_RE.search(_normalize_text(text)))
+
+
+def stolche_captions(
+    annotations: Sequence[DxfEntityRecord],
+    entities: Sequence[DxfEntityRecord],
+    *,
+    policy: RecognitionPolicy,
+) -> dict[str, LocalDetailAssignment]:
+    """Кой пълен надпис стои под заглавие „столч…" — едно към едно.
+
+    ЗАЩО ОТДЕЛНО ОТ ``build_local_detail_index``: заглавието на столчето не е
+    префикс на същия ред като ``стр.:``, а заглавие НАД детайла — измерено в
+    s-8, s-9, тест-006, SS-1 и „Греди +6.50" на 85 чертожни единици от
+    надписа. Включено в общия индекс, то би участвало и в пътя на matcher-а и
+    би могло да отмени съседно ``стр.:`` при равенство. Тук се ползва само
+    там, където се иска изрично.
+
+    Границите са тези на общия индекс: разстоянието до надписа е в
+    ``local_detail_label_max_distance_raw``, а най-близкият надпис трябва да е
+    по-близо от втория поне с ``local_detail_label_ambiguity_margin_raw`` —
+    при равенство заглавието не се присвоява на никого.
+    """
+
+    if not policy.local_detail_context_rule_enabled:
+        return {}
+    actionables = tuple(
+        _ActionableAnnotation(record=record, rect=_entity_rect(record))
+        for record in annotations
+        if _is_actionable(record)
+    )
+    captions = tuple(
+        record
+        for record in entities
+        if record.entity_type.upper() in {"TEXT", "MTEXT"}
+        and stolche_caption_text(record.text or "")
+    )
+    maximum = max(0.0, float(policy.local_detail_label_max_distance_raw))
+    margin = max(0.0, float(policy.local_detail_label_ambiguity_margin_raw))
+    pairs: list[tuple[float, str, str, DxfEntityRecord]] = []
+    for caption in captions:
+        rect = _entity_rect(caption)
+        ranked = sorted(
+            (_rect_distance(rect, annotation.rect), str(annotation.record.handle))
+            for annotation in actionables
+        )
+        if not ranked or ranked[0][0] > maximum:
+            continue
+        if len(ranked) > 1 and ranked[1][0] - ranked[0][0] < margin:
+            continue
+        pairs.append((ranked[0][0], ranked[0][1], str(caption.handle), caption))
+    pairs.sort(key=lambda item: (item[0], item[1], item[2]))
+    result: dict[str, LocalDetailAssignment] = {}
+    used_captions: set[str] = set()
+    for distance, annotation_handle, caption_handle, caption in pairs:
+        if annotation_handle in result or caption_handle in used_captions:
+            continue
+        used_captions.add(caption_handle)
+        result[annotation_handle] = LocalDetailAssignment(
+            annotation_handle=annotation_handle,
+            shape_code="F008",
+            label_handle=caption_handle,
+            label_text=str(caption.text or ""),
+            label_distance_raw=float(distance),
+        )
+    return result
 
 
 def _normalize_text(text: str) -> str:
